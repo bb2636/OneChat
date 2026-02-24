@@ -7,7 +7,17 @@ export interface VerificationData {
 }
 
 // 인증번호 저장용 Map (메모리 기반, 실제 운영 시 Redis나 DB 사용 권장)
-export const verificationCodes = new Map<string, VerificationData>();
+// Next.js dev 환경에서 라우트 모듈이 분리 로드되어도 같은 저장소를 보도록 globalThis를 사용한다.
+const verificationStoreKey = "__onechat_verification_codes__";
+const globalForVerification = globalThis as typeof globalThis & {
+  [verificationStoreKey]?: Map<string, VerificationData>;
+};
+
+if (!globalForVerification[verificationStoreKey]) {
+  globalForVerification[verificationStoreKey] = new Map<string, VerificationData>();
+}
+
+export const verificationCodes = globalForVerification[verificationStoreKey]!;
 
 // 6자리 랜덤 인증번호 생성
 export function generateCode(): string {

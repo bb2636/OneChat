@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui";
 import { cn } from "@/lib/cn";
@@ -11,6 +11,7 @@ export default function ForgotPasswordStep3Page() {
   const [timeLeft, setTimeLeft] = useState(300); // 5분 = 300초
   const [isLoading, setIsLoading] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState("");
+  const codeRef = useRef<string[]>(["", "", "", "", "", ""]);
 
   useEffect(() => {
     // 세션에서 전화번호 가져오기
@@ -51,16 +52,31 @@ export default function ForgotPasswordStep3Page() {
 
   // 인증번호 입력 처리
   const handleCodeChange = (index: number, value: string) => {
-    if (!/^\d*$/.test(value)) return; // 숫자만 허용
-
-    const newCode = [...code];
-    newCode[index] = value;
+    const digit = value.replace(/[^\d]/g, "").slice(-1);
+    const newCode = [...codeRef.current];
+    newCode[index] = digit;
+    codeRef.current = newCode;
     setCode(newCode);
 
     // 다음 입력칸으로 자동 포커스
-    if (value && index < 5) {
+    if (digit && index < 5) {
       const nextInput = document.getElementById(`code-${index + 1}`);
       nextInput?.focus();
+    }
+  };
+
+  const handleCodePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    const pasted = e.clipboardData.getData("text").replace(/[^\d]/g, "").slice(0, 6);
+    if (!pasted) return;
+    e.preventDefault();
+    const next = Array.from({ length: 6 }, (_, i) => pasted[i] || "");
+    codeRef.current = next;
+    setCode(next);
+
+    const focusIndex = Math.min(pasted.length, 6) - 1;
+    if (focusIndex >= 0) {
+      const input = document.getElementById(`code-${focusIndex}`);
+      input?.focus();
     }
   };
 
@@ -94,7 +110,9 @@ export default function ForgotPasswordStep3Page() {
 
       if (res.ok) {
         setTimeLeft(300); // 타이머 리셋
-        setCode(["", "", "", "", "", ""]);
+        const empty = ["", "", "", "", "", ""];
+        codeRef.current = empty;
+        setCode(empty);
         alert("인증번호가 재전송되었습니다.");
       } else {
         alert("인증번호 재전송에 실패했습니다.");
@@ -111,7 +129,7 @@ export default function ForgotPasswordStep3Page() {
   const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const verificationCode = code.join("");
+    const verificationCode = codeRef.current.join("");
     if (verificationCode.length !== 6) {
       return;
     }
@@ -200,7 +218,11 @@ export default function ForgotPasswordStep3Page() {
                 maxLength={1}
                 value={digit}
                 onChange={(e) => handleCodeChange(index, e.target.value)}
+                onPaste={handleCodePaste}
                 onKeyDown={(e) => handleKeyDown(index, e)}
+                inputMode="numeric"
+                autoComplete={index === 0 ? "one-time-code" : "off"}
+                pattern="[0-9]*"
                 className="w-12 h-12 text-center text-xl font-bold rounded-lg border border-gray-300 bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
               />
             ))}

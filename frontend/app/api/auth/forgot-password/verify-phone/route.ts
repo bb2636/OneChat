@@ -15,6 +15,14 @@ export async function POST(request: Request) {
 
     // 전화번호 정규화 (숫자만 추출)
     const normalizedPhone = phoneNumber.replace(/[^\d]/g, "");
+    const normalizedCode = String(code).replace(/[^\d]/g, "");
+
+    if (normalizedCode.length !== 6) {
+      return NextResponse.json(
+        { error: "인증번호 6자리를 정확히 입력해주세요." },
+        { status: 400 }
+      );
+    }
 
     // 디버깅 로그
     console.log("\n========================================");
@@ -22,14 +30,14 @@ export async function POST(request: Request) {
     console.log("========================================");
     console.log(`아이디: ${username}`);
     console.log(`전화번호: ${normalizedPhone}`);
-    console.log(`입력된 인증번호: ${code}`);
+    console.log(`입력된 인증번호: ${normalizedCode}`);
     console.log("========================================\n");
 
     // 인증번호 확인
-    const isValid = verifyCode(normalizedPhone, code);
+    const isValid = verifyCode(normalizedPhone, normalizedCode);
 
     console.log(
-      `[인증 확인] 아이디: ${username}, 전화번호: ${normalizedPhone}, 입력 코드: ${code}, 결과: ${isValid ? "성공" : "실패"}`
+      `[인증 확인] 아이디: ${username}, 전화번호: ${normalizedPhone}, 입력 코드: ${normalizedCode}, 결과: ${isValid ? "성공" : "실패"}`
     );
 
     if (!isValid) {

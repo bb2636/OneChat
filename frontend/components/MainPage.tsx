@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Bell,
@@ -117,6 +117,7 @@ export function MainPage({ initialChats }: MainPageProps) {
   const [isReportTargetModalOpen, setIsReportTargetModalOpen] = useState(false);
   const [selectedReport, setSelectedReport] = useState<UserReport | null>(null);
   const [selectedInquiry, setSelectedInquiry] = useState<UserInquiry | null>(null);
+  const reportTargetDropdownRef = useRef<HTMLDivElement | null>(null);
 
   const shouldHideBottomNav =
     activeTab === "mypage" &&
@@ -219,6 +220,18 @@ export function MainPage({ initialChats }: MainPageProps) {
     const timer = window.setTimeout(() => setToastMessage(null), 2200);
     return () => window.clearTimeout(timer);
   }, [toastMessage]);
+
+  useEffect(() => {
+    const handleOutsideClick = (event: MouseEvent) => {
+      if (!isReportTargetModalOpen) return;
+      if (!reportTargetDropdownRef.current) return;
+      if (!reportTargetDropdownRef.current.contains(event.target as Node)) {
+        setIsReportTargetModalOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, [isReportTargetModalOpen]);
 
   const selectedFriendNames = useMemo(() => {
     const names = friends
@@ -643,16 +656,47 @@ export function MainPage({ initialChats }: MainPageProps) {
               </div>
 
               <div className="space-y-4 px-3">
-                <div>
+                <div className="relative" ref={reportTargetDropdownRef}>
                   <label className="mb-1 block text-xs text-gray-600">신고대상 선택</label>
                   <button
                     type="button"
-                    onClick={() => setIsReportTargetModalOpen(true)}
+                    onClick={() => setIsReportTargetModalOpen((prev) => !prev)}
                     className="flex h-11 w-full items-center justify-between rounded-xl border border-gray-200 bg-white px-3 text-sm text-gray-700"
                   >
                     <span>{selectedReportTargetLabel || "신고 대상을 선택해주세요."}</span>
                     <ChevronDown className="h-4 w-4 text-gray-500" />
                   </button>
+                  {isReportTargetModalOpen && (
+                    <div className="absolute left-0 right-0 top-[52px] z-30 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl">
+                      <div className="max-h-56 overflow-y-auto">
+                        <div className="border-b border-gray-100 px-4 py-3 text-center text-xl font-semibold text-gray-900">
+                          직접 설정
+                        </div>
+                        {reportTargetOptions.length === 0 ? (
+                          <div className="px-4 py-4 text-center text-sm text-gray-400">
+                            선택 가능한 친구가 없습니다.
+                          </div>
+                        ) : (
+                          reportTargetOptions.map((friend) => (
+                            <button
+                              key={friend.id}
+                              type="button"
+                              onClick={() => {
+                                setReportTargetId(friend.id);
+                                setIsReportTargetModalOpen(false);
+                              }}
+                              className={cn(
+                                "flex h-16 w-full items-center justify-center border-b border-gray-100 text-lg font-semibold text-gray-900 last:border-b-0",
+                                reportTargetId === friend.id ? "bg-blue-50 text-blue-600" : "bg-white"
+                              )}
+                            >
+                              {friend.label}
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div>
@@ -1142,41 +1186,6 @@ export function MainPage({ initialChats }: MainPageProps) {
 
       {/* 하단 네비게이션 */}
       {!shouldHideBottomNav && <BottomNavigation activeTab={activeTab} onTabChange={handleTabChange} />}
-
-      {isReportTargetModalOpen && myPageScreen === "report-create" && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-6">
-          <div className="w-full max-w-[420px] overflow-hidden rounded-2xl bg-white shadow-2xl">
-            <div className="flex h-20 items-center justify-center border-b text-3xl font-semibold text-gray-900">
-              직접 설정
-            </div>
-            <div className="max-h-[52vh] overflow-y-auto">
-              {reportTargetOptions.map((friend) => (
-                <button
-                  key={friend.id}
-                  type="button"
-                  onClick={() => {
-                    setReportTargetId(friend.id);
-                    setIsReportTargetModalOpen(false);
-                  }}
-                  className={cn(
-                    "flex h-24 w-full items-center justify-center border-b text-3xl font-semibold text-gray-900",
-                    reportTargetId === friend.id ? "bg-blue-50 text-blue-600" : "bg-white"
-                  )}
-                >
-                  {friend.label}
-                </button>
-              ))}
-            </div>
-            <button
-              type="button"
-              onClick={() => setIsReportTargetModalOpen(false)}
-              className="h-14 w-full text-sm text-gray-500"
-            >
-              취소
-            </button>
-          </div>
-        </div>
-      )}
 
       {isDeleteConfirmOpen && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/35 px-6">
