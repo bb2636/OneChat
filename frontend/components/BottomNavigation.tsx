@@ -23,8 +23,8 @@ export function BottomNavigation({
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 safe-area-bottom">
-      <div className="flex items-center justify-around h-16 max-w-md mx-auto">
+    <nav className="pointer-events-none fixed bottom-4 left-1/2 z-30 w-[calc(100%-28px)] max-w-[360px] -translate-x-1/2 safe-area-bottom">
+      <div className="pointer-events-auto flex h-14 items-center justify-around rounded-full border border-gray-100 bg-white px-2 shadow-[0_6px_18px_rgba(0,0,0,0.12)]">
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id;
           return (
@@ -32,27 +32,18 @@ export function BottomNavigation({
               key={tab.id}
               onClick={() => onTabChange(tab.id)}
               className={cn(
-                "flex flex-col items-center justify-center flex-1 h-full transition-colors",
-                isActive
-                  ? "text-blue-500"
-                  : "text-gray-500 hover:text-gray-700"
+                "flex h-full flex-1 flex-col items-center justify-center rounded-full text-[11px] transition-colors",
+                isActive ? "text-blue-600" : "text-gray-500 hover:text-gray-700"
               )}
             >
               {tab.icon}
-              <span
-                className={cn(
-                  "text-xs mt-1",
-                  isActive ? "font-semibold" : "font-normal"
-                )}
-              >
+              <span className={cn("mt-0.5 text-[10px]", isActive ? "font-semibold" : "font-normal")}>
                 {tab.label}
               </span>
             </button>
           );
         })}
       </div>
-      {/* iOS 홈 인디케이터 */}
-      <div className="h-1 bg-black rounded-full w-32 mx-auto mb-1" />
     </nav>
   );
 }

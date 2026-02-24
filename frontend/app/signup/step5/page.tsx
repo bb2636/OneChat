@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui";
-import { Check } from "lucide-react";
+import { Check, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import Link from "next/link";
 
@@ -21,6 +21,7 @@ export default function SignupStep5Page() {
   const [agreedTerms, setAgreedTerms] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingTerms, setIsLoadingTerms] = useState(true);
+  const [selectedTerm, setSelectedTerm] = useState<Term | null>(null);
 
   useEffect(() => {
     // 약관 불러오기
@@ -64,8 +65,7 @@ export default function SignupStep5Page() {
 
   // 약관 상세 보기
   const handleViewDetails = (term: Term) => {
-    // 모달이나 새 페이지로 약관 내용 표시
-    alert(`[${term.title}]\n\n${term.content}`);
+    setSelectedTerm(term);
   };
 
   // 최종 회원가입 완료
@@ -235,6 +235,35 @@ export default function SignupStep5Page() {
           </form>
         )}
       </div>
+
+      {selectedTerm && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
+          onClick={() => setSelectedTerm(null)}
+        >
+          <div
+            className="w-full max-w-lg rounded-xl bg-white shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b px-5 py-4">
+              <h2 className="text-base font-semibold text-gray-900">{selectedTerm.title}</h2>
+              <button
+                type="button"
+                onClick={() => setSelectedTerm(null)}
+                className="rounded p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+                aria-label="닫기"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="max-h-[65vh] overflow-auto px-5 py-4">
+              <p className="whitespace-pre-wrap break-words text-sm leading-6 text-gray-700">
+                {selectedTerm.content}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Search } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { ChatListItem } from "@/components/ChatListItem";
 import { BottomNavigation } from "@/components/BottomNavigation";
 import { Skeleton } from "@/components/ui";
@@ -13,6 +14,7 @@ interface MainPageProps {
 }
 
 export function MainPage({ initialChats }: MainPageProps) {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<"map" | "chat" | "friends" | "mypage">(
     "chat"
   );
@@ -69,13 +71,6 @@ export function MainPage({ initialChats }: MainPageProps) {
           </div>
         );
 
-      case "map":
-        return (
-          <div className="flex items-center justify-center h-[calc(100vh-200px)]">
-            <p className="text-gray-400">지도 기능 준비 중...</p>
-          </div>
-        );
-
       case "friends":
         return (
           <div className="flex items-center justify-center h-[calc(100vh-200px)]">
@@ -95,6 +90,22 @@ export function MainPage({ initialChats }: MainPageProps) {
     }
   };
 
+  const handleTabChange = (tab: "map" | "chat" | "friends" | "mypage") => {
+    setActiveTab(tab);
+
+    if (tab === "map") {
+      router.push("/map");
+      return;
+    }
+
+    if (tab === "chat") {
+      router.push("/home");
+      return;
+    }
+
+    router.push("/home");
+  };
+
   return (
     <div className="flex flex-col h-screen bg-white max-w-md mx-auto">
       {/* 헤더 */}
@@ -108,10 +119,10 @@ export function MainPage({ initialChats }: MainPageProps) {
       </header>
 
       {/* 메인 컨텐츠 */}
-      <main className="flex-1 overflow-y-auto pb-16">{renderContent()}</main>
+      <main className="flex-1 overflow-y-auto pb-24">{renderContent()}</main>
 
       {/* 하단 네비게이션 */}
-      <BottomNavigation activeTab={activeTab} onTabChange={setActiveTab} />
+      <BottomNavigation activeTab={activeTab} onTabChange={handleTabChange} />
     </div>
   );
 }

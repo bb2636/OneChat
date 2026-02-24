@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Script from "next/script";
@@ -18,12 +18,16 @@ interface UserLocation {
 
 interface OtherUserMarker {
   marker: naver.maps.Marker;
+  circle?: naver.maps.Circle;
   userData: SupabaseUser;
   infoWindow?: any;
 }
 
 const LOCATION_UPDATE_THROTTLE_MS = 10_000;
+const USER_RADIUS_METERS = 10;
 const PROXIMITY_METERS = 10;
+const MAX_SYNC_ACCURACY_METERS = 120;
+const MAX_UI_ACCURACY_METERS = 300;
 
 function toRadians(degrees: number) {
   return (degrees * Math.PI) / 180;
@@ -156,6 +160,7 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
   const otherUsersMarkersRef = useRef<Map<string, OtherUserMarker>>(new Map());
 
   const currentLocationRef = useRef<UserLocation | null>(null);
+  const currentAccuracyRef = useRef<number | null>(null);
   const lastSentLocationRef = useRef<UserLocation | null>(null);
   const lastSyncAtRef = useRef<number>(0);
 
@@ -163,6 +168,26 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
   const [isLocationLoading, setIsLocationLoading] = useState(true);
   const [isScriptLoaded, setIsScriptLoaded] = useState(false);
   const [isMapReady, setIsMapReady] = useState(false);
+  const [mapLoadError, setMapLoadError] = useState<string | null>(null);
+  const [authQueryKey, setAuthQueryKey] = useState<"ncpKeyId" | "ncpClientId">("ncpKeyId");
+  const scriptBusterRef = useRef(
+    process.env.NODE_ENV === "development" ? `&_ts=${Date.now()}` : ""
+  );
+
+  const safeSetMapNull = (target: { setMap: (map: any) => void } | null | undefined) => {
+    if (!target) return;
+    try {
+      target.setMap(null);
+    } catch {
+      // Hot reload/unmount 타이밍에서 SDK 객체가 먼저 정리될 수 있어 예외를 무시합니다.
+    }
+  };
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && (window as any).naver?.maps) {
+      setIsScriptLoaded(true);
+    }
+  }, []);
 
   const removeOtherUserMarker = useCallback((targetUserId: string) => {
     const existing = otherUsersMarkersRef.current.get(targetUserId);
@@ -170,6 +195,7 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
 
     existing.infoWindow?.close();
     existing.marker.setMap(null);
+    existing.circle?.setMap(null);
     otherUsersMarkersRef.current.delete(targetUserId);
   }, []);
 
@@ -210,6 +236,7 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
     if (existing) {
       existing.infoWindow?.close();
       existing.marker.setMap(null);
+      existing.circle?.setMap(null);
     }
 
     const marker = new naverObj.maps.Marker({
@@ -225,6 +252,16 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
 
     const nextEntry: OtherUserMarker = {
       marker,
+      circle: new naverObj.maps.Circle({
+        map,
+        center: new naverObj.maps.LatLng(userData.latitude, userData.longitude),
+        radius: USER_RADIUS_METERS,
+        fillColor: "#10B981",
+        fillOpacity: 0.13,
+        strokeColor: "#10B981",
+        strokeOpacity: 0.45,
+        strokeWeight: 1.5,
+      }),
       userData,
     };
 
@@ -313,41 +350,70 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
 
   // watchPosition for live location tracking
   useEffect(() => {
-    if (!navigator.geolocation) {
+    const fallbackLocation = { latitude: 37.5665, longitude: 126.978 };
+    let settled = false;
+
+    const finishWith = (location: UserLocation, accuracy?: number) => {
+      if (settled) return;
+      settled = true;
+      if (typeof accuracy === "number" && Number.isFinite(accuracy)) {
+        currentAccuracyRef.current = accuracy;
+      }
+      setUserLocation(location);
       setIsLocationLoading(false);
+    };
+
+    if (!navigator.geolocation) {
+      finishWith(fallbackLocation);
       return;
     }
 
+    // 브라우저 권한/센서 이슈로 콜백이 오지 않는 경우를 대비한 안전 타임아웃
+    const hardTimeout = window.setTimeout(() => {
+      finishWith(fallbackLocation);
+    }, 8000);
+
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        const { latitude, longitude } = position.coords;
-        setUserLocation({ latitude, longitude });
-        setIsLocationLoading(false);
+        const { latitude, longitude, accuracy } = position.coords;
+        finishWith({ latitude, longitude }, accuracy);
       },
       () => {
-        setUserLocation({ latitude: 37.5665, longitude: 126.978 });
-        setIsLocationLoading(false);
+        finishWith(fallbackLocation);
       },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
     );
 
     const watchId = navigator.geolocation.watchPosition(
       (position) => {
-        const { latitude, longitude } = position.coords;
+        const { latitude, longitude, accuracy } = position.coords;
+        if (accuracy && accuracy > MAX_UI_ACCURACY_METERS) return;
+        currentAccuracyRef.current = typeof accuracy === "number" ? accuracy : null;
+        if (!settled) finishWith({ latitude, longitude }, accuracy);
         setUserLocation({ latitude, longitude });
       },
       (error) => {
         console.error("watchPosition error:", error);
+        if (!settled) finishWith(fallbackLocation);
       },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
     );
 
-    return () => navigator.geolocation.clearWatch(watchId);
+    return () => {
+      window.clearTimeout(hardTimeout);
+      navigator.geolocation.clearWatch(watchId);
+    };
   }, []);
 
   // throttled DB sync every 10s or more
   useEffect(() => {
     if (!userId || !userLocation) return;
+    if (
+      typeof currentAccuracyRef.current === "number" &&
+      currentAccuracyRef.current > MAX_SYNC_ACCURACY_METERS
+    ) {
+      return;
+    }
 
     const now = Date.now();
     if (now - lastSyncAtRef.current < LOCATION_UPDATE_THROTTLE_MS) return;
@@ -391,7 +457,7 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
   // map bootstrap
   useEffect(() => {
     if (!isScriptLoaded || !userLocation || !mapDivRef.current || mapRef.current) return;
-    if (typeof window === "undefined" || !(window as any).naver) return;
+    if (typeof window === "undefined" || !(window as any).naver?.maps?.LatLng) return;
 
     const naverObj = (window as any).naver;
 
@@ -417,7 +483,7 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
     circleRef.current = new naverObj.maps.Circle({
       map,
       center: new naverObj.maps.LatLng(userLocation.latitude, userLocation.longitude),
-      radius: 10,
+      radius: USER_RADIUS_METERS,
       fillColor: "#3B82F6",
       fillOpacity: 0.2,
       strokeColor: "#3B82F6",
@@ -489,13 +555,14 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
 
     return () => {
       setIsMapReady(false);
-      markerRef.current?.setMap(null);
-      circleRef.current?.setMap(null);
-      pulseOverlayRef.current?.setMap(null);
+      safeSetMapNull(markerRef.current as any);
+      safeSetMapNull(circleRef.current as any);
+      safeSetMapNull(pulseOverlayRef.current as any);
 
       otherUsersMarkersRef.current.forEach((entry) => {
         entry.infoWindow?.close();
-        entry.marker.setMap(null);
+        safeSetMapNull(entry.marker as any);
+        safeSetMapNull(entry.circle as any);
       });
       otherUsersMarkersRef.current.clear();
 
@@ -505,9 +572,10 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
 
   // keep map centered at current user location
   useEffect(() => {
-    if (!mapRef.current || !userLocation || typeof window === "undefined" || !(window as any).naver) return;
+    if (!mapRef.current || !userLocation || typeof window === "undefined") return;
 
     const naverObj = (window as any).naver;
+    if (!naverObj?.maps?.LatLng) return;
     const nextPos = new naverObj.maps.LatLng(userLocation.latitude, userLocation.longitude);
 
     mapRef.current.setCenter(nextPos);
@@ -518,6 +586,9 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
     if (pulseOverlay?.draw) pulseOverlay.draw();
 
     otherUsersMarkersRef.current.forEach((entry) => {
+      if (entry.userData.latitude != null && entry.userData.longitude != null) {
+        entry.circle?.setCenter(new naverObj.maps.LatLng(entry.userData.latitude, entry.userData.longitude));
+      }
       syncInfoWindowByDistance(entry, naverObj, mapRef.current!);
     });
   }, [userLocation, syncInfoWindowByDistance]);
@@ -584,13 +655,17 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
       otherUsersMarkersRef.current.forEach((entry) => {
         entry.infoWindow?.close();
         entry.marker.setMap(null);
+        entry.circle?.setMap(null);
       });
       otherUsersMarkersRef.current.clear();
     };
   }, [isMapReady, isScriptLoaded, userId, createOrUpdateOtherUserMarker, removeOtherUserMarker]);
 
-  const clientId = process.env.NEXT_PUBLIC_NAVER_MAPS_CLIENT_ID;
-  if (!clientId) {
+  const mapCredential =
+    process.env.NEXT_PUBLIC_NAVER_MAPS_CLIENT_ID ||
+    process.env.NEXT_PUBLIC_NAVER_CLIENT_ID ||
+    process.env.NEXT_PUBLIC_NAVER_MAP_CLIENT_ID;
+  if (!mapCredential) {
     return (
       <div className={`flex items-center justify-center bg-gray-100 ${className}`}>
         <p className="text-gray-600">Naver Maps Client ID가 설정되지 않았습니다.</p>
@@ -601,13 +676,26 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
   return (
     <>
       <Script
-        src={`https://oapi.map.naver.com/openapi/v3/maps.js?ncpClientId=${clientId}`}
-        strategy="lazyOnload"
+        src={`https://oapi.map.naver.com/openapi/v3/maps.js?${authQueryKey}=${mapCredential}${scriptBusterRef.current}`}
+        strategy="afterInteractive"
         onLoad={() => setIsScriptLoaded(true)}
-        onError={() => console.error("Failed to load Naver Maps API")}
+        onError={() => {
+          console.error("Failed to load Naver Maps API");
+          if (authQueryKey === "ncpKeyId") {
+            // 구 콘솔 키일 경우 ncpClientId 방식으로 한번 더 시도합니다.
+            setAuthQueryKey("ncpClientId");
+            return;
+          }
+          setMapLoadError("지도를 불러오지 못했습니다. 네이버 지도 키 유형/도메인 설정을 확인해주세요.");
+        }}
       />
 
       <div ref={mapDivRef} className={`relative h-full w-full ${className}`}>
+        {mapLoadError && (
+          <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/90 px-6">
+            <p className="text-center text-sm text-red-500">{mapLoadError}</p>
+          </div>
+        )}
         {isLocationLoading && (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-gray-100">
             <div className="text-center">
