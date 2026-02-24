@@ -1,0 +1,622 @@
+﻿"use client";
+
+import { useCallback, useEffect, useRef, useState } from "react";
+import Script from "next/script";
+import { useRouter } from "next/navigation";
+import { supabase, type SupabaseUser } from "@/lib/supabase";
+
+interface NaverMapProps {
+  className?: string;
+  onMapLoad?: (map: naver.maps.Map) => void;
+  userId?: string;
+}
+
+interface UserLocation {
+  latitude: number;
+  longitude: number;
+}
+
+interface OtherUserMarker {
+  marker: naver.maps.Marker;
+  userData: SupabaseUser;
+  infoWindow?: any;
+}
+
+const LOCATION_UPDATE_THROTTLE_MS = 10_000;
+const PROXIMITY_METERS = 10;
+
+function toRadians(degrees: number) {
+  return (degrees * Math.PI) / 180;
+}
+
+function getDistanceMeters(from: UserLocation, to: UserLocation) {
+  const earthRadius = 6371000;
+  const dLat = toRadians(to.latitude - from.latitude);
+  const dLng = toRadians(to.longitude - from.longitude);
+
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRadians(from.latitude)) *
+      Math.cos(toRadians(to.latitude)) *
+      Math.sin(dLng / 2) *
+      Math.sin(dLng / 2);
+
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return earthRadius * c;
+}
+
+function createMyMarkerContent() {
+  return `
+    <div style="
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      border: 3px solid white;
+    ">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 12C14.7614 12 17 9.76142 17 7C17 4.23858 14.7614 2 12 2C9.23858 2 7 4.23858 7 7C7 9.76142 9.23858 12 12 12Z" fill="white"/>
+        <path d="M12 14C7.58172 14 4 16.6863 4 20V22H20V20C20 16.6863 16.4183 14 12 14Z" fill="white"/>
+      </svg>
+    </div>
+  `;
+}
+
+function createOtherMarkerContent(userData: SupabaseUser) {
+  const avatarUrl = userData.avatar_url || "";
+  const hasAvatar = avatarUrl.trim() !== "";
+
+  if (hasAvatar) {
+    return `
+      <div style="
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        background-image: url('${avatarUrl}');
+        background-size: cover;
+        background-position: center;
+        border: 3px solid white;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      "></div>
+    `;
+  }
+
+  return `
+    <div style="
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      border: 3px solid white;
+    ">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 12C14.7614 12 17 9.76142 17 7C17 4.23858 14.7614 2 12 2C9.23858 2 7 4.23858 7 7C7 9.76142 9.23858 12 12 12Z" fill="white"/>
+        <path d="M12 14C7.58172 14 4 16.6863 4 20V22H20V20C20 16.6863 16.4183 14 12 14Z" fill="white"/>
+      </svg>
+    </div>
+  `;
+}
+
+function createProximityInfoContent(userData: SupabaseUser) {
+  const nickname = userData.nickname || "사용자";
+
+  return `
+    <div style="
+      min-width: 170px;
+      background: white;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 10px;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+    ">
+      <div style="font-size: 13px; font-weight: 700; margin-bottom: 8px; color: #111827;">${nickname}</div>
+      <div style="display: flex; gap: 6px;">
+        <button data-map-action="chat" data-user-id="${userData.id}" style="
+          flex: 1;
+          border: 0;
+          border-radius: 8px;
+          background: #3b82f6;
+          color: white;
+          height: 32px;
+          font-size: 12px;
+          font-weight: 600;
+          cursor: pointer;
+        ">채팅하기</button>
+        <button data-map-action="friend" data-user-id="${userData.id}" style="
+          flex: 1;
+          border: 1px solid #d1d5db;
+          border-radius: 8px;
+          background: white;
+          color: #111827;
+          height: 32px;
+          font-size: 12px;
+          font-weight: 600;
+          cursor: pointer;
+        ">친구추가</button>
+      </div>
+    </div>
+  `;
+}
+
+export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
+  const router = useRouter();
+  const mapRef = useRef<naver.maps.Map | null>(null);
+  const mapDivRef = useRef<HTMLDivElement>(null);
+  const markerRef = useRef<naver.maps.Marker | null>(null);
+  const circleRef = useRef<naver.maps.Circle | null>(null);
+  const pulseOverlayRef = useRef<naver.maps.OverlayView | null>(null);
+  const otherUsersMarkersRef = useRef<Map<string, OtherUserMarker>>(new Map());
+
+  const currentLocationRef = useRef<UserLocation | null>(null);
+  const lastSentLocationRef = useRef<UserLocation | null>(null);
+  const lastSyncAtRef = useRef<number>(0);
+
+  const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
+  const [isLocationLoading, setIsLocationLoading] = useState(true);
+  const [isScriptLoaded, setIsScriptLoaded] = useState(false);
+  const [isMapReady, setIsMapReady] = useState(false);
+
+  const removeOtherUserMarker = useCallback((targetUserId: string) => {
+    const existing = otherUsersMarkersRef.current.get(targetUserId);
+    if (!existing) return;
+
+    existing.infoWindow?.close();
+    existing.marker.setMap(null);
+    otherUsersMarkersRef.current.delete(targetUserId);
+  }, []);
+
+  const syncInfoWindowByDistance = useCallback((entry: OtherUserMarker, naverObj: any, map: naver.maps.Map) => {
+    const myLocation = currentLocationRef.current;
+    const lat = entry.userData.latitude;
+    const lng = entry.userData.longitude;
+
+    if (!myLocation || lat == null || lng == null) {
+      entry.infoWindow?.close();
+      entry.infoWindow = undefined;
+      return;
+    }
+
+    const distance = getDistanceMeters(myLocation, { latitude: lat, longitude: lng });
+
+    if (distance <= PROXIMITY_METERS) {
+      if (!entry.infoWindow) {
+        entry.infoWindow = new (naverObj.maps as any).InfoWindow({
+          content: createProximityInfoContent(entry.userData),
+          borderWidth: 0,
+          disableAnchor: true,
+          backgroundColor: "transparent",
+          pixelOffset: new naverObj.maps.Point(0, -62),
+        });
+      }
+      entry.infoWindow.open(map, entry.marker);
+      return;
+    }
+
+    entry.infoWindow?.close();
+  }, []);
+
+  const createOrUpdateOtherUserMarker = useCallback((userData: SupabaseUser, naverObj: any, map: naver.maps.Map) => {
+    if (userData.latitude == null || userData.longitude == null) return;
+
+    const existing = otherUsersMarkersRef.current.get(userData.id);
+    if (existing) {
+      existing.infoWindow?.close();
+      existing.marker.setMap(null);
+    }
+
+    const marker = new naverObj.maps.Marker({
+      map,
+      position: new naverObj.maps.LatLng(userData.latitude, userData.longitude),
+      icon: {
+        content: createOtherMarkerContent(userData),
+        size: new naverObj.maps.Size(48, 48),
+        anchor: new naverObj.maps.Point(24, 24),
+      },
+      zIndex: 500,
+    });
+
+    const nextEntry: OtherUserMarker = {
+      marker,
+      userData,
+    };
+
+    otherUsersMarkersRef.current.set(userData.id, nextEntry);
+    syncInfoWindowByDistance(nextEntry, naverObj, map);
+  }, [syncInfoWindowByDistance]);
+
+  useEffect(() => {
+    currentLocationRef.current = userLocation;
+  }, [userLocation]);
+
+  useEffect(() => {
+    const onClick = async (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null;
+      const button = target?.closest("button[data-map-action]") as HTMLButtonElement | null;
+      if (!button) return;
+
+      const action = button.dataset.mapAction;
+      const targetUserId = button.dataset.userId;
+      if (!action || !targetUserId) return;
+      if (!userId) {
+        alert("로그인 정보가 없습니다.");
+        return;
+      }
+
+      const prevDisabled = button.disabled;
+      const prevOpacity = button.style.opacity;
+      button.disabled = true;
+      button.style.opacity = "0.6";
+
+      try {
+        if (action === "chat") {
+          const res = await fetch("/api/chats", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              userId,
+              targetUserId,
+            }),
+          });
+
+          const data = (await res.json().catch(() => ({}))) as {
+            error?: string;
+            existed?: boolean;
+          };
+
+          if (!res.ok) {
+            throw new Error(data.error || "채팅방 생성에 실패했습니다.");
+          }
+
+          alert(data.existed ? "기존 채팅방으로 이동합니다." : "새 채팅방이 생성되었습니다.");
+          router.push("/home");
+        } else if (action === "friend") {
+          const res = await fetch("/api/friends", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              requesterId: userId,
+              addresseeId: targetUserId,
+            }),
+          });
+
+          const data = (await res.json().catch(() => ({}))) as {
+            error?: string;
+            message?: string;
+          };
+
+          if (!res.ok) {
+            throw new Error(data.error || "친구 요청 처리에 실패했습니다.");
+          }
+
+          alert(data.message || "친구 요청이 처리되었습니다.");
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "요청 처리 중 오류가 발생했습니다.";
+        alert(message);
+      } finally {
+        button.disabled = prevDisabled;
+        button.style.opacity = prevOpacity;
+      }
+    };
+
+    document.addEventListener("click", onClick);
+    return () => document.removeEventListener("click", onClick);
+  }, [router, userId]);
+
+  // watchPosition for live location tracking
+  useEffect(() => {
+    if (!navigator.geolocation) {
+      setIsLocationLoading(false);
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        setUserLocation({ latitude, longitude });
+        setIsLocationLoading(false);
+      },
+      () => {
+        setUserLocation({ latitude: 37.5665, longitude: 126.978 });
+        setIsLocationLoading(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+
+    const watchId = navigator.geolocation.watchPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        setUserLocation({ latitude, longitude });
+      },
+      (error) => {
+        console.error("watchPosition error:", error);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+
+    return () => navigator.geolocation.clearWatch(watchId);
+  }, []);
+
+  // throttled DB sync every 10s or more
+  useEffect(() => {
+    if (!userId || !userLocation) return;
+
+    const now = Date.now();
+    if (now - lastSyncAtRef.current < LOCATION_UPDATE_THROTTLE_MS) return;
+
+    const previous = lastSentLocationRef.current;
+    if (previous) {
+      const moved = getDistanceMeters(previous, userLocation);
+      if (moved < 1) return;
+    }
+
+    let cancelled = false;
+
+    const syncLocation = async () => {
+      lastSyncAtRef.current = Date.now();
+
+      try {
+        const response = await fetch("/api/location/update", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userId,
+            latitude: userLocation.latitude,
+            longitude: userLocation.longitude,
+          }),
+        });
+
+        if (!cancelled && response.ok) {
+          lastSentLocationRef.current = userLocation;
+        }
+      } catch (error) {
+        console.error("location sync error:", error);
+      }
+    };
+
+    syncLocation();
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, userLocation]);
+
+  // map bootstrap
+  useEffect(() => {
+    if (!isScriptLoaded || !userLocation || !mapDivRef.current || mapRef.current) return;
+    if (typeof window === "undefined" || !(window as any).naver) return;
+
+    const naverObj = (window as any).naver;
+
+    const map = new naverObj.maps.Map(mapDivRef.current, {
+      center: new naverObj.maps.LatLng(userLocation.latitude, userLocation.longitude),
+      zoom: 17,
+      zoomControl: true,
+      zoomControlOptions: { position: naverObj.maps.Position.TOP_RIGHT },
+    });
+    mapRef.current = map;
+
+    markerRef.current = new naverObj.maps.Marker({
+      map,
+      position: new naverObj.maps.LatLng(userLocation.latitude, userLocation.longitude),
+      icon: {
+        content: createMyMarkerContent(),
+        size: new naverObj.maps.Size(48, 48),
+        anchor: new naverObj.maps.Point(24, 24),
+      },
+      zIndex: 1000,
+    });
+
+    circleRef.current = new naverObj.maps.Circle({
+      map,
+      center: new naverObj.maps.LatLng(userLocation.latitude, userLocation.longitude),
+      radius: 10,
+      fillColor: "#3B82F6",
+      fillOpacity: 0.2,
+      strokeColor: "#3B82F6",
+      strokeOpacity: 0.5,
+      strokeWeight: 2,
+    });
+
+    if (!document.getElementById("naver-map-pulse-style")) {
+      const style = document.createElement("style");
+      style.id = "naver-map-pulse-style";
+      style.textContent = `
+        @keyframes naver-map-pulse {
+          0%, 100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+          50% { opacity: 0.5; transform: translate(-50%, -50%) scale(1.2); }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+
+    class PulseOverlay extends naverObj.maps.OverlayView {
+      private pulseElement: HTMLDivElement;
+
+      constructor() {
+        super();
+        this.pulseElement = document.createElement("div");
+        this.pulseElement.style.cssText = `
+          position: absolute;
+          width: 100px;
+          height: 100px;
+          border-radius: 50%;
+          background: rgba(59, 130, 246, 0.3);
+          border: 2px solid rgba(59, 130, 246, 0.5);
+          pointer-events: none;
+          transform: translate(-50%, -50%);
+          animation: naver-map-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+          z-index: 999;
+        `;
+      }
+
+      onAdd() {
+        this.draw();
+      }
+
+      onRemove() {
+        this.pulseElement.remove();
+      }
+
+      draw() {
+        const projection = this.getProjection();
+        const current = currentLocationRef.current;
+        if (!projection || !current) return;
+
+        const pixel = projection.fromCoordToOffset(new naverObj.maps.LatLng(current.latitude, current.longitude));
+        this.pulseElement.style.left = `${pixel.x}px`;
+        this.pulseElement.style.top = `${pixel.y}px`;
+
+        if (mapDivRef.current && !mapDivRef.current.contains(this.pulseElement)) {
+          mapDivRef.current.appendChild(this.pulseElement);
+        }
+      }
+    }
+
+    const pulseOverlay = new PulseOverlay();
+    pulseOverlay.setMap(map);
+    pulseOverlayRef.current = pulseOverlay as unknown as naver.maps.OverlayView;
+
+    onMapLoad?.(map);
+    setIsMapReady(true);
+
+    return () => {
+      setIsMapReady(false);
+      markerRef.current?.setMap(null);
+      circleRef.current?.setMap(null);
+      pulseOverlayRef.current?.setMap(null);
+
+      otherUsersMarkersRef.current.forEach((entry) => {
+        entry.infoWindow?.close();
+        entry.marker.setMap(null);
+      });
+      otherUsersMarkersRef.current.clear();
+
+      mapRef.current = null;
+    };
+  }, [isScriptLoaded, userLocation, onMapLoad]);
+
+  // keep map centered at current user location
+  useEffect(() => {
+    if (!mapRef.current || !userLocation || typeof window === "undefined" || !(window as any).naver) return;
+
+    const naverObj = (window as any).naver;
+    const nextPos = new naverObj.maps.LatLng(userLocation.latitude, userLocation.longitude);
+
+    mapRef.current.setCenter(nextPos);
+    markerRef.current?.setPosition(nextPos);
+    circleRef.current?.setCenter(nextPos);
+
+    const pulseOverlay = pulseOverlayRef.current as any;
+    if (pulseOverlay?.draw) pulseOverlay.draw();
+
+    otherUsersMarkersRef.current.forEach((entry) => {
+      syncInfoWindowByDistance(entry, naverObj, mapRef.current!);
+    });
+  }, [userLocation, syncInfoWindowByDistance]);
+
+  // realtime users subscription
+  useEffect(() => {
+    if (!isMapReady || !mapRef.current || !isScriptLoaded) return;
+    if (typeof window === "undefined" || !(window as any).naver) return;
+
+    const naverObj = (window as any).naver;
+    let active = true;
+    let realtimeChannel: ReturnType<typeof supabase.channel> | null = null;
+
+    const bootstrapRealtime = async () => {
+      const { data: initialUsers, error } = await supabase
+        .from("users")
+        .select("id, latitude, longitude, avatar_url, nickname")
+        .not("latitude", "is", null)
+        .not("longitude", "is", null);
+
+      if (!active) return;
+
+      if (error) {
+        console.error("initial users fetch error:", error);
+      } else if (initialUsers) {
+        initialUsers.forEach((user) => {
+          if (user.id === userId || user.latitude == null || user.longitude == null) return;
+          createOrUpdateOtherUserMarker(user as SupabaseUser, naverObj, mapRef.current!);
+        });
+      }
+
+      realtimeChannel = supabase
+        .channel("user-locations")
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "users", filter: `id=neq.${userId || ""}` },
+          (payload) => {
+            const newUser = payload.new as SupabaseUser | null;
+            const oldUser = payload.old as SupabaseUser | null;
+
+            if (payload.eventType === "DELETE") {
+              const removedId = oldUser?.id;
+              if (removedId) removeOtherUserMarker(removedId);
+              return;
+            }
+
+            if (!newUser?.id || newUser.latitude == null || newUser.longitude == null) {
+              const targetId = newUser?.id || oldUser?.id;
+              if (targetId) removeOtherUserMarker(targetId);
+              return;
+            }
+
+            createOrUpdateOtherUserMarker(newUser, naverObj, mapRef.current!);
+          }
+        )
+        .subscribe();
+    };
+
+    bootstrapRealtime();
+
+    return () => {
+      active = false;
+      if (realtimeChannel) supabase.removeChannel(realtimeChannel);
+      otherUsersMarkersRef.current.forEach((entry) => {
+        entry.infoWindow?.close();
+        entry.marker.setMap(null);
+      });
+      otherUsersMarkersRef.current.clear();
+    };
+  }, [isMapReady, isScriptLoaded, userId, createOrUpdateOtherUserMarker, removeOtherUserMarker]);
+
+  const clientId = process.env.NEXT_PUBLIC_NAVER_MAPS_CLIENT_ID;
+  if (!clientId) {
+    return (
+      <div className={`flex items-center justify-center bg-gray-100 ${className}`}>
+        <p className="text-gray-600">Naver Maps Client ID가 설정되지 않았습니다.</p>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <Script
+        src={`https://oapi.map.naver.com/openapi/v3/maps.js?ncpClientId=${clientId}`}
+        strategy="lazyOnload"
+        onLoad={() => setIsScriptLoaded(true)}
+        onError={() => console.error("Failed to load Naver Maps API")}
+      />
+
+      <div ref={mapDivRef} className={`relative h-full w-full ${className}`}>
+        {isLocationLoading && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-gray-100">
+            <div className="text-center">
+              <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-b-2 border-blue-500"></div>
+              <p className="text-gray-600">위치를 가져오는 중...</p>
+            </div>
+          </div>
+        )}
+      </div>
+    </>
+  );
+}

@@ -1,0 +1,219 @@
+// Prisma 스키마 - Supabase PostgreSQL 최적화
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// 사용자 테이블
+model User {
+  id                String   @id @default(uuid()) @db.Uuid
+  username          String?  @unique @db.Text // 로그인용 아이디
+  password          String?  @db.Text // 해시된 비밀번호
+  email             String?  @unique @db.Text
+  name              String?  @db.Text
+  nickname          String?  @unique @db.Text // 닉네임
+  avatarUrl         String?  @map("avatar_url") @db.Text
+  phoneNumber       String?  @map("phone_number") @db.Text // 휴대폰 번호
+  phoneVerified     Boolean  @default(false) @map("phone_verified") // 휴대폰 인증 여부
+  role              String   @default("user") @db.Text // 'user', 'admin'
+  latitude          Float?   @db.DoublePrecision // 위도
+  longitude         Float?   @db.DoublePrecision // 경도
+  locationUpdatedAt DateTime? @map("location_updated_at") @db.Timestamptz(6) // 위치 업데이트 시간
+  pushToken         String?  @map("push_token") @db.Text // 푸시 알림 토큰
+  pushEnabled       Boolean  @default(true) @map("push_enabled") // 푸시 알림 활성화 여부
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // 관계
+  workspaces        Workspace[]
+  sentFriendRequests     Friendship[] @relation("FriendRequester")
+  receivedFriendRequests Friendship[] @relation("FriendAddressee")
+  chatsAsUser1          Chat[]       @relation("ChatUser1")
+  chatsAsUser2          Chat[]       @relation("ChatUser2")
+  pushNotifications     PushNotification[]
+  sentReports            Report[]    @relation("ReportReporter")
+  receivedReports        Report[]    @relation("ReportReported")
+  inquiries              Inquiry[]
+  inquiryReplies         InquiryReply[]
+
+  @@index([latitude, longitude]) // 위치 기반 검색 최적화 (Supabase Realtime과 함께 사용)
+  @@index([role]) // 관리자 검색 최적화
+  @@map("users")
+}
+
+// 워크스페이스(프로젝트/공간)
+model Workspace {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  name      String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // 관계
+  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  chats Chat[]
+
+  @@map("workspaces")
+}
+
+// 채팅 세션
+model Chat {
+  id          String    @id @default(uuid()) @db.Uuid
+  workspaceId String?   @map("workspace_id") @db.Uuid // 워크스페이스 채팅 (nullable)
+  userId1     String?   @map("user_id1") @db.Uuid // 1:1 채팅 사용자1
+  userId2     String?   @map("user_id2") @db.Uuid // 1:1 채팅 사용자2
+  title       String    @db.Text
+  pinned      Boolean   @default(false)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6) // 최근 메시지 시간 추적
+
+  // 관계
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user1     User?     @relation("ChatUser1", fields: [userId1], references: [id], onDelete: Cascade)
+  user2     User?     @relation("ChatUser2", fields: [userId2], references: [id], onDelete: Cascade)
+  messages  Message[]
+
+  @@index([workspaceId, updatedAt(sort: Desc)])
+  @@index([userId1, userId2]) // 1:1 채팅 검색 최적화
+  @@map("chats")
+}
+
+// 메시지
+model Message {
+  id         BigInt   @id @default(autoincrement())
+  chatId     String   @map("chat_id") @db.Uuid
+  role       String   @db.Text // 'user', 'assistant', 'system'
+  content    String   @db.Text
+  imageUrl   String?  @map("image_url") @db.Text // 이미지/파일 첨부
+  isEdited   Boolean  @default(false) @map("is_edited") // 수정 여부
+  isDeleted  Boolean  @default(false) @map("is_deleted") // 삭제 여부
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // 관계
+  chat Chat @relation(fields: [chatId], references: [id], onDelete: Cascade)
+
+  @@index([chatId, createdAt(sort: Asc)])
+  @@map("messages")
+}
+
+// 친구 관계
+model Friendship {
+  id         String   @id @default(uuid()) @db.Uuid
+  requesterId String  @map("requester_id") @db.Uuid // 친구 요청한 사람
+  addresseeId String  @map("addressee_id") @db.Uuid // 친구 요청 받은 사람
+  status     String   @db.Text // 'pending', 'accepted', 'blocked'
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // 관계
+  requester User @relation("FriendRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  addressee User @relation("FriendAddressee", fields: [addresseeId], references: [id], onDelete: Cascade)
+
+  @@unique([requesterId, addresseeId]) // 중복 친구 관계 방지
+  @@index([requesterId, status])
+  @@index([addresseeId, status])
+  @@map("friendships")
+}
+
+// 푸시 알림
+model PushNotification {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  title     String   @db.Text
+  body      String   @db.Text
+  type      String   @db.Text // 'message', 'friend_request', 'system', etc.
+  data      String?  @db.Text // JSON 데이터
+  read      Boolean  @default(false)
+  sent      Boolean  @default(false) // 전송 여부
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  readAt    DateTime? @map("read_at") @db.Timestamptz(6)
+
+  // 관계
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read, createdAt(sort: Desc)])
+  @@index([sent, createdAt])
+  @@map("push_notifications")
+}
+
+// 신고 내역
+model Report {
+  id          String   @id @default(uuid()) @db.Uuid
+  reporterId  String   @map("reporter_id") @db.Uuid // 신고한 사람
+  reportedId  String   @map("reported_id") @db.Uuid // 신고당한 사람
+  type       String   @db.Text // 'harassment', 'spam', 'inappropriate', 'other'
+  reason      String   @db.Text // 신고 사유
+  description String?  @db.Text // 상세 설명
+  status      String   @default("pending") @db.Text // 'pending', 'reviewing', 'resolved', 'rejected'
+  adminNote   String?  @map("admin_note") @db.Text // 관리자 메모
+  handledBy   String?  @map("handled_by") @db.Uuid // 처리한 관리자 ID
+  handledAt   DateTime? @map("handled_at") @db.Timestamptz(6)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // 관계
+  reporter User @relation("ReportReporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  reported User @relation("ReportReported", fields: [reportedId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt(sort: Desc)])
+  @@index([reportedId])
+  @@map("reports")
+}
+
+// 문의 내역
+model Inquiry {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  category  String   @db.Text // 'bug', 'feature', 'account', 'payment', 'other'
+  subject   String   @db.Text
+  content   String   @db.Text
+  status    String   @default("pending") @db.Text // 'pending', 'answered', 'closed'
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // 관계
+  user   User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  replies InquiryReply[]
+
+  @@index([status, createdAt(sort: Desc)])
+  @@index([userId])
+  @@map("inquiries")
+}
+
+// 문의 답변
+model InquiryReply {
+  id        String   @id @default(uuid()) @db.Uuid
+  inquiryId String   @map("inquiry_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid // 답변 작성자 (관리자 또는 사용자)
+  content   String   @db.Text
+  isAdmin   Boolean  @default(false) @map("is_admin") // 관리자 답변 여부
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // 관계
+  inquiry Inquiry @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([inquiryId, createdAt(sort: Asc)])
+  @@map("inquiry_replies")
+}
+
+// 약관 관리
+model Terms {
+  id        String   @id @default(uuid()) @db.Uuid
+  type      String   @db.Text // 'terms_of_service', 'privacy_policy', 'community_guidelines', 'location_info'
+  title     String   @db.Text
+  content   String   @db.Text // 마크다운 또는 HTML
+  version   Int      @default(1)
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([type, version])
+  @@index([type, isActive, version(sort: Desc)])
+  @@map("terms")
+}
