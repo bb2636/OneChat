@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { type ChangeEvent, useCallback, useEffect, useRef, useState } from "react";
 import Script from "next/script";
 import { useRouter } from "next/navigation";
 import { supabase, type SupabaseUser } from "@/lib/supabase";
@@ -158,6 +158,7 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
   const circleRef = useRef<naver.maps.Circle | null>(null);
   const pulseOverlayRef = useRef<naver.maps.OverlayView | null>(null);
   const otherUsersMarkersRef = useRef<Map<string, OtherUserMarker>>(new Map());
+  const thumbnailInputRef = useRef<HTMLInputElement | null>(null);
 
   const currentLocationRef = useRef<UserLocation | null>(null);
   const currentAccuracyRef = useRef<number | null>(null);
@@ -169,6 +170,14 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
   const [isScriptLoaded, setIsScriptLoaded] = useState(false);
   const [isMapReady, setIsMapReady] = useState(false);
   const [mapLoadError, setMapLoadError] = useState<string | null>(null);
+  const [isCreateRoomOpen, setIsCreateRoomOpen] = useState(false);
+  const [roomTargetUser, setRoomTargetUser] = useState<SupabaseUser | null>(null);
+  const [roomName, setRoomName] = useState("");
+  const [roomDescription, setRoomDescription] = useState("");
+  const [memberLimit, setMemberLimit] = useState(2);
+  const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
+  const [thumbnailPreviewUrl, setThumbnailPreviewUrl] = useState<string | null>(null);
+  const [isCreatingRoom, setIsCreatingRoom] = useState(false);
   const [authQueryKey, setAuthQueryKey] = useState<"ncpKeyId" | "ncpClientId">("ncpKeyId");
   const scriptBusterRef = useRef(
     process.env.NODE_ENV === "development" ? `&_ts=${Date.now()}` : ""
@@ -181,6 +190,11 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
     } catch {
       // Hot reload/unmount 타이밍에서 SDK 객체가 먼저 정리될 수 있어 예외를 무시합니다.
     }
+  };
+
+  const safeRevokeObjectUrl = (value: string | null) => {
+    if (!value || !value.startsWith("blob:")) return;
+    URL.revokeObjectURL(value);
   };
 
   useEffect(() => {
@@ -274,6 +288,37 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
   }, [userLocation]);
 
   useEffect(() => {
+    return () => {
+      safeRevokeObjectUrl(thumbnailPreviewUrl);
+    };
+  }, [thumbnailPreviewUrl]);
+
+  const openCreateRoomModal = useCallback((targetUserId: string) => {
+    const target = otherUsersMarkersRef.current.get(targetUserId)?.userData;
+    if (!target) return;
+
+    setRoomTargetUser(target);
+    setRoomName(`${target.nickname || "사용자"} 모임`);
+    setRoomDescription("");
+    setMemberLimit(2);
+    setThumbnailFile(null);
+    safeRevokeObjectUrl(thumbnailPreviewUrl);
+    setThumbnailPreviewUrl(target.avatar_url || null);
+    setIsCreateRoomOpen(true);
+  }, [thumbnailPreviewUrl]);
+
+  const closeCreateRoomModal = useCallback(() => {
+    setIsCreateRoomOpen(false);
+    setRoomTargetUser(null);
+    setRoomName("");
+    setRoomDescription("");
+    setMemberLimit(2);
+    setThumbnailFile(null);
+    safeRevokeObjectUrl(thumbnailPreviewUrl);
+    setThumbnailPreviewUrl(null);
+  }, [thumbnailPreviewUrl]);
+
+  useEffect(() => {
     const onClick = async (event: MouseEvent) => {
       const target = event.target as HTMLElement | null;
       const button = target?.closest("button[data-map-action]") as HTMLButtonElement | null;
@@ -294,26 +339,7 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
 
       try {
         if (action === "chat") {
-          const res = await fetch("/api/chats", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              userId,
-              targetUserId,
-            }),
-          });
-
-          const data = (await res.json().catch(() => ({}))) as {
-            error?: string;
-            existed?: boolean;
-          };
-
-          if (!res.ok) {
-            throw new Error(data.error || "채팅방 생성에 실패했습니다.");
-          }
-
-          alert(data.existed ? "기존 채팅방으로 이동합니다." : "새 채팅방이 생성되었습니다.");
-          router.push("/home");
+          openCreateRoomModal(targetUserId);
         } else if (action === "friend") {
           const res = await fetch("/api/friends", {
             method: "POST",
@@ -346,7 +372,7 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
 
     document.addEventListener("click", onClick);
     return () => document.removeEventListener("click", onClick);
-  }, [router, userId]);
+  }, [router, userId, openCreateRoomModal]);
 
   // watchPosition for live location tracking
   useEffect(() => {
@@ -665,6 +691,84 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
     process.env.NEXT_PUBLIC_NAVER_MAPS_CLIENT_ID ||
     process.env.NEXT_PUBLIC_NAVER_CLIENT_ID ||
     process.env.NEXT_PUBLIC_NAVER_MAP_CLIENT_ID;
+
+  const handlePickThumbnail = () => {
+    thumbnailInputRef.current?.click();
+  };
+
+  const handleThumbnailChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setThumbnailFile(file);
+    safeRevokeObjectUrl(thumbnailPreviewUrl);
+    setThumbnailPreviewUrl(URL.createObjectURL(file));
+  };
+
+  const handleCreateLocationRoom = async () => {
+    if (!userId || !roomTargetUser) return;
+
+    const title = roomName.trim();
+    const description = roomDescription.trim();
+    if (!title) {
+      alert("채팅방 이름을 입력해주세요.");
+      return;
+    }
+    if (title.length > 30) {
+      alert("채팅방 이름은 30자 이하로 입력해주세요.");
+      return;
+    }
+    if (description.length > 300) {
+      alert("채팅방 설명은 300자 이하로 입력해주세요.");
+      return;
+    }
+
+    setIsCreatingRoom(true);
+    try {
+      let thumbnailUrl = thumbnailPreviewUrl || roomTargetUser.avatar_url || null;
+
+      if (thumbnailFile) {
+        const formData = new FormData();
+        formData.append("image", thumbnailFile);
+        const uploadRes = await fetch("/api/upload/profile", {
+          method: "POST",
+          body: formData,
+        });
+        const uploadData = (await uploadRes.json().catch(() => ({}))) as { url?: string; error?: string };
+        if (!uploadRes.ok || !uploadData.url) {
+          throw new Error(uploadData.error || "썸네일 업로드에 실패했습니다.");
+        }
+        thumbnailUrl = uploadData.url;
+      }
+
+      const res = await fetch("/api/chats/location-room", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          creatorId: userId,
+          targetUserId: roomTargetUser.id,
+          roomName: title,
+          description,
+          thumbnailUrl,
+          memberLimit,
+        }),
+      });
+
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) {
+        throw new Error(data.error || "채팅방 생성에 실패했습니다.");
+      }
+
+      alert("채팅방이 생성되었습니다.");
+      closeCreateRoomModal();
+      router.push("/home");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "채팅방 생성 중 오류가 발생했습니다.";
+      alert(message);
+    } finally {
+      setIsCreatingRoom(false);
+    }
+  };
+
   if (!mapCredential) {
     return (
       <div className={`flex items-center justify-center bg-gray-100 ${className}`}>
@@ -705,6 +809,101 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
           </div>
         )}
       </div>
+
+      {isCreateRoomOpen && roomTargetUser && (
+        <div className="fixed inset-0 z-40 bg-white">
+          <div className="mx-auto flex h-full w-full max-w-md flex-col px-6 pt-6 pb-4">
+            <div className="mb-4 flex items-center justify-between">
+              <button
+                type="button"
+                onClick={closeCreateRoomModal}
+                className="rounded-full p-2 text-gray-700 hover:bg-gray-100"
+                aria-label="닫기"
+              >
+                ←
+              </button>
+              <h2 className="text-base font-semibold text-gray-900">채팅방 만들기</h2>
+              <button
+                type="button"
+                onClick={handleCreateLocationRoom}
+                disabled={isCreatingRoom}
+                className="text-sm font-semibold text-blue-600 disabled:text-gray-400"
+              >
+                완료
+              </button>
+            </div>
+
+            <div className="mb-5 flex justify-center">
+              <button
+                type="button"
+                onClick={handlePickThumbnail}
+                className="relative h-28 w-28 overflow-hidden rounded-xl bg-gray-200"
+              >
+                {thumbnailPreviewUrl ? (
+                  <img src={thumbnailPreviewUrl} alt="썸네일" className="h-full w-full object-cover" />
+                ) : null}
+                <span className="absolute bottom-2 right-2 rounded-full bg-white/90 px-2 py-1 text-xs">🖼️</span>
+              </button>
+              <input
+                ref={thumbnailInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleThumbnailChange}
+              />
+            </div>
+
+            <div className="mb-2 text-xs text-gray-500">채팅방 정보</div>
+
+            <label className="mb-1 text-sm font-medium text-gray-700">채팅방 이름</label>
+            <div className="mb-3 rounded-xl border border-gray-200 px-3 py-2">
+              <div className="flex items-center gap-2">
+                <input
+                  value={roomName}
+                  onChange={(e) => setRoomName(e.target.value)}
+                  placeholder="채팅방 이름을 입력해주세요 (필수)"
+                  className="h-8 flex-1 bg-transparent text-sm outline-none"
+                  maxLength={30}
+                />
+                <span className="text-xs text-gray-400">{roomName.length}/30</span>
+              </div>
+            </div>
+
+            <label className="mb-1 text-sm font-medium text-gray-700">채팅방 설명</label>
+            <div className="mb-3 rounded-xl border border-gray-200 px-3 py-2">
+              <textarea
+                value={roomDescription}
+                onChange={(e) => setRoomDescription(e.target.value)}
+                placeholder="채팅방 소개에 대해 설명해주세요"
+                className="h-24 w-full resize-none bg-transparent text-sm outline-none"
+                maxLength={300}
+              />
+              <div className="text-right text-xs text-gray-400">{roomDescription.length}/300</div>
+            </div>
+
+            <div className="mb-2 text-xs text-gray-500">참여 제한</div>
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-sm font-medium text-gray-700">인원 제한</span>
+              <span className="text-sm font-semibold text-gray-900">{String(memberLimit).padStart(2, "0")}</span>
+            </div>
+
+            <div className="h-36 overflow-y-auto rounded-xl border border-gray-200">
+              {Array.from({ length: 99 }, (_, idx) => idx + 2).map((num) => (
+                <button
+                  key={num}
+                  type="button"
+                  onClick={() => setMemberLimit(num)}
+                  className={`block h-10 w-full text-center text-lg ${
+                    memberLimit === num ? "bg-gray-100 font-semibold text-blue-600" : "text-gray-400"
+                  }`}
+                >
+                  {String(num).padStart(2, "0")}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

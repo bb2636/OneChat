@@ -94,7 +94,7 @@ DATABASE_URL=postgresql://postgres:your-password@db.your-project-ref.supabase.co
 
 # 기타 설정
 PORT=4000
-FRONTEND_ORIGIN=http://localhost:3000
+FRONTEND_ORIGIN=http://localhost:3001
 NEXT_PUBLIC_NAVER_MAPS_CLIENT_ID=your-naver-maps-client-id
 ```
 

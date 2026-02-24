@@ -17,8 +17,8 @@ import {
 } from "lucide-react";
 
 type Menu = "users" | "reports" | "inquiries" | "terms";
-type ReportStatus = "all" | "pending" | "reviewing" | "resolved" | "rejected";
-type InquiryStatus = "all" | "pending" | "answered" | "closed";
+type ReportStatus = "all" | "pending" | "resolved";
+type InquiryStatus = "all" | "pending" | "answered";
 
 type AdminUser = {
   id: string;
@@ -60,6 +60,8 @@ type TermItem = {
 
 const PAGE_SIZE = 10;
 const DASHBOARD_CACHE_KEY = "admin_dashboard_cache_v1";
+const DETAIL_REPLY_MIN_HEIGHT = 260;
+const DETAIL_REPLY_MAX_HEIGHT = 380;
 
 type CacheEntry<T> = {
   items: T[];
@@ -75,6 +77,28 @@ type DashboardCache = {
 };
 
 const EMPTY_CACHE: DashboardCache = { users: {}, reports: {}, inquiries: {}, terms: {} };
+
+const REPORT_STATUS_OPTIONS: Array<{ value: ReportStatus; label: string }> = [
+  { value: "all", label: "전체" },
+  { value: "resolved", label: "신고 완료" },
+  { value: "pending", label: "신고 대기" },
+];
+
+const INQUIRY_STATUS_OPTIONS: Array<{ value: InquiryStatus; label: string }> = [
+  { value: "all", label: "전체" },
+  { value: "answered", label: "답변 완료" },
+  { value: "pending", label: "답변 전" },
+];
+
+const REPORT_STATUS_LABEL_MAP: Record<string, string> = {
+  pending: "신고 대기",
+  resolved: "신고 완료",
+};
+
+const INQUIRY_STATUS_LABEL_MAP: Record<string, string> = {
+  pending: "답변 전",
+  answered: "답변 완료",
+};
 
 function loadDashboardCache(): DashboardCache {
   if (typeof window === "undefined") return EMPTY_CACHE;
@@ -98,6 +122,64 @@ function saveDashboardCache(cache: DashboardCache) {
   sessionStorage.setItem(DASHBOARD_CACHE_KEY, JSON.stringify(cache));
 }
 
+function AdminDropdown<T extends string>({
+  value,
+  options,
+  onChange,
+  widthClass = "w-[110px]",
+}: {
+  value: T;
+  options: Array<{ value: T; label: string }>;
+  onChange: (value: T) => void;
+  widthClass?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const onClickOutside = (event: MouseEvent) => {
+      if (!ref.current) return;
+      if (!ref.current.contains(event.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, []);
+
+  const selected = options.find((item) => item.value === value)?.label || options[0]?.label || "";
+
+  return (
+    <div ref={ref} className={`relative ${widthClass}`}>
+      <button
+        type="button"
+        onClick={() => setOpen((prev) => !prev)}
+        className="flex h-10 w-full items-center justify-between rounded-md border border-gray-300 bg-white px-3 text-xs text-gray-700"
+      >
+        <span>{selected}</span>
+        <ChevronDown className="h-3.5 w-3.5 text-gray-500" />
+      </button>
+      {open && (
+        <div className="absolute z-20 mt-1 w-full overflow-hidden rounded-md border border-gray-200 bg-white shadow-lg">
+          {options.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => {
+                onChange(option.value);
+                setOpen(false);
+              }}
+              className={`h-9 w-full border-b border-gray-100 text-center text-xs last:border-b-0 ${
+                option.value === value ? "font-semibold text-blue-600" : "text-gray-700 hover:bg-gray-50"
+              }`}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Pagination({
   page,
   totalPages,
@@ -116,11 +198,11 @@ function Pagination({
   }, [page, totalPages]);
 
   return (
-    <div className="mt-4 flex items-center justify-center gap-2 text-sm">
+    <div className="mt-4 flex items-center justify-center gap-4 text-sm">
       <button
         onClick={() => onChange(Math.max(1, page - 1))}
         disabled={page <= 1}
-        className="p-1 disabled:opacity-40"
+        className="p-1 text-gray-500 disabled:opacity-30"
       >
         <ChevronLeft className="h-4 w-4" />
       </button>
@@ -128,8 +210,8 @@ function Pagination({
         <button
           key={p}
           onClick={() => onChange(p)}
-          className={`h-7 min-w-7 rounded px-2 ${
-            p === page ? "bg-blue-600 text-white" : "text-gray-600 hover:bg-gray-100"
+          className={`min-w-4 text-sm ${
+            p === page ? "font-semibold text-black" : "text-gray-400 hover:text-gray-600"
           }`}
         >
           {p}
@@ -138,7 +220,7 @@ function Pagination({
       <button
         onClick={() => onChange(Math.min(totalPages, page + 1))}
         disabled={page >= totalPages}
-        className="p-1 disabled:opacity-40"
+        className="p-1 text-gray-500 disabled:opacity-30"
       >
         <ChevronRight className="h-4 w-4" />
       </button>
@@ -157,9 +239,14 @@ export default function AdminDashboardPage() {
     role?: string;
   } | null>(null);
   const [selectedItem, setSelectedItem] = useState<Record<string, unknown> | null>(null);
+  const [detailReply, setDetailReply] = useState("");
+  const [isSavingDetail, setIsSavingDetail] = useState(false);
+  const [detailToastMessage, setDetailToastMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [isAccountDropdownOpen, setIsAccountDropdownOpen] = useState(false);
   const accountMenuRef = useRef<HTMLDivElement | null>(null);
+  const detailReplyRef = useRef<HTMLTextAreaElement | null>(null);
+  const detailToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [usersPage, setUsersPage] = useState(1);
@@ -433,6 +520,35 @@ export default function AdminDashboardPage() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    if (!selectedItem) {
+      setDetailReply("");
+      return;
+    }
+    const preset =
+      (selectedItem.latest_reply as string | undefined) ||
+      (selectedItem.admin_note as string | undefined) ||
+      "";
+    setDetailReply(preset);
+  }, [selectedItem]);
+
+  useEffect(() => {
+    const el = detailReplyRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    const nextHeight = Math.min(Math.max(el.scrollHeight, DETAIL_REPLY_MIN_HEIGHT), DETAIL_REPLY_MAX_HEIGHT);
+    el.style.height = `${nextHeight}px`;
+    el.style.overflowY = el.scrollHeight > DETAIL_REPLY_MAX_HEIGHT ? "auto" : "hidden";
+  }, [detailReply, selectedItem]);
+
+  useEffect(() => {
+    return () => {
+      if (detailToastTimerRef.current) {
+        clearTimeout(detailToastTimerRef.current);
+      }
+    };
+  }, []);
+
   const handleDeleteUser = async (id: string) => {
     if (!confirm("이 사용자를 삭제하시겠습니까?")) return;
     const res = await fetch("/api/admin/users", {
@@ -490,6 +606,70 @@ export default function AdminDashboardPage() {
     saveDashboardCache(cache);
     alert("저장되었습니다.");
   };
+
+  const handleSaveDetailReply = async () => {
+    if (!selectedItem) return;
+    const id = selectedItem.id as string | undefined;
+    if (!id) return;
+    if (!detailReply.trim()) return;
+
+    setIsSavingDetail(true);
+    try {
+      if (activeMenu === "inquiries") {
+        const res = await fetch("/api/admin/inquiries", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            inquiryId: id,
+            adminUserId: adminUser?.id,
+            content: detailReply.trim(),
+          }),
+        });
+        if (!res.ok) {
+          alert("답변 저장에 실패했습니다.");
+          return;
+        }
+        setInquiries((prev) =>
+          prev.map((item) =>
+            item.id === id ? { ...item, status: "answered", latest_reply: detailReply.trim() } : item
+          )
+        );
+        setSelectedItem((prev) =>
+          prev ? { ...prev, status: "answered", latest_reply: detailReply.trim() } : prev
+        );
+        setDetailToastMessage("문의 내역 답변 작성 완료");
+      } else if (activeMenu === "reports") {
+        const res = await fetch("/api/admin/reports", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id,
+            status: "resolved",
+            adminNote: detailReply.trim(),
+          }),
+        });
+        if (!res.ok) {
+          alert("답변 저장에 실패했습니다.");
+          return;
+        }
+        setReports((prev) =>
+          prev.map((item) => (item.id === id ? { ...item, status: "resolved" } : item))
+        );
+        setSelectedItem((prev) =>
+          prev ? { ...prev, status: "resolved", admin_note: detailReply.trim() } : prev
+        );
+        setDetailToastMessage("신고 내역 답변 작성 완료");
+      }
+      if (detailToastTimerRef.current) clearTimeout(detailToastTimerRef.current);
+      detailToastTimerRef.current = setTimeout(() => {
+        setDetailToastMessage("");
+      }, 1800);
+    } finally {
+      setIsSavingDetail(false);
+    }
+  };
+
+  const isDetailReplyEnabled = !isSavingDetail && detailReply.trim().length > 0;
 
   const handleRefreshTerms = async () => {
     setLoading(true);
@@ -619,18 +799,18 @@ export default function AdminDashboardPage() {
                 <button
                   type="button"
                   onClick={() => setIsAccountDropdownOpen((prev) => !prev)}
-                  className="inline-flex items-center gap-1 rounded bg-blue-600 px-2 py-1 text-[11px] font-semibold text-white"
+                  className="inline-flex h-8 items-center rounded-md bg-blue-600 px-3 text-xs font-semibold text-white"
                 >
                   관리자
                 </button>
               </div>
 
               {isAccountDropdownOpen && (
-                <div className="absolute right-0 z-20 mt-2 w-28 rounded-md border border-gray-200 bg-white p-1 shadow-md">
+                <div className="absolute right-0 z-20 mt-1 w-28 overflow-hidden rounded-md border border-gray-200 bg-white shadow-lg">
                   <button
                     type="button"
                     onClick={handleLogout}
-                    className="w-full rounded px-2 py-1.5 text-xs text-red-500 hover:bg-red-50"
+                    className="h-9 w-full text-xs text-red-500 hover:bg-red-50"
                   >
                     로그아웃
                   </button>
@@ -639,7 +819,7 @@ export default function AdminDashboardPage() {
             </div>
           </header>
 
-          <div className="h-[calc(100vh-56px)] overflow-auto p-4">
+          <div className="h-[calc(100vh-56px)] overflow-auto">
             {activeMenu === "users" && (
               <section>
                 <div className="mb-5  py-3">
@@ -660,7 +840,7 @@ export default function AdminDashboardPage() {
                   </div>
                 </div>
 
-                <div className="-mx-4">
+                <div>
                   <table className="w-full border-collapse text-sm">
                     <thead>
                       <tr className="border-y">
@@ -677,7 +857,7 @@ export default function AdminDashboardPage() {
                         <tr key={u.id} className="border-b">
                           <td className="p-3 text-center">{u.username || "-"}</td>
                           <td className="p-3 text-center">{u.nickname || "-"}</td>
-                          <td className="p-3">
+                          <td className="p-3 text-center">
                             {u.avatar_url ? (
                               <img
                                 src={u.avatar_url}
@@ -719,43 +899,53 @@ export default function AdminDashboardPage() {
 
             {activeMenu === "reports" && (
               <section>
-                <div className="mb-4">
-                  <select
+                <div className="px-6 pt-3">
+                  <h2 className="mb-4 text-[34px] font-semibold tracking-tight text-gray-400">
+                    신고 / 문의 내역 <span className="text-gray-900">› 신고 내역</span>
+                  </h2>
+                </div>
+                <div className="mb-4 px-6">
+                  <AdminDropdown<ReportStatus>
                     value={reportStatus}
-                    onChange={(e) => {
+                    options={REPORT_STATUS_OPTIONS}
+                    onChange={(value) => {
                       setReportsPage(1);
-                      setReportStatus(e.target.value as ReportStatus);
+                      setReportStatus(value);
                     }}
-                    className="h-10 rounded border border-gray-300 px-3 text-sm"
-                  >
-                    <option value="all">전체</option>
-                    <option value="pending">신고 대기</option>
-                    <option value="reviewing">신고 검토</option>
-                    <option value="resolved">신고 완료</option>
-                    <option value="rejected">신고 기각</option>
-                  </select>
+                    widthClass="w-[110px]"
+                  />
                 </div>
 
                 <table className="w-full border-collapse text-sm">
                   <thead>
-                    <tr className="border-y bg-gray-50 text-gray-500">
-                      <th className="p-3 text-left">신고일</th>
-                      <th className="p-3 text-left">신고 유형</th>
-                      <th className="p-3 text-left">제목</th>
-                      <th className="p-3 text-left">작성자</th>
-                      <th className="p-3 text-left">상태</th>
-                      <th className="p-3 text-left">보기</th>
+                    <tr className="border-y text-gray-500">
+                      <th className="p-3 text-center">신고일</th>
+                      <th className="p-3 text-center">신고 유형</th>
+                      <th className="p-3 text-center">제목</th>
+                      <th className="p-3 text-center">작성자</th>
+                      <th className="p-3 text-center">상태</th>
+                      <th className="p-3 text-center">보기</th>
                     </tr>
                   </thead>
                   <tbody>
                     {reports.map((r) => (
                       <tr key={r.id} className="border-b">
-                        <td className="p-3">{(r.created_at || "").slice(0, 10)}</td>
-                        <td className="p-3">{r.type}</td>
-                        <td className="p-3">{r.reason}</td>
-                        <td className="p-3">{r.reporter_name || r.reporter_username || "-"}</td>
-                        <td className="p-3">{r.status}</td>
-                        <td className="p-3">
+                        <td className="p-3 text-center">{(r.created_at || "").slice(0, 10)}</td>
+                        <td className="p-3 text-center">{r.type}</td>
+                        <td className="p-3 text-center">{r.reason}</td>
+                        <td className="p-3 text-center">{r.reporter_name || r.reporter_username || "-"}</td>
+                        <td className="p-3 text-center">
+                          <span
+                            className={`inline-flex rounded border px-2 py-0.5 text-xs ${
+                              r.status === "resolved"
+                                ? "border-emerald-300 bg-emerald-50 text-emerald-600"
+                                : "border-gray-300 bg-white text-gray-500"
+                            }`}
+                          >
+                            {REPORT_STATUS_LABEL_MAP[r.status] || r.status}
+                          </span>
+                        </td>
+                        <td className="p-3 text-center">
                           <button
                             className="rounded border border-blue-400 px-3 py-1 text-xs text-blue-600"
                             onClick={() => setSelectedItem(r as unknown as Record<string, unknown>)}
@@ -776,42 +966,53 @@ export default function AdminDashboardPage() {
 
             {activeMenu === "inquiries" && (
               <section>
-                <div className="mb-4">
-                  <select
+                <div className="px-6 pt-3">
+                  <h2 className="mb-4 text-[34px] font-semibold tracking-tight text-gray-400">
+                    신고 / 문의 내역 <span className="text-gray-900">› 문의 내역</span>
+                  </h2>
+                </div>
+                <div className="mb-4 px-6">
+                  <AdminDropdown<InquiryStatus>
                     value={inquiryStatus}
-                    onChange={(e) => {
+                    options={INQUIRY_STATUS_OPTIONS}
+                    onChange={(value) => {
                       setInquiriesPage(1);
-                      setInquiryStatus(e.target.value as InquiryStatus);
+                      setInquiryStatus(value);
                     }}
-                    className="h-10 rounded border border-gray-300 px-3 text-sm"
-                  >
-                    <option value="all">전체</option>
-                    <option value="pending">답변 전</option>
-                    <option value="answered">답변 완료</option>
-                    <option value="closed">문의 종료</option>
-                  </select>
+                    widthClass="w-[110px]"
+                  />
                 </div>
 
                 <table className="w-full border-collapse text-sm">
                   <thead>
-                    <tr className="border-y bg-gray-50 text-gray-500">
-                      <th className="p-3 text-left">문의일</th>
-                      <th className="p-3 text-left">제목</th>
-                      <th className="p-3 text-left">내용</th>
-                      <th className="p-3 text-left">작성자</th>
-                      <th className="p-3 text-left">상태</th>
-                      <th className="p-3 text-left">보기</th>
+                    <tr className="border-y text-gray-500">
+                      <th className="p-3 text-center">문의일</th>
+                      <th className="p-3 text-center">제목</th>
+                      <th className="p-3 text-center">내용</th>
+                      <th className="p-3 text-center">작성자</th>
+                      <th className="p-3 text-center">상태</th>
+                      <th className="p-3 text-center">보기</th>
                     </tr>
                   </thead>
                   <tbody>
                     {inquiries.map((i) => (
                       <tr key={i.id} className="border-b">
-                        <td className="p-3">{(i.created_at || "").slice(0, 10)}</td>
-                        <td className="p-3">{i.subject}</td>
-                        <td className="max-w-[320px] truncate p-3">{i.content}</td>
-                        <td className="p-3">{i.user_name || i.user_username || "-"}</td>
-                        <td className="p-3">{i.status}</td>
-                        <td className="p-3">
+                        <td className="p-3 text-center">{(i.created_at || "").slice(0, 10)}</td>
+                        <td className="p-3 text-center">{i.subject}</td>
+                        <td className="max-w-[320px] truncate p-3 text-center">{i.content}</td>
+                        <td className="p-3 text-center">{i.user_name || i.user_username || "-"}</td>
+                        <td className="p-3 text-center">
+                          <span
+                            className={`inline-flex rounded border px-2 py-0.5 text-xs ${
+                              i.status === "answered"
+                                ? "border-emerald-300 bg-emerald-50 text-emerald-600"
+                                : "border-gray-300 bg-white text-gray-500"
+                            }`}
+                          >
+                            {INQUIRY_STATUS_LABEL_MAP[i.status] || i.status}
+                          </span>
+                        </td>
+                        <td className="p-3 text-center">
                           <button
                             className="rounded border border-blue-400 px-3 py-1 text-xs text-blue-600"
                             onClick={() => setSelectedItem(i as unknown as Record<string, unknown>)}
@@ -833,7 +1034,7 @@ export default function AdminDashboardPage() {
             {activeMenu === "terms" && (
               <section>
                 <h2 className="mb-4 text-xl font-semibold text-gray-800">약관 관리</h2>
-                <div className="-mx-4 mb-3 flex gap-0 border-b px-4 text-sm">
+                <div className="mb-3 flex gap-0 border-b text-sm">
                   {[
                     { key: "privacy_policy", label: "개인정보 처리방침" },
                     { key: "terms_of_service", label: "서비스 이용약관" },
@@ -884,24 +1085,147 @@ export default function AdminDashboardPage() {
         </main>
 
         {selectedItem && (
-          <aside className="w-[420px] border-l border-gray-200 bg-white p-4">
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-800">상세보기</h3>
-              <button onClick={() => setSelectedItem(null)} className="text-gray-500 hover:text-gray-800">
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <div className="space-y-3 text-sm">
-              {Object.entries(selectedItem).map(([key, value]) => (
-                <div key={key}>
-                  <p className="mb-1 text-xs text-gray-500">{key}</p>
-                  <div className="rounded bg-gray-50 p-2 text-gray-800">{String(value ?? "-")}</div>
+          <div className="fixed inset-0 z-50 bg-black/45">
+            <div className="ml-auto h-full w-[430px] border-l border-gray-200 bg-white">
+              <div className="flex h-14 items-center justify-between border-b border-gray-200 px-4">
+                <h3 className="text-base font-semibold text-gray-800">
+                  {activeMenu === "reports" ? "신고내역 상세보기" : "문의내역 상세보기"}
+                </h3>
+                <button onClick={() => setSelectedItem(null)} className="text-gray-500 hover:text-gray-800">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="flex h-[calc(100%-56px)] flex-col">
+                <div className="flex-1 overflow-hidden">
+                  <div className="space-y-4 p-4 text-sm">
+                    <div>
+                      <p className="mb-2 text-[11px] text-gray-400">작성자</p>
+                      <div className="rounded-md bg-gray-100 px-3 py-2.5">
+                        <p className="text-sm font-medium text-gray-800">
+                          {String(
+                            (selectedItem.reporter_name as string | undefined) ||
+                              (selectedItem.user_name as string | undefined) ||
+                              "-"
+                          )}
+                        </p>
+                        <p className="mt-0.5 text-[11px] text-gray-500">
+                          {String(
+                            (selectedItem.reporter_username as string | undefined) ||
+                              (selectedItem.user_username as string | undefined) ||
+                              "-"
+                          )}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3 border-t border-gray-200 pt-3">
+                      <div className="grid grid-cols-[64px_1fr] items-start gap-2">
+                        <p className="pt-0.5 text-[11px] text-gray-400">
+                          {activeMenu === "reports" ? "신고 제목" : "문의 제목"}
+                        </p>
+                        <p className="text-sm leading-5 text-gray-800">
+                          {String(
+                            (selectedItem.reason as string | undefined) ||
+                              (selectedItem.subject as string | undefined) ||
+                              "-"
+                          )}
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-[64px_1fr] items-start gap-2">
+                        <p className="pt-0.5 text-[11px] text-gray-400">상태</p>
+                        <span
+                          className={`inline-flex w-fit rounded border px-2 py-0.5 text-[11px] ${
+                            String(selectedItem.status) === "resolved" ||
+                            String(selectedItem.status) === "answered"
+                              ? "border-emerald-300 bg-emerald-50 text-emerald-600"
+                              : "border-gray-300 bg-white text-gray-500"
+                          }`}
+                        >
+                          {activeMenu === "reports"
+                            ? REPORT_STATUS_LABEL_MAP[String(selectedItem.status)] || String(selectedItem.status)
+                            : INQUIRY_STATUS_LABEL_MAP[String(selectedItem.status)] || String(selectedItem.status)}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-[64px_1fr] items-start gap-2">
+                        <p className="pt-0.5 text-[11px] text-gray-400">
+                          {activeMenu === "reports" ? "신고일" : "문의일"}
+                        </p>
+                        <p className="text-sm text-gray-700">
+                          {String(selectedItem.created_at || "").slice(0, 10).replaceAll("-", ".")}
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-[64px_1fr] items-start gap-2">
+                        <p className="pt-0.5 text-[11px] text-gray-400">
+                          {activeMenu === "reports" ? "신고 내용" : "문의 내용"}
+                        </p>
+                        <p className="whitespace-pre-wrap text-sm leading-6 text-gray-700">
+                          {String(
+                            (selectedItem.description as string | undefined) ||
+                              (selectedItem.content as string | undefined) ||
+                              "-"
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-5 border-t border-gray-200 bg-gray-100 px-4 pb-8 pt-0">
+                    <div className="grid grid-cols-[64px_1fr] items-start gap-2">
+                      <p className="pt-3 text-[11px] text-gray-400">답변 등록</p>
+                      <textarea
+                        ref={detailReplyRef}
+                        value={detailReply}
+                        onChange={(e) => {
+                          setDetailReply(e.target.value);
+                          e.currentTarget.style.height = "auto";
+                          const nextHeight = Math.min(
+                            Math.max(e.currentTarget.scrollHeight, DETAIL_REPLY_MIN_HEIGHT),
+                            DETAIL_REPLY_MAX_HEIGHT
+                          );
+                          e.currentTarget.style.height = `${nextHeight}px`;
+                          e.currentTarget.style.overflowY =
+                            e.currentTarget.scrollHeight > DETAIL_REPLY_MAX_HEIGHT ? "auto" : "hidden";
+                        }}
+                        placeholder="내용을 입력해 주세요."
+                        className="h-[260px] w-full resize-none overflow-y-hidden border-none bg-transparent pt-3 text-sm leading-6 text-gray-700 placeholder:text-gray-400 outline-none"
+                      />
+                    </div>
+                  </div>
                 </div>
-              ))}
+
+                <div className="border-t border-gray-200 bg-gray-50 px-4 py-5">
+                  <button
+                    type="button"
+                    onClick={handleSaveDetailReply}
+                    disabled={!isDetailReplyEnabled}
+                    className={`ml-auto block h-9 rounded-md px-6 text-xs text-white ${
+                      isDetailReplyEnabled ? "bg-blue-600 hover:bg-blue-700" : "bg-gray-400"
+                    } disabled:opacity-60`}
+                  >
+                    답변 완료
+                  </button>
+                </div>
+              </div>
             </div>
-          </aside>
+          </div>
         )}
       </div>
+
+      {detailToastMessage && (
+        <div className="pointer-events-none fixed inset-x-0 top-14 z-[70] flex justify-center">
+          <div className="w-[280px] rounded-lg border border-gray-200 bg-white px-4 py-5 text-center shadow-lg">
+            <div className="mx-auto mb-2 flex h-5 w-5 items-center justify-center rounded-full bg-blue-600 text-[11px] text-white">
+              ✓
+            </div>
+            <p className="text-sm font-semibold text-blue-600">{detailToastMessage}</p>
+            <p className="mt-1 text-[11px] text-gray-400">답변이 성공적으로 작성되었습니다.</p>
+          </div>
+        </div>
+      )}
 
       <p className="sr-only">page size {PAGE_SIZE}</p>
     </div>

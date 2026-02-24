@@ -131,3 +131,45 @@ export async function POST(request: Request) {
     );
   }
 }
+
+export async function DELETE(request: Request) {
+  try {
+    const { userId, friendId } = (await request.json()) as {
+      userId?: string;
+      friendId?: string;
+    };
+
+    if (!userId || !friendId) {
+      return NextResponse.json(
+        { error: "userId와 friendId가 필요합니다." },
+        { status: 400 }
+      );
+    }
+
+    const deleted = (await sql`
+      DELETE FROM friendships
+      WHERE status = 'accepted'
+        AND (
+          (requester_id = ${userId} AND addressee_id = ${friendId})
+          OR
+          (requester_id = ${friendId} AND addressee_id = ${userId})
+        )
+      RETURNING id
+    `) as unknown as Array<{ id: string }>;
+
+    if (deleted.length === 0) {
+      return NextResponse.json(
+        { error: "삭제할 친구 관계를 찾을 수 없습니다." },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({ success: true, deletedCount: deleted.length });
+  } catch (error) {
+    console.error("Failed to delete friendship:", error);
+    return NextResponse.json(
+      { error: "친구 삭제 처리에 실패했습니다." },
+      { status: 500 }
+    );
+  }
+}
