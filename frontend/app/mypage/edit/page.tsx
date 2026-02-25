@@ -21,6 +21,7 @@ export default function MyPageEditPage() {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
   useEffect(() => {
@@ -57,6 +58,10 @@ export default function MyPageEditPage() {
   };
 
   const handleUploadAvatar = async (file: File) => {
+    if (!file.type.startsWith("image/")) {
+      throw new Error("이미지 파일만 업로드할 수 있습니다.");
+    }
+
     const formData = new FormData();
     formData.append("image", file);
     const res = await fetch("/api/upload/profile", { method: "POST", body: formData });
@@ -124,8 +129,8 @@ export default function MyPageEditPage() {
             )}
             <button
               type="button"
-              disabled={!isEditing}
               onClick={() => fileInputRef.current?.click()}
+              disabled={isUploadingAvatar}
               className="absolute bottom-0 right-0 rounded-full bg-white p-1.5 shadow disabled:opacity-50"
             >
               <Camera className="h-3 w-3" />
@@ -139,9 +144,15 @@ export default function MyPageEditPage() {
                 const file = e.target.files?.[0];
                 if (!file) return;
                 try {
+                  if (!isEditing) setIsEditing(true);
+                  setIsUploadingAvatar(true);
                   await handleUploadAvatar(file);
+                  setToast("프로필 이미지가 변경되었습니다. 수정 완료를 눌러 저장해주세요.");
                 } catch (error) {
                   alert(error instanceof Error ? error.message : "이미지 업로드 실패");
+                } finally {
+                  setIsUploadingAvatar(false);
+                  e.currentTarget.value = "";
                 }
               }}
             />

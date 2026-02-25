@@ -43,6 +43,29 @@ export async function POST(request: Request) {
 
     const limit = Math.max(2, Math.min(100, Number(memberLimit || 2)));
 
+    const existingPairRoom = (await sql`
+      SELECT c.id, c.title
+      FROM chats c
+      WHERE c.workspace_id IS NULL
+        AND (
+          (c.user_id1 = ${creatorId} AND c.user_id2 = ${targetUserId})
+          OR
+          (c.user_id1 = ${targetUserId} AND c.user_id2 = ${creatorId})
+        )
+      LIMIT 1
+    `) as unknown as Array<{ id: string; title: string }>;
+
+    if (existingPairRoom.length > 0) {
+      return NextResponse.json(
+        {
+          error: "이미 함께하는 채팅방이 존재합니다.",
+          existed: true,
+          chat: existingPairRoom[0],
+        },
+        { status: 409 }
+      );
+    }
+
     const created = (await sql`
       INSERT INTO chats (
         id,

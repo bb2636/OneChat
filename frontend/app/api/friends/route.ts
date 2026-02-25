@@ -109,9 +109,10 @@ export async function POST(request: Request) {
       );
     }
 
+    // 바로 accepted 상태로 친구 추가
     const inserted = (await sql`
       INSERT INTO friendships (id, requester_id, addressee_id, status, created_at, updated_at)
-      VALUES (gen_random_uuid(), ${requesterId}, ${addresseeId}, 'pending', ${new Date()}, ${new Date()})
+      VALUES (gen_random_uuid(), ${requesterId}, ${addresseeId}, 'accepted', ${new Date()}, ${new Date()})
       RETURNING id, status
     `) as unknown as Array<{ id: string; status: string }>;
 
@@ -119,7 +120,8 @@ export async function POST(request: Request) {
       {
         success: true,
         friendship: inserted[0],
-        message: "친구 요청을 보냈습니다.",
+        status: "accepted",
+        message: "친구가 추가되었습니다.",
       },
       { status: 201 }
     );

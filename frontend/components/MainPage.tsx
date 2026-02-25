@@ -78,6 +78,8 @@ const REPORT_TYPE_OPTIONS = [
   "사기·사칭",
   "기타",
 ] as const;
+const FRIEND_SWIPE_DELETE_WIDTH = 74;
+type ChatReadCountMap = Record<string, number>;
 
 type MyPageScreen =
   | "root"
@@ -95,11 +97,17 @@ export function MainPage({ initialChats }: MainPageProps) {
     "chat"
   );
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [chatReadCounts, setChatReadCounts] = useState<ChatReadCountMap>({});
   const [isFriendsMenuOpen, setIsFriendsMenuOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [selectedFriendIds, setSelectedFriendIds] = useState<Set<string>>(new Set());
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [singleDeleteTarget, setSingleDeleteTarget] = useState<Friend | null>(null);
   const [isDeletingFriends, setIsDeletingFriends] = useState(false);
+  const [swipeOpenFriendId, setSwipeOpenFriendId] = useState<string | null>(null);
+  const [swipeDragging, setSwipeDragging] = useState<{ friendId: string; offset: number } | null>(
+    null
+  );
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isFriendsSectionOpen, setIsFriendsSectionOpen] = useState(true);
   const [myPageScreen, setMyPageScreen] = useState<MyPageScreen>("root");
@@ -117,7 +125,17 @@ export function MainPage({ initialChats }: MainPageProps) {
   const [isReportTargetModalOpen, setIsReportTargetModalOpen] = useState(false);
   const [selectedReport, setSelectedReport] = useState<UserReport | null>(null);
   const [selectedInquiry, setSelectedInquiry] = useState<UserInquiry | null>(null);
+  const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false);
+  const [leaveChatId, setLeaveChatId] = useState<string | null>(null);
+  const [leaveChatTitle, setLeaveChatTitle] = useState<string>("");
+  const [isLeavingChat, setIsLeavingChat] = useState(false);
   const reportTargetDropdownRef = useRef<HTMLDivElement | null>(null);
+  const swipeStartXRef = useRef(0);
+  const swipeStartYRef = useRef(0);
+  const swipeStartOffsetRef = useRef(0);
+  const swipeCurrentOffsetRef = useRef(0);
+  const swipeActiveFriendIdRef = useRef<string | null>(null);
+  const swipeIsHorizontalRef = useRef(false);
 
   const shouldHideBottomNav =
     activeTab === "mypage" &&
@@ -130,17 +148,24 @@ export function MainPage({ initialChats }: MainPageProps) {
 
   // React Query로 데이터 관리 (캐싱 및 업데이트)
   const { data: chats, isLoading: chatsLoading } = useQuery({
-    queryKey: ["chats"],
+    queryKey: ["chats", currentUserId],
     queryFn: async () => {
-      const res = await fetch("/api/chats");
+      if (!currentUserId) return [];
+      const res = await fetch(`/api/chats?userId=${currentUserId}`);
       if (!res.ok) throw new Error("Failed to fetch chats");
       return res.json() as Promise<Chat[]>;
     },
     initialData: initialChats,
+    enabled: !!currentUserId,
     staleTime: 2 * 60 * 1000, // 2분간 fresh 상태 유지
     gcTime: 10 * 60 * 1000,
     refetchInterval: 30 * 1000, // 30초마다 백그라운드 업데이트
   });
+
+  const chatReadStorageKey = useMemo(
+    () => (currentUserId ? `onechat_chat_read_counts_${currentUserId}` : null),
+    [currentUserId]
+  );
 
   useEffect(() => {
     const resolveUser = async () => {
@@ -165,6 +190,25 @@ export function MainPage({ initialChats }: MainPageProps) {
 
     resolveUser();
   }, []);
+
+  useEffect(() => {
+    if (!chatReadStorageKey) {
+      setChatReadCounts({});
+      return;
+    }
+
+    try {
+      const stored = localStorage.getItem(chatReadStorageKey);
+      if (!stored) {
+        setChatReadCounts({});
+        return;
+      }
+      const parsed = JSON.parse(stored) as ChatReadCountMap;
+      setChatReadCounts(parsed && typeof parsed === "object" ? parsed : {});
+    } catch {
+      setChatReadCounts({});
+    }
+  }, [chatReadStorageKey]);
 
   const { data: friends = [], isLoading: friendsLoading, refetch: refetchFriends } = useQuery({
     queryKey: ["friends", currentUserId],
@@ -222,6 +266,13 @@ export function MainPage({ initialChats }: MainPageProps) {
   }, [toastMessage]);
 
   useEffect(() => {
+    if (activeTab !== "friends" || isEditMode) {
+      setSwipeOpenFriendId(null);
+      setSwipeDragging(null);
+    }
+  }, [activeTab, isEditMode]);
+
+  useEffect(() => {
     const handleOutsideClick = (event: MouseEvent) => {
       if (!isReportTargetModalOpen) return;
       if (!reportTargetDropdownRef.current) return;
@@ -239,6 +290,45 @@ export function MainPage({ initialChats }: MainPageProps) {
       .map((friend) => friend.name || friend.nickname || "친구");
     return names;
   }, [friends, selectedFriendIds]);
+
+  const chatsWithUnread = useMemo(() => {
+    return (chats || []).map((chat) => {
+      const messageCount = Math.max(0, Number(chat.message_count || 0));
+      const savedReadCount = Math.max(0, Number(chatReadCounts[chat.id] || 0));
+      const serverUnread = Math.max(0, Number(chat.unread_count || 0));
+      const computedUnread = Math.max(0, messageCount - savedReadCount);
+
+      return {
+        ...chat,
+        unread_count: Math.max(serverUnread, computedUnread),
+      };
+    });
+  }, [chats, chatReadCounts]);
+
+  const totalUnreadCount = useMemo(() => {
+    return chatsWithUnread.reduce((sum, chat) => sum + Math.max(0, Number(chat.unread_count || 0)), 0);
+  }, [chatsWithUnread]);
+
+  const [newChatNotificationVisible, setNewChatNotificationVisible] = useState(false);
+  const prevUnreadCountRef = useRef(0);
+
+  useEffect(() => {
+    if (activeTab === "chat") {
+      prevUnreadCountRef.current = totalUnreadCount;
+      setNewChatNotificationVisible(false);
+      return;
+    }
+
+    if (totalUnreadCount > prevUnreadCountRef.current && prevUnreadCountRef.current > 0) {
+      setNewChatNotificationVisible(true);
+      const timer = window.setTimeout(() => {
+        setNewChatNotificationVisible(false);
+      }, 5000);
+      return () => window.clearTimeout(timer);
+    }
+
+    prevUnreadCountRef.current = totalUnreadCount;
+  }, [totalUnreadCount, activeTab]);
 
   const profileName = useMemo(() => {
     if (currentUserProfile?.nickname) return currentUserProfile.nickname;
@@ -271,6 +361,8 @@ export function MainPage({ initialChats }: MainPageProps) {
   const openEditMode = () => {
     setIsEditMode(true);
     setIsFriendsMenuOpen(false);
+    setSwipeOpenFriendId(null);
+    setSwipeDragging(null);
   };
 
   const closeEditMode = () => {
@@ -279,21 +371,33 @@ export function MainPage({ initialChats }: MainPageProps) {
     setIsDeleteConfirmOpen(false);
   };
 
+  const closeDeleteModal = () => {
+    setIsDeleteConfirmOpen(false);
+    setSingleDeleteTarget(null);
+  };
+
+  const deleteFriendRelation = async (friendId: string) => {
+    if (!currentUserId) throw new Error("로그인이 필요합니다.");
+
+    const res = await fetch("/api/friends", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: currentUserId, friendId }),
+    });
+
+    if (!res.ok && res.status !== 404) {
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      throw new Error(data.error || "친구 삭제에 실패했습니다.");
+    }
+  };
+
   const handleDeleteFriends = async () => {
     if (!currentUserId || selectedFriendIds.size === 0) return;
 
     setIsDeletingFriends(true);
     try {
       for (const friendId of selectedFriendIds) {
-        const res = await fetch("/api/friends", {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userId: currentUserId, friendId }),
-        });
-        if (!res.ok && res.status !== 404) {
-          const data = (await res.json().catch(() => ({}))) as { error?: string };
-          throw new Error(data.error || "친구 삭제에 실패했습니다.");
-        }
+        await deleteFriendRelation(friendId);
       }
 
       await refetchFriends();
@@ -309,6 +413,89 @@ export function MainPage({ initialChats }: MainPageProps) {
     } finally {
       setIsDeletingFriends(false);
     }
+  };
+
+  const handleDeleteSingleFriend = async () => {
+    if (!singleDeleteTarget) return;
+
+    setIsDeletingFriends(true);
+    try {
+      await deleteFriendRelation(singleDeleteTarget.id);
+      await refetchFriends();
+      setToastMessage(
+        `${singleDeleteTarget.name || singleDeleteTarget.nickname || "친구"}님을 친구목록에서 삭제했습니다.`
+      );
+      setSwipeOpenFriendId(null);
+      setSwipeDragging(null);
+      setSingleDeleteTarget(null);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "친구 삭제 중 오류가 발생했습니다.";
+      alert(message);
+    } finally {
+      setIsDeletingFriends(false);
+    }
+  };
+
+  const markChatAsRead = (chatId: string, messageCount: number) => {
+    if (!chatReadStorageKey) return;
+
+    setChatReadCounts((prev) => {
+      const nextReadCount = Math.max(Number(prev[chatId] || 0), Math.max(0, messageCount));
+      if (nextReadCount === Number(prev[chatId] || 0)) return prev;
+
+      const next = { ...prev, [chatId]: nextReadCount };
+      try {
+        localStorage.setItem(chatReadStorageKey, JSON.stringify(next));
+      } catch (error) {
+        console.error("Failed to persist chat read state:", error);
+      }
+      return next;
+    });
+  };
+
+  const handleFriendTouchStart = (friendId: string, e: React.TouchEvent<HTMLButtonElement>) => {
+    if (isEditMode) return;
+    const touch = e.touches[0];
+    swipeActiveFriendIdRef.current = friendId;
+    swipeStartXRef.current = touch.clientX;
+    swipeStartYRef.current = touch.clientY;
+    swipeStartOffsetRef.current = swipeOpenFriendId === friendId ? -FRIEND_SWIPE_DELETE_WIDTH : 0;
+    swipeCurrentOffsetRef.current = swipeStartOffsetRef.current;
+    swipeIsHorizontalRef.current = false;
+    setSwipeDragging({ friendId, offset: swipeStartOffsetRef.current });
+  };
+
+  const handleFriendTouchMove = (friendId: string, e: React.TouchEvent<HTMLButtonElement>) => {
+    if (isEditMode || swipeActiveFriendIdRef.current !== friendId) return;
+    const touch = e.touches[0];
+    const deltaX = touch.clientX - swipeStartXRef.current;
+    const deltaY = touch.clientY - swipeStartYRef.current;
+
+    if (!swipeIsHorizontalRef.current) {
+      if (Math.abs(deltaX) < 6) return;
+      if (Math.abs(deltaX) <= Math.abs(deltaY)) {
+        setSwipeDragging(null);
+        return;
+      }
+      swipeIsHorizontalRef.current = true;
+    }
+
+    e.preventDefault();
+    const nextOffset = Math.min(
+      0,
+      Math.max(-FRIEND_SWIPE_DELETE_WIDTH, swipeStartOffsetRef.current + deltaX)
+    );
+    swipeCurrentOffsetRef.current = nextOffset;
+    setSwipeDragging({ friendId, offset: nextOffset });
+  };
+
+  const handleFriendTouchEnd = (friendId: string) => {
+    if (isEditMode || swipeActiveFriendIdRef.current !== friendId) return;
+    const isOpen = swipeCurrentOffsetRef.current <= -FRIEND_SWIPE_DELETE_WIDTH * 0.45;
+    setSwipeOpenFriendId(isOpen ? friendId : null);
+    setSwipeDragging(null);
+    swipeActiveFriendIdRef.current = null;
+    swipeIsHorizontalRef.current = false;
   };
 
   const resetReportForm = () => {
@@ -440,7 +627,7 @@ export function MainPage({ initialChats }: MainPageProps) {
           );
         }
 
-        if (!chats || chats.length === 0) {
+        if (!chatsWithUnread || chatsWithUnread.length === 0) {
           return (
             <div className="flex items-center justify-center h-[calc(100vh-200px)]">
               <p className="text-gray-400 text-center">
@@ -452,14 +639,20 @@ export function MainPage({ initialChats }: MainPageProps) {
 
         return (
           <div className="bg-white">
-            {chats.map((chat) => (
+            {chatsWithUnread.map((chat) => (
               <ChatListItem
                 key={chat.id}
                 chat={chat}
                 onClick={() => {
-                  // 채팅 상세 페이지로 이동
-                  console.log("Chat clicked:", chat.id);
+                  markChatAsRead(chat.id, Number(chat.message_count || 0));
+                  router.push(`/chat/${chat.id}`);
                 }}
+                onLeave={(chatId) => {
+                  setLeaveChatId(chatId);
+                  setLeaveChatTitle(chat.title);
+                  setIsLeaveModalOpen(true);
+                }}
+                isLeaveModalOpen={isLeaveModalOpen && leaveChatId === chat.id}
               />
             ))}
           </div>
@@ -499,46 +692,81 @@ export function MainPage({ initialChats }: MainPageProps) {
             <div className="rounded-2xl bg-white/90">
             {isFriendsSectionOpen &&
               friends.map((friend) => (
-              <button
-                type="button"
-                key={friend.id}
-                onClick={() => {
-                  if (!isEditMode) return;
-                  toggleSelectFriend(friend.id);
-                }}
-                className={cn(
-                  "flex w-full items-center justify-between px-3 py-2.5 text-left",
-                  isEditMode ? "hover:bg-gray-50" : ""
-                )}
-              >
-                <div className="flex items-center gap-3">
-                  {friend.avatar_url ? (
-                    <img
-                      src={friend.avatar_url}
-                      alt={friend.name || friend.nickname || "friend"}
-                      className="h-9 w-9 rounded-full object-cover"
-                    />
-                  ) : (
-                    <div className="h-9 w-9 rounded-full bg-gray-200" />
-                  )}
-                  <span className="text-sm font-medium text-gray-900">
-                    {friend.name || friend.nickname || "이름 없음"}
-                  </span>
-                </div>
-
-                {isEditMode && (
-                  <span
-                    className={cn(
-                      "h-[18px] w-[18px] rounded-full border text-center text-[10px] leading-[16px]",
-                      selectedFriendIds.has(friend.id)
-                        ? "border-blue-600 bg-blue-600 text-white"
-                        : "border-gray-300 text-transparent"
-                    )}
+              <div key={friend.id} className="relative overflow-hidden">
+                {!isEditMode && (
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setSingleDeleteTarget(friend);
+                    }}
+                    className="absolute inset-y-0 right-0 flex w-[74px] items-center justify-center bg-red-500 text-xs font-semibold text-white"
                   >
-                    ✓
-                  </span>
+                    삭제
+                  </button>
                 )}
-              </button>
+
+                <button
+                  type="button"
+                  onTouchStart={(e) => handleFriendTouchStart(friend.id, e)}
+                  onTouchMove={(e) => handleFriendTouchMove(friend.id, e)}
+                  onTouchEnd={() => handleFriendTouchEnd(friend.id)}
+                  onTouchCancel={() => handleFriendTouchEnd(friend.id)}
+                  onClick={() => {
+                    if (isEditMode) {
+                      toggleSelectFriend(friend.id);
+                      return;
+                    }
+                    if (swipeOpenFriendId === friend.id) {
+                      setSwipeOpenFriendId(null);
+                    }
+                  }}
+                  className={cn(
+                    "relative z-10 flex w-full items-center justify-between bg-white px-3 py-2.5 text-left",
+                    isEditMode ? "hover:bg-gray-50" : ""
+                  )}
+                  style={{
+                    transform: `translateX(${
+                      swipeDragging?.friendId === friend.id
+                        ? swipeDragging.offset
+                        : swipeOpenFriendId === friend.id
+                          ? -FRIEND_SWIPE_DELETE_WIDTH
+                          : 0
+                    }px)`,
+                    transition:
+                      swipeDragging?.friendId === friend.id ? "none" : "transform 180ms ease-out",
+                    touchAction: isEditMode ? "auto" : "pan-y",
+                  }}
+                >
+                  <div className="flex items-center gap-3">
+                    {friend.avatar_url ? (
+                      <img
+                        src={friend.avatar_url}
+                        alt={friend.name || friend.nickname || "friend"}
+                        className="h-9 w-9 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="h-9 w-9 rounded-full bg-gray-200" />
+                    )}
+                    <span className="text-sm font-medium text-gray-900">
+                      {friend.name || friend.nickname || "이름 없음"}
+                    </span>
+                  </div>
+
+                  {isEditMode && (
+                    <span
+                      className={cn(
+                        "h-[18px] w-[18px] rounded-full border text-center text-[10px] leading-[16px]",
+                        selectedFriendIds.has(friend.id)
+                          ? "border-blue-600 bg-blue-600 text-white"
+                          : "border-gray-300 text-transparent"
+                      )}
+                    >
+                      ✓
+                    </span>
+                  )}
+                </button>
+              </div>
               ))}
             </div>
           </div>
@@ -575,7 +803,14 @@ export function MainPage({ initialChats }: MainPageProps) {
                       }}
                       className="w-full rounded-xl border border-gray-200 bg-white px-3 py-3 text-left"
                     >
-                      <span className={cn("inline-flex rounded px-2 py-0.5 text-[10px] text-white", item.display_status === "신고완료" ? "bg-gray-400" : "bg-blue-600")}>
+                      <span
+                        className={cn(
+                          "inline-flex rounded border px-2 py-0.5 text-[10px]",
+                          item.display_status === "신고완료"
+                            ? "border-blue-600 bg-blue-600 text-white"
+                            : "border-gray-300 bg-white text-gray-500"
+                        )}
+                      >
                         {item.display_status}
                       </span>
                       <p className="mt-2 text-sm font-semibold text-gray-900">
@@ -601,14 +836,16 @@ export function MainPage({ initialChats }: MainPageProps) {
             <div className="px-3 pt-3">
               <span
                 className={cn(
-                  "inline-flex rounded px-2 py-0.5 text-[10px] text-white",
-                  isDone ? "bg-blue-600" : "bg-gray-300 text-gray-600"
+                  "inline-flex rounded border px-2 py-0.5 text-[10px]",
+                  isDone
+                    ? "border-blue-600 bg-blue-600 text-white"
+                    : "border-gray-300 bg-white text-gray-500"
                 )}
               >
                 {selectedReport.display_status}
               </span>
 
-              <h3 className="mt-3 text-[32px] font-semibold leading-tight text-gray-900">
+              <h3 className="mt-3 text-[24px] font-semibold leading-snug text-gray-900">
                 {selectedReport.type}
               </h3>
               <p className="mt-3 text-sm font-semibold text-gray-800">{targetName}</p>
@@ -1185,27 +1422,39 @@ export function MainPage({ initialChats }: MainPageProps) {
       </main>
 
       {/* 하단 네비게이션 */}
-      {!shouldHideBottomNav && <BottomNavigation activeTab={activeTab} onTabChange={handleTabChange} />}
+      {!shouldHideBottomNav && (
+        <BottomNavigation activeTab={activeTab} onTabChange={handleTabChange} unreadChatCount={totalUnreadCount} />
+      )}
 
-      {isDeleteConfirmOpen && (
+      {newChatNotificationVisible && activeTab !== "chat" && (
+        <div className="pointer-events-none fixed left-1/2 top-1/2 z-50 w-[85%] max-w-sm -translate-x-1/2 -translate-y-1/2">
+          <div className="pointer-events-auto rounded-2xl bg-gray-800/90 px-5 py-4 text-center shadow-xl backdrop-blur-sm">
+            <p className="text-sm font-medium text-white">새로운 채팅이 있습니다.</p>
+          </div>
+        </div>
+      )}
+
+      {(isDeleteConfirmOpen || !!singleDeleteTarget) && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/35 px-6">
           <div className="w-full max-w-[335px] rounded-xl bg-white">
             <div className="border-b px-5 py-5 text-center">
               <h3 className="text-[22px] font-semibold text-gray-900">친구 삭제</h3>
               <p className="mt-2 text-[11px] leading-5 text-gray-500">
-                선택한 친구를 삭제합니다.
+                {singleDeleteTarget
+                  ? `${singleDeleteTarget.name || singleDeleteTarget.nickname || "선택한 친구"}를 삭제합니다.`
+                  : "선택한 친구를 삭제합니다."}
                 <br />
                 다시 친구추가를 하려면 채팅방에서 추가하실 수 있습니다.
               </p>
             </div>
             <div className="grid grid-cols-2">
-              <button type="button" onClick={() => setIsDeleteConfirmOpen(false)} className="h-11 border-r text-sm text-blue-600">
+              <button type="button" onClick={closeDeleteModal} className="h-11 border-r text-sm text-blue-600">
                 취소
               </button>
               <button
                 type="button"
                 disabled={isDeletingFriends}
-                onClick={handleDeleteFriends}
+                onClick={singleDeleteTarget ? handleDeleteSingleFriend : handleDeleteFriends}
                 className="h-11 text-sm text-red-500 disabled:text-gray-300"
               >
                 삭제
@@ -1242,6 +1491,59 @@ export function MainPage({ initialChats }: MainPageProps) {
                 className="h-11 text-sm font-semibold text-gray-900"
               >
                 로그아웃
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isLeaveModalOpen && leaveChatId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-6">
+          <div className="w-full max-w-[340px] rounded-2xl bg-white">
+            <div className="border-b px-5 py-5 text-center">
+              <h3 className="text-[22px] font-semibold text-gray-900">{leaveChatTitle}</h3>
+              <p className="mt-2 text-sm text-gray-600">채팅방을 나가시겠어요?</p>
+              <p className="mt-1 text-xs text-gray-500">대화내용이 모두 삭제되며 복원이 불가능 합니다.</p>
+            </div>
+            <div className="grid grid-cols-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsLeaveModalOpen(false);
+                  setLeaveChatId(null);
+                  setLeaveChatTitle("");
+                }}
+                className="h-11 border-r text-sm font-semibold text-blue-600"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!leaveChatId || !currentUserId || isLeavingChat) return;
+                  setIsLeavingChat(true);
+                  try {
+                    const res = await fetch(`/api/chats/${leaveChatId}/leave`, {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ userId: currentUserId }),
+                    });
+                    const data = (await res.json().catch(() => ({}))) as { error?: string };
+                    if (!res.ok) throw new Error(data.error || "채팅방 나가기에 실패했습니다.");
+                    queryClient.invalidateQueries({ queryKey: ["chats"] });
+                    setIsLeaveModalOpen(false);
+                    setLeaveChatId(null);
+                    setLeaveChatTitle("");
+                  } catch (error) {
+                    alert(error instanceof Error ? error.message : "채팅방 나가기 중 오류가 발생했습니다.");
+                  } finally {
+                    setIsLeavingChat(false);
+                  }
+                }}
+                disabled={isLeavingChat}
+                className="h-11 text-sm font-semibold text-red-500 disabled:text-gray-300"
+              >
+                나가기
               </button>
             </div>
           </div>

@@ -21,13 +21,15 @@ interface OtherUserMarker {
   circle?: naver.maps.Circle;
   userData: SupabaseUser;
   infoWindow?: any;
+  color: string;
 }
 
 const LOCATION_UPDATE_THROTTLE_MS = 10_000;
 const USER_RADIUS_METERS = 10;
-const PROXIMITY_METERS = 10;
+const OVERLAP_METERS = USER_RADIUS_METERS * 2;
 const MAX_SYNC_ACCURACY_METERS = 120;
 const MAX_UI_ACCURACY_METERS = 300;
+const OTHER_USER_COLORS = ["#10B981", "#EC4899", "#38BDF8", "#FACC15", "#FFFFFF"] as const;
 
 function toRadians(degrees: number) {
   return (degrees * Math.PI) / 180;
@@ -49,7 +51,23 @@ function getDistanceMeters(from: UserLocation, to: UserLocation) {
   return earthRadius * c;
 }
 
-function createMyMarkerContent() {
+function createMyMarkerContent(avatarUrl?: string | null) {
+  const safeAvatarUrl = (avatarUrl || "").trim();
+  if (safeAvatarUrl) {
+    return `
+      <div style="
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        background-image: url('${safeAvatarUrl}');
+        background-size: cover;
+        background-position: center;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        border: 3px solid white;
+      "></div>
+    `;
+  }
+
   return `
     <div style="
       width: 48px;
@@ -70,7 +88,7 @@ function createMyMarkerContent() {
   `;
 }
 
-function createOtherMarkerContent(userData: SupabaseUser) {
+function createOtherMarkerContent(userData: SupabaseUser, fallbackColor: string) {
   const avatarUrl = userData.avatar_url || "";
   const hasAvatar = avatarUrl.trim() !== "";
 
@@ -94,7 +112,7 @@ function createOtherMarkerContent(userData: SupabaseUser) {
       width: 48px;
       height: 48px;
       border-radius: 50%;
-      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      background: ${fallbackColor};
       display: flex;
       align-items: center;
       justify-content: center;
@@ -109,47 +127,6 @@ function createOtherMarkerContent(userData: SupabaseUser) {
   `;
 }
 
-function createProximityInfoContent(userData: SupabaseUser) {
-  const nickname = userData.nickname || "사용자";
-
-  return `
-    <div style="
-      min-width: 170px;
-      background: white;
-      border: 1px solid #e5e7eb;
-      border-radius: 12px;
-      padding: 10px;
-      box-shadow: 0 8px 20px rgba(0,0,0,0.15);
-    ">
-      <div style="font-size: 13px; font-weight: 700; margin-bottom: 8px; color: #111827;">${nickname}</div>
-      <div style="display: flex; gap: 6px;">
-        <button data-map-action="chat" data-user-id="${userData.id}" style="
-          flex: 1;
-          border: 0;
-          border-radius: 8px;
-          background: #3b82f6;
-          color: white;
-          height: 32px;
-          font-size: 12px;
-          font-weight: 600;
-          cursor: pointer;
-        ">채팅하기</button>
-        <button data-map-action="friend" data-user-id="${userData.id}" style="
-          flex: 1;
-          border: 1px solid #d1d5db;
-          border-radius: 8px;
-          background: white;
-          color: #111827;
-          height: 32px;
-          font-size: 12px;
-          font-weight: 600;
-          cursor: pointer;
-        ">친구추가</button>
-      </div>
-    </div>
-  `;
-}
-
 export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
   const router = useRouter();
   const mapRef = useRef<naver.maps.Map | null>(null);
@@ -158,6 +135,7 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
   const circleRef = useRef<naver.maps.Circle | null>(null);
   const pulseOverlayRef = useRef<naver.maps.OverlayView | null>(null);
   const otherUsersMarkersRef = useRef<Map<string, OtherUserMarker>>(new Map());
+  const otherUserOrderRef = useRef<string[]>([]);
   const thumbnailInputRef = useRef<HTMLInputElement | null>(null);
 
   const currentLocationRef = useRef<UserLocation | null>(null);
@@ -171,7 +149,13 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
   const [isMapReady, setIsMapReady] = useState(false);
   const [mapLoadError, setMapLoadError] = useState<string | null>(null);
   const [isCreateRoomOpen, setIsCreateRoomOpen] = useState(false);
+  const [isOverlapUsersOpen, setIsOverlapUsersOpen] = useState(false);
   const [roomTargetUser, setRoomTargetUser] = useState<SupabaseUser | null>(null);
+  const [myAvatarUrl, setMyAvatarUrl] = useState<string | null>(null);
+  const [overlapUsers, setOverlapUsers] = useState<SupabaseUser[]>([]);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [newChatBannerVisible, setNewChatBannerVisible] = useState(false);
+  const prevOverlapUserIdsRef = useRef<Set<string>>(new Set());
   const [roomName, setRoomName] = useState("");
   const [roomDescription, setRoomDescription] = useState("");
   const [memberLimit, setMemberLimit] = useState(2);
@@ -197,11 +181,92 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
     URL.revokeObjectURL(value);
   };
 
+  const getOtherUserColor = useCallback((targetUserId: string) => {
+    let index = otherUserOrderRef.current.indexOf(targetUserId);
+    if (index === -1) {
+      otherUserOrderRef.current.push(targetUserId);
+      index = otherUserOrderRef.current.length - 1;
+    }
+    return OTHER_USER_COLORS[index % OTHER_USER_COLORS.length];
+  }, []);
+
+  const syncOverlapUsers = useCallback(() => {
+    const my = currentLocationRef.current;
+    if (!my) {
+      setOverlapUsers([]);
+      prevOverlapUserIdsRef.current.clear();
+      return;
+    }
+
+    const overlapped = Array.from(otherUsersMarkersRef.current.values())
+      .map((entry) => entry.userData)
+      .filter((user) => user.latitude != null && user.longitude != null)
+      .filter((user) =>
+        getDistanceMeters(my, { latitude: user.latitude!, longitude: user.longitude! }) <= OVERLAP_METERS
+      );
+
+    const currentIds = new Set(overlapped.map((u) => u.id));
+    const prevIds = prevOverlapUserIdsRef.current;
+
+    // 새로운 유저가 추가되었는지 확인
+    if (prevIds.size > 0 && currentIds.size > prevIds.size) {
+      const newUserIds = Array.from(currentIds).filter((id) => !prevIds.has(id));
+      if (newUserIds.length > 0) {
+        setNewChatBannerVisible(true);
+        window.setTimeout(() => {
+          setNewChatBannerVisible(false);
+        }, 5000);
+      }
+    }
+
+    prevOverlapUserIdsRef.current = currentIds;
+    setOverlapUsers(overlapped);
+  }, []);
+
   useEffect(() => {
     if (typeof window !== "undefined" && (window as any).naver?.maps) {
       setIsScriptLoaded(true);
     }
   }, []);
+
+  useEffect(() => {
+    if (!userId) return;
+    let cancelled = false;
+
+    const loadMyProfile = async () => {
+      try {
+        const res = await fetch(`/api/users/profile?userId=${userId}`);
+        if (!res.ok) return;
+        const data = (await res.json().catch(() => ({}))) as {
+          user?: { avatar_url?: string | null };
+        };
+        if (!cancelled) {
+          setMyAvatarUrl(data.user?.avatar_url || null);
+        }
+      } catch {
+        if (!cancelled) setMyAvatarUrl(null);
+      }
+    };
+
+    loadMyProfile();
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
+
+  useEffect(() => {
+    if (!toastMessage) return;
+    const timer = window.setTimeout(() => setToastMessage(null), 1900);
+    return () => window.clearTimeout(timer);
+  }, [toastMessage]);
+
+  useEffect(() => {
+    if (!newChatBannerVisible) return;
+    const timer = window.setTimeout(() => {
+      setNewChatBannerVisible(false);
+    }, 5000);
+    return () => window.clearTimeout(timer);
+  }, [newChatBannerVisible]);
 
   const removeOtherUserMarker = useCallback((targetUserId: string) => {
     const existing = otherUsersMarkersRef.current.get(targetUserId);
@@ -211,40 +276,13 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
     existing.marker.setMap(null);
     existing.circle?.setMap(null);
     otherUsersMarkersRef.current.delete(targetUserId);
-  }, []);
-
-  const syncInfoWindowByDistance = useCallback((entry: OtherUserMarker, naverObj: any, map: naver.maps.Map) => {
-    const myLocation = currentLocationRef.current;
-    const lat = entry.userData.latitude;
-    const lng = entry.userData.longitude;
-
-    if (!myLocation || lat == null || lng == null) {
-      entry.infoWindow?.close();
-      entry.infoWindow = undefined;
-      return;
-    }
-
-    const distance = getDistanceMeters(myLocation, { latitude: lat, longitude: lng });
-
-    if (distance <= PROXIMITY_METERS) {
-      if (!entry.infoWindow) {
-        entry.infoWindow = new (naverObj.maps as any).InfoWindow({
-          content: createProximityInfoContent(entry.userData),
-          borderWidth: 0,
-          disableAnchor: true,
-          backgroundColor: "transparent",
-          pixelOffset: new naverObj.maps.Point(0, -62),
-        });
-      }
-      entry.infoWindow.open(map, entry.marker);
-      return;
-    }
-
-    entry.infoWindow?.close();
+    otherUserOrderRef.current = otherUserOrderRef.current.filter((id) => id !== targetUserId);
+    syncOverlapUsers();
   }, []);
 
   const createOrUpdateOtherUserMarker = useCallback((userData: SupabaseUser, naverObj: any, map: naver.maps.Map) => {
     if (userData.latitude == null || userData.longitude == null) return;
+    const color = getOtherUserColor(userData.id);
 
     const existing = otherUsersMarkersRef.current.get(userData.id);
     if (existing) {
@@ -257,7 +295,7 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
       map,
       position: new naverObj.maps.LatLng(userData.latitude, userData.longitude),
       icon: {
-        content: createOtherMarkerContent(userData),
+        content: createOtherMarkerContent(userData, color),
         size: new naverObj.maps.Size(48, 48),
         anchor: new naverObj.maps.Point(24, 24),
       },
@@ -270,22 +308,73 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
         map,
         center: new naverObj.maps.LatLng(userData.latitude, userData.longitude),
         radius: USER_RADIUS_METERS,
-        fillColor: "#10B981",
+        fillColor: color,
         fillOpacity: 0.13,
-        strokeColor: "#10B981",
+        strokeColor: color === "#FFFFFF" ? "#D1D5DB" : color,
         strokeOpacity: 0.45,
         strokeWeight: 1.5,
       }),
       userData,
+      color,
     };
 
     otherUsersMarkersRef.current.set(userData.id, nextEntry);
-    syncInfoWindowByDistance(nextEntry, naverObj, map);
-  }, [syncInfoWindowByDistance]);
+    syncOverlapUsers();
+  }, [getOtherUserColor, syncOverlapUsers]);
 
   useEffect(() => {
     currentLocationRef.current = userLocation;
   }, [userLocation]);
+
+  // Hide map controls when create room modal is open
+  useEffect(() => {
+    if (!mapRef.current || typeof window === "undefined") return;
+    const naverObj = (window as any).naver;
+    if (!naverObj?.maps) return;
+
+    const map = mapRef.current as any;
+    if (isCreateRoomOpen) {
+      // Hide zoom control
+      const zoomControls = mapDivRef.current?.querySelectorAll(".nmap_zoom_control");
+      zoomControls?.forEach((el: any) => {
+        (el as HTMLElement).style.display = "none";
+      });
+      // Hide scale control
+      const scaleControls = mapDivRef.current?.querySelectorAll(".nmap_scale_control");
+      scaleControls?.forEach((el: any) => {
+        (el as HTMLElement).style.display = "none";
+      });
+      // Hide marker and circle
+      if (markerRef.current) {
+        (markerRef.current as any).setMap(null);
+      }
+      if (circleRef.current) {
+        (circleRef.current as any).setMap(null);
+      }
+      // Disable map scrolling
+      map.setOptions({ draggable: false, scrollWheelZoom: false });
+    } else {
+      // Show zoom control
+      const zoomControls = mapDivRef.current?.querySelectorAll(".nmap_zoom_control");
+      zoomControls?.forEach((el: any) => {
+        (el as HTMLElement).style.display = "";
+      });
+      // Show scale control
+      const scaleControls = mapDivRef.current?.querySelectorAll(".nmap_scale_control");
+      scaleControls?.forEach((el: any) => {
+        (el as HTMLElement).style.display = "";
+      });
+      // Show marker and circle
+      if (markerRef.current && userLocation) {
+        (markerRef.current as any).setMap(map);
+      }
+      if (circleRef.current && userLocation) {
+        (circleRef.current as any).setMap(map);
+      }
+      // Enable map scrolling
+      map.setOptions({ draggable: true, scrollWheelZoom: true });
+    }
+  }, [isCreateRoomOpen, userLocation]);
 
   useEffect(() => {
     return () => {
@@ -303,7 +392,8 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
     setMemberLimit(2);
     setThumbnailFile(null);
     safeRevokeObjectUrl(thumbnailPreviewUrl);
-    setThumbnailPreviewUrl(target.avatar_url || null);
+    setThumbnailPreviewUrl(null);
+    setIsOverlapUsersOpen(false);
     setIsCreateRoomOpen(true);
   }, [thumbnailPreviewUrl]);
 
@@ -317,62 +407,6 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
     safeRevokeObjectUrl(thumbnailPreviewUrl);
     setThumbnailPreviewUrl(null);
   }, [thumbnailPreviewUrl]);
-
-  useEffect(() => {
-    const onClick = async (event: MouseEvent) => {
-      const target = event.target as HTMLElement | null;
-      const button = target?.closest("button[data-map-action]") as HTMLButtonElement | null;
-      if (!button) return;
-
-      const action = button.dataset.mapAction;
-      const targetUserId = button.dataset.userId;
-      if (!action || !targetUserId) return;
-      if (!userId) {
-        alert("로그인 정보가 없습니다.");
-        return;
-      }
-
-      const prevDisabled = button.disabled;
-      const prevOpacity = button.style.opacity;
-      button.disabled = true;
-      button.style.opacity = "0.6";
-
-      try {
-        if (action === "chat") {
-          openCreateRoomModal(targetUserId);
-        } else if (action === "friend") {
-          const res = await fetch("/api/friends", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              requesterId: userId,
-              addresseeId: targetUserId,
-            }),
-          });
-
-          const data = (await res.json().catch(() => ({}))) as {
-            error?: string;
-            message?: string;
-          };
-
-          if (!res.ok) {
-            throw new Error(data.error || "친구 요청 처리에 실패했습니다.");
-          }
-
-          alert(data.message || "친구 요청이 처리되었습니다.");
-        }
-      } catch (error) {
-        const message = error instanceof Error ? error.message : "요청 처리 중 오류가 발생했습니다.";
-        alert(message);
-      } finally {
-        button.disabled = prevDisabled;
-        button.style.opacity = prevOpacity;
-      }
-    };
-
-    document.addEventListener("click", onClick);
-    return () => document.removeEventListener("click", onClick);
-  }, [router, userId, openCreateRoomModal]);
 
   // watchPosition for live location tracking
   useEffect(() => {
@@ -492,6 +526,8 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
       zoom: 17,
       zoomControl: true,
       zoomControlOptions: { position: naverObj.maps.Position.TOP_RIGHT },
+      scaleControl: true,
+      scaleControlOptions: { position: naverObj.maps.Position.BOTTOM_LEFT },
     });
     mapRef.current = map;
 
@@ -499,7 +535,7 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
       map,
       position: new naverObj.maps.LatLng(userLocation.latitude, userLocation.longitude),
       icon: {
-        content: createMyMarkerContent(),
+        content: createMyMarkerContent(myAvatarUrl),
         size: new naverObj.maps.Size(48, 48),
         anchor: new naverObj.maps.Point(24, 24),
       },
@@ -596,6 +632,17 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
     };
   }, [isScriptLoaded, userLocation, onMapLoad]);
 
+  useEffect(() => {
+    if (!markerRef.current || typeof window === "undefined") return;
+    const naverObj = (window as any).naver;
+    if (!naverObj?.maps?.Size || !naverObj?.maps?.Point) return;
+    (markerRef.current as any).setIcon({
+      content: createMyMarkerContent(myAvatarUrl),
+      size: new naverObj.maps.Size(48, 48),
+      anchor: new naverObj.maps.Point(24, 24),
+    });
+  }, [myAvatarUrl]);
+
   // keep map centered at current user location
   useEffect(() => {
     if (!mapRef.current || !userLocation || typeof window === "undefined") return;
@@ -615,9 +662,9 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
       if (entry.userData.latitude != null && entry.userData.longitude != null) {
         entry.circle?.setCenter(new naverObj.maps.LatLng(entry.userData.latitude, entry.userData.longitude));
       }
-      syncInfoWindowByDistance(entry, naverObj, mapRef.current!);
     });
-  }, [userLocation, syncInfoWindowByDistance]);
+    syncOverlapUsers();
+  }, [userLocation, syncOverlapUsers]);
 
   // realtime users subscription
   useEffect(() => {
@@ -692,6 +739,64 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
     process.env.NEXT_PUBLIC_NAVER_CLIENT_ID ||
     process.env.NEXT_PUBLIC_NAVER_MAP_CLIENT_ID;
 
+  const handleMoveToMyLocation = () => {
+    if (!mapRef.current || !userLocation || typeof window === "undefined") return;
+    const naverObj = (window as any).naver;
+    if (!naverObj?.maps?.LatLng) return;
+    const center = new naverObj.maps.LatLng(userLocation.latitude, userLocation.longitude);
+    mapRef.current.panTo(center);
+    setToastMessage("현재 위치로 이동했습니다.");
+  };
+
+  const handleOpenOverlapUsers = () => {
+    syncOverlapUsers();
+    setIsOverlapUsersOpen(true);
+  };
+
+  const handleAddFriend = async (targetUserId: string) => {
+    if (!userId) return;
+    try {
+      // Find user info from overlap users or other users markers
+      const targetUser = overlapUsers.find((u) => u.id === targetUserId) || 
+                        otherUsersMarkersRef.current.get(targetUserId)?.userData;
+      
+      if (!targetUser) {
+        alert("사용자 정보를 찾을 수 없습니다.");
+        return;
+      }
+      const userName = targetUser?.nickname || "사용자";
+
+      const res = await fetch("/api/friends", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ requesterId: userId, addresseeId: targetUserId }),
+      });
+      const data = (await res.json().catch(() => ({}))) as { error?: string; message?: string };
+      if (!res.ok) throw new Error(data.error || "친구 요청 처리에 실패했습니다.");
+      setToastMessage(`${userName}님이 친구목록에 추가되었습니다.`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "친구 요청 처리 중 오류가 발생했습니다.";
+      alert(message);
+    }
+  };
+
+  const handleOpenRoomForUser = async (target: SupabaseUser) => {
+    if (!userId) return;
+    try {
+      const res = await fetch(`/api/chats?userId=${userId}`);
+      if (!res.ok) throw new Error("채팅 목록을 확인하지 못했습니다.");
+      const chatList = (await res.json()) as Array<{ other_user_id?: string; chat_type?: string }>;
+      const hasSharedChat = chatList.some((chat) => chat.other_user_id === target.id);
+      if (hasSharedChat) {
+        setToastMessage("함께하는 채팅방이 존재합니다.");
+        return;
+      }
+      openCreateRoomModal(target.id);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "채팅방 확인 중 오류가 발생했습니다.");
+    }
+  };
+
   const handlePickThumbnail = () => {
     thumbnailInputRef.current?.click();
   };
@@ -755,10 +860,15 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
 
       const data = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) {
+        if (res.status === 409) {
+          setToastMessage(data.error || "함께하는 채팅방이 존재합니다.");
+          closeCreateRoomModal();
+          return;
+        }
         throw new Error(data.error || "채팅방 생성에 실패했습니다.");
       }
 
-      alert("채팅방이 생성되었습니다.");
+      setToastMessage("채팅방이 생성되었습니다.");
       closeCreateRoomModal();
       router.push("/home");
     } catch (error) {
@@ -794,7 +904,7 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
         }}
       />
 
-      <div ref={mapDivRef} className={`relative h-full w-full ${className}`}>
+      <div ref={mapDivRef} className={`relative h-full w-full ${className} ${isCreateRoomOpen ? "hidden" : ""}`}>
         {mapLoadError && (
           <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/90 px-6">
             <p className="text-center text-sm text-red-500">{mapLoadError}</p>
@@ -808,10 +918,126 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
             </div>
           </div>
         )}
+        {isCreateRoomOpen && (
+          <style jsx global>{`
+            .nmap_zoom_control,
+            .nmap_scale_control {
+              display: none !important;
+            }
+            [id^="naver-map"] {
+              overflow: hidden !important;
+            }
+          `}</style>
+        )}
       </div>
 
+      <div className="pointer-events-none fixed inset-x-0 bottom-24 z-30 mx-auto w-full max-w-md px-4">
+        <div className="pointer-events-auto flex items-center justify-between">
+          <button
+            type="button"
+            onClick={handleMoveToMyLocation}
+            className="flex h-12 w-12 items-center justify-center rounded-full bg-white/95 text-gray-800 shadow-lg"
+            aria-label="내 위치로 이동"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10" />
+              <circle cx="12" cy="12" r="3" />
+              <line x1="12" y1="2" x2="12" y2="6" />
+              <line x1="12" y1="18" x2="12" y2="22" />
+              <line x1="2" y1="12" x2="6" y2="12" />
+              <line x1="18" y1="12" x2="22" y2="12" />
+            </svg>
+          </button>
+
+          {overlapUsers.length > 0 && (
+            <button
+              type="button"
+              onClick={handleOpenOverlapUsers}
+              className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-500/95 text-white shadow-lg"
+              aria-label="겹친 사용자 보기"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                <circle cx="8" cy="8" r="1.5" fill="currentColor" />
+                <circle cx="12" cy="8" r="1.5" fill="currentColor" />
+                <circle cx="16" cy="8" r="1.5" fill="currentColor" />
+              </svg>
+            </button>
+          )}
+        </div>
+      </div>
+
+      {isOverlapUsersOpen && (
+        <div className="fixed inset-0 z-40 bg-black/45">
+          <div className="absolute inset-x-0 bottom-0 mx-auto w-full max-w-md rounded-t-3xl bg-white px-5 pb-7 pt-4">
+            <div className="mb-3 flex items-center justify-between">
+              <p className="text-sm font-semibold text-gray-900">
+                나 포함 {overlapUsers.length + 1}명 원이 겹쳐져 있어요
+              </p>
+              <button
+                type="button"
+                onClick={() => setIsOverlapUsersOpen(false)}
+                className="rounded-full px-2 py-1 text-sm text-gray-500"
+              >
+                닫기
+              </button>
+            </div>
+            <div className="max-h-72 space-y-2 overflow-y-auto">
+              {overlapUsers.length === 0 ? (
+                <div className="rounded-xl bg-gray-50 px-4 py-7 text-center text-sm text-gray-500">
+                  현재 원이 겹친 사용자가 없습니다.
+                </div>
+              ) : (
+                overlapUsers.map((user) => (
+                  <div key={user.id} className="flex items-center justify-between rounded-xl border border-gray-100 px-3 py-2">
+                    <div className="flex items-center gap-3">
+                      {user.avatar_url ? (
+                        <img src={user.avatar_url} alt={user.nickname || "user"} className="h-10 w-10 rounded-full object-cover" />
+                      ) : (
+                        <div className="h-10 w-10 rounded-full bg-gray-200" />
+                      )}
+                      <span className="text-sm font-semibold text-gray-900">{user.nickname || "사용자"}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleAddFriend(user.id)}
+                        className="h-8 rounded-lg border border-gray-300 px-3 text-xs font-semibold text-gray-700"
+                      >
+                        친구추가
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenRoomForUser(user)}
+                        className="h-8 rounded-lg bg-blue-600 px-3 text-xs font-semibold text-white"
+                      >
+                        채팅방 만들기
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {toastMessage && (
+        <div className="pointer-events-none fixed left-1/2 top-20 z-50 w-[85%] max-w-sm -translate-x-1/2 rounded-full bg-black/65 px-4 py-2.5 text-center text-sm text-white">
+          {toastMessage}
+        </div>
+      )}
+
+      {newChatBannerVisible && (
+        <div className="pointer-events-none fixed left-1/2 top-1/2 z-50 w-[85%] max-w-sm -translate-x-1/2 -translate-y-1/2">
+          <div className="pointer-events-auto rounded-2xl bg-gray-800/90 px-5 py-4 text-center shadow-xl backdrop-blur-sm">
+            <p className="text-sm font-medium text-white">새로운 대화를 시작해볼 수 있어요</p>
+          </div>
+        </div>
+      )}
+
       {isCreateRoomOpen && roomTargetUser && (
-        <div className="fixed inset-0 z-40 bg-white">
+        <div className="fixed inset-0 z-50 bg-white">
           <div className="mx-auto flex h-full w-full max-w-md flex-col px-6 pt-6 pb-4">
             <div className="mb-4 flex items-center justify-between">
               <button
@@ -839,9 +1065,9 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
                 onClick={handlePickThumbnail}
                 className="relative h-28 w-28 overflow-hidden rounded-xl bg-gray-200"
               >
-                {thumbnailPreviewUrl ? (
+                {thumbnailPreviewUrl && (
                   <img src={thumbnailPreviewUrl} alt="썸네일" className="h-full w-full object-cover" />
-                ) : null}
+                )}
                 <span className="absolute bottom-2 right-2 rounded-full bg-white/90 px-2 py-1 text-xs">🖼️</span>
               </button>
               <input
@@ -861,7 +1087,7 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
                 <input
                   value={roomName}
                   onChange={(e) => setRoomName(e.target.value)}
-                  placeholder="채팅방 이름을 입력해주세요 (필수)"
+                  placeholder="채팅방 이름을 입력해주세요. (필수)"
                   className="h-8 flex-1 bg-transparent text-sm outline-none"
                   maxLength={30}
                 />
@@ -887,7 +1113,28 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
               <span className="text-sm font-semibold text-gray-900">{String(memberLimit).padStart(2, "0")}</span>
             </div>
 
-            <div className="h-36 overflow-y-auto rounded-xl border border-gray-200">
+            <div
+              className="h-36 overflow-y-auto rounded-xl border border-gray-200 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+              onScroll={(e) => {
+                const target = e.currentTarget;
+                const scrollTop = target.scrollTop;
+                const scrollHeight = target.scrollHeight;
+                const clientHeight = target.clientHeight;
+
+                // At the top, scroll to bottom (100)
+                if (scrollTop === 0) {
+                  setTimeout(() => {
+                    target.scrollTop = scrollHeight - clientHeight;
+                  }, 50);
+                }
+                // At the bottom, scroll to top (2)
+                else if (Math.abs(scrollTop + clientHeight - scrollHeight) < 1) {
+                  setTimeout(() => {
+                    target.scrollTop = 0;
+                  }, 50);
+                }
+              }}
+            >
               {Array.from({ length: 99 }, (_, idx) => idx + 2).map((num) => (
                 <button
                   key={num}

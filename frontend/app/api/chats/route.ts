@@ -20,7 +20,24 @@ export async function GET(request: Request) {
           c.pinned,
           c.created_at,
           c.updated_at,
-          COUNT(m.id)::int as message_count
+          COUNT(m.id)::int as message_count,
+          (
+            SELECT m2.content
+            FROM messages m2
+            WHERE m2.chat_id = c.id
+              AND (m2.is_deleted = false OR m2.is_deleted IS NULL)
+            ORDER BY m2.created_at DESC
+            LIMIT 1
+          ) as last_message,
+          (
+            SELECT m2.created_at::text
+            FROM messages m2
+            WHERE m2.chat_id = c.id
+              AND (m2.is_deleted = false OR m2.is_deleted IS NULL)
+            ORDER BY m2.created_at DESC
+            LIMIT 1
+          ) as last_message_at,
+          0 as unread_count
         FROM chats c
         LEFT JOIN messages m ON m.chat_id = c.id
         WHERE c.workspace_id = ${workspaceId}
@@ -28,24 +45,74 @@ export async function GET(request: Request) {
         ORDER BY c.pinned DESC, c.updated_at DESC
       `;
     } else if (userId) {
-      // 1:1 채팅
+      // 사용자가 참여한 채팅방 (chat_members 포함)
+      // 나간 채팅방은 제외: chat_members에 사용자가 있거나, 1:1 채팅인 경우 user_id1/user_id2에 사용자가 있어야 함
       result = await sql`
-        SELECT 
+        SELECT DISTINCT
           c.id,
           c.title,
           c.pinned,
           c.created_at,
           c.updated_at,
           COUNT(m.id)::int as message_count,
+          (
+            SELECT m2.content
+            FROM messages m2
+            WHERE m2.chat_id = c.id
+              AND (m2.is_deleted = false OR m2.is_deleted IS NULL)
+            ORDER BY m2.created_at DESC
+            LIMIT 1
+          ) as last_message,
+          (
+            SELECT m2.created_at::text
+            FROM messages m2
+            WHERE m2.chat_id = c.id
+              AND (m2.is_deleted = false OR m2.is_deleted IS NULL)
+            ORDER BY m2.created_at DESC
+            LIMIT 1
+          ) as last_message_at,
+          0 as unread_count,
           CASE 
             WHEN c.user_id1 = ${userId} THEN c.user_id2
             ELSE c.user_id1
-          END as other_user_id
+          END as other_user_id,
+          (
+            SELECT COUNT(*)::int
+            FROM chat_members cm
+            WHERE cm.chat_id = c.id
+          ) as participant_count,
+          c.thumbnail_url,
+          c.chat_type
         FROM chats c
         LEFT JOIN messages m ON m.chat_id = c.id
-        WHERE (c.user_id1 = ${userId} OR c.user_id2 = ${userId})
-          AND c.workspace_id IS NULL
-        GROUP BY c.id, c.title, c.pinned, c.created_at, c.updated_at, c.user_id1, c.user_id2
+        WHERE c.workspace_id IS NULL
+          AND (
+            -- chat_members에 사용자가 있는 경우 (그룹 채팅 또는 멤버가 있는 1:1 채팅)
+            EXISTS (
+              SELECT 1
+              FROM chat_members cm
+              WHERE cm.chat_id = c.id
+                AND cm.user_id = ${userId}
+            )
+            OR
+            -- 1:1 채팅이고 chat_members에 아무도 없고 user_id1 또는 user_id2에 사용자가 있는 경우 (기존 1:1 채팅)
+            (
+              (c.user_id1 = ${userId} OR c.user_id2 = ${userId})
+              AND NOT EXISTS (
+                SELECT 1
+                FROM chat_members cm2
+                WHERE cm2.chat_id = c.id
+              )
+              -- 사용자가 나간 1:1 채팅은 제외: chat_members에 다른 사람이 있으면 제외
+              AND NOT EXISTS (
+                SELECT 1
+                FROM chat_members cm3
+                WHERE cm3.chat_id = c.id
+                  AND cm3.user_id != ${userId}
+              )
+            )
+          )
+        GROUP BY c.id, c.title, c.pinned, c.created_at, c.updated_at, c.user_id1, c.user_id2, c.thumbnail_url, c.chat_type
         ORDER BY c.pinned DESC, c.updated_at DESC
       `;
     } else {
@@ -56,7 +123,24 @@ export async function GET(request: Request) {
           c.pinned,
           c.created_at,
           c.updated_at,
-          COUNT(m.id)::int as message_count
+          COUNT(m.id)::int as message_count,
+          (
+            SELECT m2.content
+            FROM messages m2
+            WHERE m2.chat_id = c.id
+              AND (m2.is_deleted = false OR m2.is_deleted IS NULL)
+            ORDER BY m2.created_at DESC
+            LIMIT 1
+          ) as last_message,
+          (
+            SELECT m2.created_at::text
+            FROM messages m2
+            WHERE m2.chat_id = c.id
+              AND (m2.is_deleted = false OR m2.is_deleted IS NULL)
+            ORDER BY m2.created_at DESC
+            LIMIT 1
+          ) as last_message_at,
+          0 as unread_count
         FROM chats c
         LEFT JOIN messages m ON m.chat_id = c.id
         GROUP BY c.id, c.title, c.pinned, c.created_at, c.updated_at

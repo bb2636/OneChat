@@ -68,7 +68,7 @@ export default function MapPage() {
   return (
     <div className="relative h-screen w-full max-w-md mx-auto overflow-hidden bg-white">
       <NaverMap className="h-full w-full" userId={userId} />
-      <BottomNavigation activeTab={activeTab} onTabChange={handleTabChange} />
+      <BottomNavigation activeTab={activeTab} onTabChange={handleTabChange} unreadChatCount={0} />
     </div>
   );
 }

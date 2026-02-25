@@ -22,20 +22,9 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
-    
-    // 디버깅 로그
-    console.log('\n========================================');
-    console.log('🔍 인증번호 확인 요청');
-    console.log('========================================');
-    console.log(`원본 전화번호: ${phoneNumber}`);
-    console.log(`정규화된 전화번호: ${normalizedPhone}`);
-    console.log(`입력된 인증번호: ${normalizedCode}`);
-    console.log('========================================\n');
 
     // 인증번호 확인
     const isValid = verifyCode(normalizedPhone, normalizedCode);
-
-    console.log(`인증 결과: ${isValid ? '성공' : '실패'}`);
 
     if (!isValid) {
       return NextResponse.json(

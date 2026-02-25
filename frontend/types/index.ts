@@ -18,6 +18,8 @@ export interface Chat {
   unread_count?: number; // 읽지 않은 메시지 수
   participant_count?: number; // 참여자 수 (그룹 채팅)
   avatar_url?: string | null; // 채팅 아바타
+  thumbnail_url?: string | null; // 채팅방 썸네일
+  chat_type?: string | null; // 채팅 유형 (location_room 등)
 }
 
 export interface Friend {

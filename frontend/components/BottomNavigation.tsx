@@ -9,11 +9,13 @@ export type { TabType };
 interface BottomNavigationProps {
   activeTab: TabType;
   onTabChange: (tab: TabType) => void;
+  unreadChatCount?: number;
 }
 
 export function BottomNavigation({
   activeTab,
   onTabChange,
+  unreadChatCount = 0,
 }: BottomNavigationProps) {
   const tabs: Array<{ id: TabType; label: string; icon: React.ReactNode }> = [
     { id: "map", label: "지도", icon: <Map className="w-5 h-5" /> },
@@ -32,11 +34,18 @@ export function BottomNavigation({
               key={tab.id}
               onClick={() => onTabChange(tab.id)}
               className={cn(
-                "flex h-full flex-1 flex-col items-center justify-center rounded-full text-[11px] transition-colors",
+                "relative flex h-full flex-1 flex-col items-center justify-center rounded-full text-[11px] transition-colors",
                 isActive ? "text-blue-600" : "text-gray-500 hover:text-gray-700"
               )}
             >
-              {tab.icon}
+              <div className="relative">
+                {tab.icon}
+                {tab.id === "chat" && unreadChatCount > 0 && (
+                  <span className="absolute -right-1 -top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-blue-500 px-1 text-[9px] font-semibold text-white">
+                    {unreadChatCount > 999 ? "999+" : unreadChatCount}
+                  </span>
+                )}
+              </div>
               <span className={cn("mt-0.5 text-[10px]", isActive ? "font-semibold" : "font-normal")}>
                 {tab.label}
               </span>
