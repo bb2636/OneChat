@@ -17,7 +17,10 @@ const port = process.env.PORT || 4000;
 
 app.use(
   cors({
-    origin: true,
+    origin: [
+      process.env.FRONTEND_ORIGIN || "http://localhost:5000",
+      ...(process.env.REPLIT_DEV_DOMAIN ? [`https://${process.env.REPLIT_DEV_DOMAIN}`] : []),
+    ].filter(Boolean),
     credentials: true,
   })
 );

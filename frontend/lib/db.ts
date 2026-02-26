@@ -5,7 +5,7 @@ const DATABASE_URL = process.env.DATABASE_URL;
 
 if (!DATABASE_URL) {
   throw new Error(
-    "DATABASE_URL is not set. Please set frontend/.env.local with your Supabase PostgreSQL connection string."
+    "DATABASE_URL is not set. Please configure the PostgreSQL database connection."
   );
 }
 
