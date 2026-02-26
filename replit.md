@@ -4,8 +4,8 @@
 
 ## Tech Stack
 - **Frontend**: Next.js 14 (App Router), Tailwind CSS, TanStack Query, Supabase Realtime
-- **Backend**: Express.js (TypeScript), Prisma ORM
-- **Database**: Replit PostgreSQL (Prisma schema at `backend/prisma/schema.prisma`)
+- **Backend**: Express.js (TypeScript)
+- **Database**: Replit PostgreSQL (직접 연결, `postgres` 라이브러리 사용)
 - **Auth**: Custom (bcryptjs) + Supabase Auth (Google OAuth)
 - **Maps**: Naver Maps API
 
@@ -17,7 +17,7 @@ frontend/          - Next.js app (port 5000)
   lib/             - DB client (postgres), Supabase client, utilities
 backend/           - Express server (port 4000, not actively used)
   src/             - Server entry + routes
-  prisma/          - Schema and seed
+  prisma/          - DB init SQL, seed script
 ```
 
 ## Environment Variables
@@ -41,4 +41,5 @@ backend/           - Express server (port 4000, not actively used)
 - Database uses Replit's built-in PostgreSQL, not Supabase PostgreSQL
 - Supabase is used only for Realtime (location sharing) and Auth (Google login)
 - Accounts: `admin` / `admin1234` (관리자), `test` / `test1234` (테스트)
-- Prisma schema has `directUrl` removed (single DATABASE_URL from Replit)
+- Prisma 제거됨 - `postgres` 라이브러리로 직접 DB 연결 (`frontend/lib/db.ts`, `backend/src/db/client.ts`)
+- DB 스키마 초기화: `psql $DATABASE_URL -f backend/prisma/init.sql`
