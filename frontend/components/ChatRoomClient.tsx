@@ -104,13 +104,20 @@ export function ChatRoomClient({ chatId, chatTitle, initialMessages, chatCreated
       if (!currentUserId) return [];
       const res = await fetch(`/api/chats/${chatId}/members?userId=${currentUserId}`);
       if (!res.ok) {
-        if (res.status === 404) {
+        if (res.status === 404 || res.status === 403) {
+          // 채팅방을 찾을 수 없거나 접근 권한이 없으면 홈으로 리다이렉트
           router.push("/home");
           return [];
         }
         throw new Error("참여자 정보를 불러오지 못했습니다.");
       }
-      return res.json() as Promise<ChatMember[]>;
+      const memberList = await res.json() as ChatMember[];
+      
+      // 1:1 채팅의 경우 chat_members가 비어있을 수 있으므로
+      // 멤버 목록이 비어있어도 접근 권한 체크는 API에서 이미 수행됨
+      // 따라서 여기서는 추가 체크하지 않음
+      
+      return memberList;
     },
     enabled: !!currentUserId,
     staleTime: 30 * 1000, // 30초간 fresh
@@ -752,19 +759,19 @@ export function ChatRoomClient({ chatId, chatTitle, initialMessages, chatCreated
       </footer>
 
       {isInfoOpen && (
-        <div className="fixed inset-0 z-40 bg-black/30">
-          <div className="absolute right-0 top-0 h-full w-full max-w-[280px] bg-[#f7f7f8] shadow-2xl">
+        <div
+          className="fixed inset-0 z-40 bg-black/30"
+          // 회색 배경(overlay) 클릭 시 멤버 목록 닫기
+          onClick={() => setIsInfoOpen(false)}
+        >
+          <div
+            className="absolute right-0 top-0 h-full w-full max-w-[280px] bg-[#f7f7f8] shadow-2xl"
+            // 패널 내부 클릭은 닫기 동작이 발생하지 않도록 이벤트 전파 중단
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex h-full flex-col">
-              <div className="mb-3 flex items-center justify-between p-4">
-                <button
-                  type="button"
-                  onClick={() => setIsInfoOpen(false)}
-                  className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-gray-700 shadow-sm"
-                >
-                  <ChevronLeft className="h-5 w-5" />
-                </button>
-                <div className="flex-1" />
-              </div>
+              {/* 상단 여백만 유지하고 뒤로가기 버튼 제거 */}
+              <div className="mb-3 p-4" />
 
               <div className="mb-2 flex justify-center">
                 <div className="relative h-16 w-20">

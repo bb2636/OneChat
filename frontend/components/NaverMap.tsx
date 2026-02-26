@@ -156,6 +156,8 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [newChatBannerVisible, setNewChatBannerVisible] = useState(false);
   const prevOverlapUserIdsRef = useRef<Set<string>>(new Set());
+  const [friends, setFriends] = useState<Set<string>>(new Set());
+  const [existingChatsAlert, setExistingChatsAlert] = useState<Array<{ id: string; title: string; other_user_id?: string }>>([]);
   const [roomName, setRoomName] = useState("");
   const [roomDescription, setRoomDescription] = useState("");
   const [memberLimit, setMemberLimit] = useState(2);
@@ -748,9 +750,22 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
     setToastMessage("현재 위치로 이동했습니다.");
   };
 
-  const handleOpenOverlapUsers = () => {
+  const handleOpenOverlapUsers = async () => {
     syncOverlapUsers();
     setIsOverlapUsersOpen(true);
+    
+    // 친구 목록 로드
+    if (userId) {
+      try {
+        const res = await fetch(`/api/friends?userId=${userId}`);
+        if (res.ok) {
+          const friendList = (await res.json()) as Array<{ id: string }>;
+          setFriends(new Set(friendList.map(f => f.id)));
+        }
+      } catch (error) {
+        console.error("Failed to load friends:", error);
+      }
+    }
   };
 
   const handleAddFriend = async (targetUserId: string) => {
@@ -774,6 +789,8 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
       const data = (await res.json().catch(() => ({}))) as { error?: string; message?: string };
       if (!res.ok) throw new Error(data.error || "친구 요청 처리에 실패했습니다.");
       setToastMessage(`${userName}님이 친구목록에 추가되었습니다.`);
+      // 친구 목록 갱신
+      setFriends(prev => new Set([...prev, targetUserId]));
     } catch (error) {
       const message = error instanceof Error ? error.message : "친구 요청 처리 중 오류가 발생했습니다.";
       alert(message);
@@ -785,10 +802,11 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
     try {
       const res = await fetch(`/api/chats?userId=${userId}`);
       if (!res.ok) throw new Error("채팅 목록을 확인하지 못했습니다.");
-      const chatList = (await res.json()) as Array<{ other_user_id?: string; chat_type?: string }>;
-      const hasSharedChat = chatList.some((chat) => chat.other_user_id === target.id);
-      if (hasSharedChat) {
-        setToastMessage("함께하는 채팅방이 존재합니다.");
+      const chatList = (await res.json()) as Array<{ id: string; title: string; other_user_id?: string; chat_type?: string }>;
+      const sharedChats = chatList.filter((chat) => chat.other_user_id === target.id);
+      if (sharedChats.length > 0) {
+        // 기존 채팅방이 있으면 알림창 표시
+        setExistingChatsAlert(sharedChats);
         return;
       }
       openCreateRoomModal(target.id);
@@ -982,40 +1000,47 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
                 닫기
               </button>
             </div>
-            <div className="max-h-72 space-y-2 overflow-y-auto">
+            <div className="max-h-[60vh] space-y-2 overflow-y-auto">
               {overlapUsers.length === 0 ? (
                 <div className="rounded-xl bg-gray-50 px-4 py-7 text-center text-sm text-gray-500">
                   현재 원이 겹친 사용자가 없습니다.
                 </div>
               ) : (
-                overlapUsers.map((user) => (
-                  <div key={user.id} className="flex items-center justify-between rounded-xl border border-gray-100 px-3 py-2">
-                    <div className="flex items-center gap-3">
-                      {user.avatar_url ? (
-                        <img src={user.avatar_url} alt={user.nickname || "user"} className="h-10 w-10 rounded-full object-cover" />
-                      ) : (
-                        <div className="h-10 w-10 rounded-full bg-gray-200" />
-                      )}
-                      <span className="text-sm font-semibold text-gray-900">{user.nickname || "사용자"}</span>
+                overlapUsers.map((user) => {
+                  const isFriend = friends.has(user.id);
+                  return (
+                    <div key={user.id} className="flex items-center justify-between rounded-xl border border-gray-100 px-3 py-2">
+                      <div className="flex items-center gap-3">
+                        {user.avatar_url ? (
+                          <img src={user.avatar_url} alt={user.nickname || "user"} className="h-10 w-10 rounded-full object-cover" />
+                        ) : (
+                          <div className="h-10 w-10 rounded-full bg-gray-200" />
+                        )}
+                        <span className="text-sm font-semibold text-gray-900">{user.nickname || "사용자"}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleAddFriend(user.id)}
+                          disabled={isFriend}
+                          className={isFriend 
+                            ? "h-8 rounded-lg border border-gray-200 px-3 text-xs font-semibold text-gray-400 cursor-not-allowed bg-gray-50"
+                            : "h-8 rounded-lg border border-gray-300 px-3 text-xs font-semibold text-gray-700"
+                          }
+                        >
+                          {isFriend ? "친구" : "친구추가"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenRoomForUser(user)}
+                          className="h-8 rounded-lg bg-blue-600 px-3 text-xs font-semibold text-white"
+                        >
+                          채팅방 만들기
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => handleAddFriend(user.id)}
-                        className="h-8 rounded-lg border border-gray-300 px-3 text-xs font-semibold text-gray-700"
-                      >
-                        친구추가
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleOpenRoomForUser(user)}
-                        className="h-8 rounded-lg bg-blue-600 px-3 text-xs font-semibold text-white"
-                      >
-                        채팅방 만들기
-                      </button>
-                    </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </div>
@@ -1025,6 +1050,54 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
       {toastMessage && (
         <div className="pointer-events-none fixed left-1/2 top-20 z-50 w-[85%] max-w-sm -translate-x-1/2 rounded-full bg-black/65 px-4 py-2.5 text-center text-sm text-white">
           {toastMessage}
+        </div>
+      )}
+
+      {existingChatsAlert.length > 0 && (
+        <div className="fixed inset-0 z-50 bg-black/45" onClick={() => setExistingChatsAlert([])}>
+          <div className="absolute inset-x-0 top-20 mx-auto w-[90%] max-w-md rounded-2xl bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
+              <div className="flex items-center gap-2">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-blue-600">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                </svg>
+                <p className="text-sm font-semibold text-gray-900">함께하는 채팅방이 존재합니다.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setExistingChatsAlert([])}
+                className="rounded-full p-1 text-gray-400 hover:bg-gray-100"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+            <div className="max-h-[60vh] overflow-y-auto">
+              {existingChatsAlert.map((chat) => (
+                <button
+                  key={chat.id}
+                  type="button"
+                  onClick={() => {
+                    router.push(`/chat/${chat.id}`);
+                    setExistingChatsAlert([]);
+                  }}
+                  className="w-full border-b border-gray-100 px-5 py-4 text-left hover:bg-gray-50 transition-colors"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-gray-900 truncate">{chat.title}</p>
+                      <p className="mt-1 text-xs text-gray-500">채팅하기</p>
+                    </div>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-blue-600 flex-shrink-0 ml-2">
+                      <path d="M5 12h14M12 5l7 7-7 7" />
+                    </svg>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       )}
 

@@ -703,7 +703,14 @@ export default function AdminDashboardPage() {
       <div className="mx-auto flex min-h-screen w-full max-w-[1600px] overflow-hidden bg-white">
         <aside className="w-[250px] border-r border-gray-200 bg-[#f7f8fa] p-4">
           <div className="mb-6 flex justify-center pt-2">
-            <Image src="/images/logo.png" alt="OneChat" width={72} height={72} priority />
+            <Image 
+              src="/images/logo.png" 
+              alt="OneChat" 
+              width={72} 
+              height={72} 
+              style={{ width: "auto", height: "auto" }}
+              priority 
+            />
           </div>
 
           <button

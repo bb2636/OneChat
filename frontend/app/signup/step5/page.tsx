@@ -118,9 +118,17 @@ export default function SignupStep5Page() {
       sessionStorage.removeItem("signup_step2");
       sessionStorage.removeItem("signup_step3");
       sessionStorage.removeItem("signup_step4");
+      sessionStorage.removeItem("signup_google");
 
-      // 완료 페이지로 이동
-      router.push("/signup/complete");
+      // 구글 로그인 사용자는 자동 로그인 처리
+      if (signupData.googleAuth && signupData.userId) {
+        localStorage.setItem("userId", signupData.userId);
+        router.push("/home");
+        router.refresh();
+      } else {
+        // 일반 회원가입은 완료 페이지로 이동
+        router.push("/signup/complete");
+      }
     } catch (error) {
       console.error("Complete signup error:", error);
       alert("회원가입 중 오류가 발생했습니다.");

@@ -172,7 +172,6 @@ export default function SignupPage() {
           &lt;
         </button>
         <h1 className="text-lg font-normal text-gray-900 flex-1 text-center">회원가입</h1>
-        <div className="text-sm text-gray-500">1/5</div>
       </header>
 
       {/* 메인 컨텐츠 */}

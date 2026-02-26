@@ -84,11 +84,17 @@ export function ChatListItem({ chat, onClick, onLeave, isLeaveModalOpen, onReset
 
   const handleTouchMove = (e: React.TouchEvent) => {
     if (!isSwiping) return;
-    e.preventDefault();
-    e.stopPropagation();
+    
     const touch = e.touches[0];
+    const diff = startXRef.current - touch.clientX;
+    
+    // 왼쪽으로 슬라이드하는 경우에만 preventDefault 호출
+    if (diff > 0 || swipeOffset > 0) {
+      e.preventDefault();
+    }
+    e.stopPropagation();
+    
     currentXRef.current = touch.clientX;
-    const diff = startXRef.current - currentXRef.current;
     
     if (diff > 0) {
       // 왼쪽으로 슬라이드 (삭제 버튼 표시)
@@ -173,7 +179,7 @@ export function ChatListItem({ chat, onClick, onLeave, isLeaveModalOpen, onReset
         }}
         style={{ 
           transform: `translateX(-${swipeOffset}px)`,
-          touchAction: isSwiping ? "none" : "pan-y"
+          touchAction: isSwiping || swipeOffset > 0 ? "none" : "pan-y"
         }}
         className={cn(
           "flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-gray-50 bg-white",

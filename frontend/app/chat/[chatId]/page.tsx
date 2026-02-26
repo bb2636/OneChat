@@ -34,6 +34,8 @@ export default async function ChatRoomPage({
 
   if (!chatRows.length) notFound();
   const chat = chatRows[0];
+  
+  // 접근 권한 체크는 클라이언트 사이드(ChatRoomClient)와 API에서 수행
 
   const messages = (await sql`
     SELECT 

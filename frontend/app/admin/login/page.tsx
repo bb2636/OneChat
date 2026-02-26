@@ -52,7 +52,14 @@ export default function AdminLoginPage() {
     <main className="flex min-h-screen items-center justify-center bg-[#6983FC] px-4">
       <div className="w-full max-w-[360px]">
         <div className="mb-6 flex justify-center">
-          <Image src="/images/logo.png" alt="OneChat" width={76} height={76} priority />
+          <Image 
+            src="/images/logo.png" 
+            alt="OneChat" 
+            width={76} 
+            height={76} 
+            style={{ width: "auto", height: "auto" }}
+            priority 
+          />
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-3">

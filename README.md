@@ -109,7 +109,7 @@ DATABASE_URL=postgresql://postgres:your-password@db.your-project-ref.supabase.co
 
 # 기타 설정
 PORT=4000
-FRONTEND_ORIGIN=http://localhost:3001
+FRONTEND_ORIGIN=http://localhost:3000
 NEXT_PUBLIC_NAVER_MAPS_CLIENT_ID=your-naver-maps-client-id
 ```
 
@@ -125,6 +125,9 @@ DATABASE_URL=postgresql://postgres:your-password@db.your-project-ref.supabase.co
 
 # Naver Maps
 NEXT_PUBLIC_NAVER_MAPS_CLIENT_ID=your-naver-maps-client-id
+
+# 프론트엔드 Origin (구글 소셜 로그인 콜백용)
+NEXT_PUBLIC_FRONTEND_ORIGIN=http://localhost:3000
 ```
 
 ### 3. 데이터베이스 마이그레이션
@@ -183,6 +186,7 @@ npm run dev:backend   # 백엔드만 (포트 4000)
 ### 인증 시스템
 - ✅ 스플래시 화면 (3초 후 자동 리다이렉트)
 - ✅ 로그인 (아이디/비밀번호)
+- ✅ 구글 소셜 로그인 (Supabase Auth 연동)
 - ✅ 회원가입 (5단계)
   1. 아이디 및 비밀번호 입력
   2. 닉네임, 이름, 프로필 이미지
@@ -393,6 +397,141 @@ DIRECT_URL="postgresql://postgres:<PASSWORD>@db.<project-ref>.supabase.co:5432/p
 ALTER PUBLICATION supabase_realtime ADD TABLE users;
 ```
 
+### 구글 소셜 로그인 설정
+
+#### 1. Google Cloud Console에서 OAuth 설정
+
+1. [Google Cloud Console](https://console.cloud.google.com/) 접속
+2. 프로젝트 선택 또는 새 프로젝트 생성
+3. **API 및 서비스** > **사용자 인증 정보** 이동
+4. **사용자 인증 정보 만들기** > **OAuth 클라이언트 ID** 선택
+5. 애플리케이션 유형: **웹 애플리케이션** 선택
+6. **승인된 리디렉션 URI 추가** (중요!):
+   ```
+   https://<your-project-id>.supabase.co/auth/v1/callback
+   ```
+   - `<your-project-id>`는 Supabase 프로젝트 ID로 교체
+   - 예: `https://abcdefghijklmnop.supabase.co/auth/v1/callback`
+   - **프로덕션 환경**에서는 실제 도메인도 추가:
+     ```
+     https://yourdomain.com/api/auth/google/callback
+     ```
+7. **클라이언트 ID**와 **클라이언트 보안 비밀번호** 복사
+
+#### 2. Supabase 대시보드에서 구글 OAuth 설정
+
+1. Supabase 대시보드 > **Authentication** > **Providers** 이동
+2. **Google** 찾아서 활성화
+3. 다음 정보 입력:
+   - **Client ID (for OAuth)**: Google Cloud Console에서 복사한 클라이언트 ID
+   - **Client Secret (for OAuth)**: Google Cloud Console에서 복사한 클라이언트 보안 비밀번호
+4. **Site URL** 확인:
+   - Supabase 대시보드 > **Settings** > **API** > **Site URL**
+   - 개발 환경: `http://localhost:3000`
+   - 프로덕션 환경: 실제 도메인 (예: `https://yourdomain.com`)
+5. **Redirect URLs** 확인:
+   - Supabase 대시보드 > **Authentication** > **URL Configuration**
+   - 다음 URL이 추가되어 있어야 함:
+     ```
+     http://localhost:3000/api/auth/google/callback
+     https://yourdomain.com/api/auth/google/callback (프로덕션)
+     ```
+   - **중요**: 이 URL은 클라이언트 사이드 페이지로, URL fragment에서 토큰을 처리합니다
+6. **Save** 클릭
+
+**참고**: Supabase는 PKCE flow를 사용할 때 URL fragment(`#access_token=...`)로 토큰을 반환합니다. 
+이를 처리하기 위해 클라이언트 사이드 페이지(`/api/auth/google/callback/page.tsx`)가 필요합니다.
+
+#### 3. 환경 변수 확인
+
+프론트엔드 `.env.local` 파일에 다음 변수가 설정되어 있는지 확인:
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://your-project-id.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here
+NEXT_PUBLIC_FRONTEND_ORIGIN=http://localhost:3000
+```
+
+**참고**: 
+- `NEXT_PUBLIC_FRONTEND_ORIGIN`은 구글 로그인 콜백 URL 생성에 사용됩니다
+- 프로덕션 환경에서는 실제 도메인으로 변경하세요 (예: `https://yourdomain.com`)
+
+#### 4. 구글 인증 코드 오류 해결 방법
+
+**"구글 로그인 인증 코드가 없습니다"** 오류가 발생하는 경우:
+
+1. **Supabase Redirect URLs 확인** (가장 중요!)
+   - Supabase 대시보드 > **Authentication** > **URL Configuration**
+   - **Redirect URLs** 섹션에 다음 URL이 추가되어 있어야 함:
+     ```
+     http://localhost:3000/api/auth/google/callback
+     ```
+   - 프로덕션 환경에서는:
+     ```
+     https://yourdomain.com/api/auth/google/callback
+     ```
+   - **중요**: 이 URL이 없으면 구글 인증 후 코드를 받을 수 없습니다!
+
+2. **Google Cloud Console 리다이렉트 URI 확인**
+   - Google Cloud Console > **API 및 서비스** > **사용자 인증 정보**
+   - OAuth 클라이언트의 **승인된 리디렉션 URI**에 다음이 있어야 함:
+     ```
+     https://<your-project-id>.supabase.co/auth/v1/callback
+     ```
+
+3. **환경 변수 확인**
+   - `NEXT_PUBLIC_FRONTEND_ORIGIN`이 올바르게 설정되어 있는지 확인
+   - 개발 환경: `http://localhost:3000`
+   - 프로덕션 환경: 실제 도메인
+
+4. **브라우저 캐시 및 쿠키 삭제**
+   - 구글 로그인 관련 쿠키를 삭제하고 다시 시도
+
+#### 5. Self-XSS 경고에 대해
+
+브라우저 콘솔에 나타나는 **"Self-XSS 공격 경고"**는 브라우저의 보안 기능입니다:
+- 개발자 도구(F12)를 열었을 때 나타나는 정상적인 경고입니다
+- 앱의 보안 문제가 아니라 브라우저가 사용자를 보호하기 위한 메시지입니다
+- 코드로 제거할 수 없으며, 무시해도 됩니다
+- 실제 사용자에게는 표시되지 않습니다 (개발자 도구를 열지 않는 한)
+
+---
+
+### 지도 · 위치 기반 기능 요약
+
+- **사용자 위치 표시**: 네이버 지도 위에 내 위치를 원형으로 표시하고, 주변 사용자들을 원형 오버레이로 표시합니다.
+- **겹친 사용자 모달**:
+  - 내 원과 겹치는 모든 사용자(나 포함 N명)를 하단 시트 형태로 표시합니다.
+  - 많은 사용자가 겹쳐도 스크롤로 전체 목록을 볼 수 있습니다.
+  - 각 사용자 카드에서:
+    - **친구추가**: 아직 친구가 아니라면 버튼이 활성화되고, 이미 친구면 비활성화 + `친구` 라벨로 표시됩니다.
+    - **채팅방 만들기**: 해당 사용자와의 위치 기반 채팅방 생성 플로우로 이동합니다.
+- **기존 채팅방 알림**:
+  - 해당 사용자와 이미 1:1 채팅방이 있으면, 상단에 **"함께하는 채팅방이 존재합니다."** 알림 모달을 띄웁니다.
+  - 모달 내에서 기존 채팅방 목록을 보여주고, 항목 클릭 시 해당 채팅방으로 바로 이동합니다.
+
+### 채팅방 접근 제어 요약
+
+- **목록 필터링**:
+  - `/api/chats?userId=...` 는 로그인한 사용자가 **실제로 멤버인 채팅방만** 반환합니다.
+  - 그룹/위치 기반 채팅은 `chat_members` 테이블에 사용자가 있을 때만 보입니다.
+  - 1:1 채팅은 `chat_type IS NULL` 이고 `user_id1` 또는 `user_id2`가 현재 사용자일 때만 보입니다.
+- **직접 URL 접근 보호**:
+  - 채팅방 상세 페이지 및 `/api/chats/[chatId]/*` API 들에서 모두 멤버 여부를 검사합니다.
+  - 멤버가 아닌 사용자가 URL로 직접 접근하면 403 또는 `/home` 리다이렉트로 차단됩니다.
+
+### 구글 소셜 로그인 플로우 요약
+
+- `/login` 페이지에서 **Google 로그인 버튼**으로 플로우를 시작합니다.
+- Supabase OAuth 인증 후:
+  - 세션을 생성하고, 사용자의 이메일 · 이름 · 프로필 이미지를 가져옵니다.
+  - `users` 테이블에 이메일 기준으로 사용자 정보를 동기화합니다.
+  - 닉네임/전화번호가 없는 구글 유저는 **회원가입 2단계(닉네임/이름 입력)** 으로 바로 이동합니다.
+  - 구글 유저는 비밀번호 없이 가입하며, `password` 필드는 `NULL` 로 저장됩니다.
+- 프로필 이미지는:
+  - 구글에서 받은 URL을 서버에서 다운로드한 뒤 `public/uploads/profiles` 아래에 저장하고,
+  - 앱에서는 로컬 경로(`/uploads/profiles/...`)를 사용해 일관된 호스팅을 유지합니다.
+
 ## 📝 개발 가이드
 
 ### 스크립트 명령어
@@ -553,81 +692,6 @@ git branch -M main
 git push -u origin main
 ```
 
-## 🔄 최근 업데이트 (2025-02)
-
-### 최신 업데이트 (2025-02)
-1. **채팅방 슬라이드 삭제 기능 개선**
-   - 터치 이벤트 처리 개선 (touchAction 조건부 설정)
-   - 슬라이드 로직 개선 (부드러운 애니메이션)
-   - 삭제 버튼 표시 개선 (항상 렌더링, 위치만 조정)
-
-2. **이미지 메시지 기능**
-   - 이미지 업로드 및 전송
-   - 이미지 확대 보기 모달 (보낸 사람, 시간 표시)
-   - 이미지만 보낼 때 파란 배경 제거
-
-3. **메시지 표시 개선**
-   - 내 메시지/상대 메시지 구분 (정렬, 색상)
-   - 읽음 표시 및 시간 표시 위치 (내 메시지: 왼쪽, 상대 메시지: 오른쪽)
-   - 메시지 그룹핑 (같은 사람 연속 메시지)
-
-4. **시스템 메시지**
-   - 멤버 입장 메시지
-   - 멤버 퇴장 메시지
-
-5. **친구 추가 즉시 수락**
-   - pending 상태 없이 바로 accepted
-   - 양방향 친구 관계 즉시 생성
-
-6. **채팅방 썸네일**
-   - 그룹 채팅 썸네일 표시
-   - 썸네일이 없으면 아바타 오버랩 표시
-
-7. **React Query 통합**
-   - 메시지 캐싱 및 증분 업데이트
-   - 채팅 목록 자동 새로고침
-   - 친구 목록 캐싱
-
-## 🔄 이전 업데이트 (2025-01)
-
-### 주요 추가 기능
-1. **위치 기반 채팅방 생성**
-   - 근접 유저와 채팅방 생성
-   - 썸네일, 이름, 설명, 인원제한 설정
-   - 중복 채팅방 생성 방지
-
-2. **친구 관리 시스템**
-   - 친구 목록 및 검색
-   - 슬라이드로 친구 삭제
-   - 편집 모드 (일괄 삭제)
-   - 즉시 친구 추가 (pending 상태 없이 바로 accepted)
-
-3. **마이페이지 기능**
-   - 프로필 수정 (이미지, 닉네임, 비밀번호)
-   - 신고 내역 (신고대기/신고완료)
-   - 문의 내역 (답변대기/답변완료)
-
-4. **채팅 기능 강화**
-   - 메시지 전송 (텍스트, 이미지)
-   - 이미지 메시지 확대 보기 (보낸 사람, 시간 표시)
-   - 메시지 표시 개선 (내 메시지/상대 메시지 구분, 읽음 표시, 시간 표시 위치)
-   - 메시지 그룹핑 (같은 사람 연속 메시지)
-   - 채팅방 멤버 관리 (초대, 친구 추가, 친구 삭제)
-   - 채팅방 나가기 (슬라이드 삭제, 퇴장 메시지)
-   - 읽지 않은 메시지 배지 (0개일 때 숨김)
-   - 채팅방 썸네일 표시
-   - 시스템 메시지 (입장/퇴장)
-   - React Query를 통한 메시지 캐싱 및 증분 업데이트
-
-5. **관리자 대시보드 개선**
-   - 신고/문의 답변 기능
-   - 통일된 UI 컴포넌트
-   - 오버레이 모달 디자인
-
-6. **알림 시스템**
-   - 새 채팅 알림 (다른 탭에서)
-   - 읽지 않은 메시지 배지
-
 ### API 엔드포인트
 
 #### 채팅 관련
@@ -673,6 +737,4 @@ git push -u origin main
 - [Naver Maps API 문서](https://navermaps.github.io/maps.js.ncp/)
 - [TanStack Query 문서](https://tanstack.com/query/latest)
 
-## 📄 라이선스
 
-이 프로젝트는 비공개 프로젝트입니다.

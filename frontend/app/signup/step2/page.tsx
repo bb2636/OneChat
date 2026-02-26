@@ -1,14 +1,15 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, useRef, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Input, Button } from "@/components/ui";
 import { Camera, Upload } from "lucide-react";
 import { cn } from "@/lib/cn";
 import Link from "next/link";
 
-export default function SignupStep2Page() {
+function SignupStep2Content() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [profileImage, setProfileImage] = useState<string | null>(null);
@@ -19,21 +20,65 @@ export default function SignupStep2Page() {
   const [isCheckingNickname, setIsCheckingNickname] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  // 아이디와 비밀번호를 세션 스토리지에서 가져오기
+  // 아이디와 비밀번호를 세션 스토리지에서 가져오기 또는 구글 로그인 정보
   const [signupData, setSignupData] = useState<{
-    username: string;
-    password: string;
+    username?: string;
+    password?: string;
+    googleAuth?: boolean;
+    userId?: string;
+    email?: string;
+    name?: string;
+    avatarUrl?: string;
   } | null>(null);
+  const [isGoogleUser, setIsGoogleUser] = useState(false);
 
   useEffect(() => {
-    const data = sessionStorage.getItem("signup_step1");
-    if (data) {
-      setSignupData(JSON.parse(data));
+    // URL 쿼리 파라미터에서 구글 로그인 정보 확인
+    const googleAuth = searchParams.get("google_auth") === "true";
+    
+    console.log("SignupStep2 - googleAuth:", googleAuth, "searchParams:", Object.fromEntries(searchParams.entries()));
+    
+    if (googleAuth) {
+      // 구글 로그인 사용자
+      setIsGoogleUser(true);
+      const googleData = {
+        googleAuth: true,
+        userId: searchParams.get("user_id") || undefined,
+        email: searchParams.get("email") || undefined,
+        name: searchParams.get("name") || undefined,
+        avatarUrl: searchParams.get("avatar_url") || undefined,
+        nickname: searchParams.get("nickname") || undefined,
+        phoneNumber: searchParams.get("phone_number") || undefined,
+      };
+      console.log("SignupStep2 - Google user data:", googleData);
+      setSignupData(googleData);
+      
+      // 구글 사용자 정보를 세션 스토리지에 저장
+      sessionStorage.setItem("signup_google", JSON.stringify(googleData));
+      
+      // 기존 정보가 있으면 채우기 (구글 프로필 정보 자동 연동)
+      if (googleData.nickname) {
+        setNickname(googleData.nickname);
+      }
+      if (googleData.name) {
+        setName(googleData.name);
+      }
+      // 구글 프로필 이미지 자동 연동
+      if (googleData.avatarUrl) {
+        setProfileImage(googleData.avatarUrl);
+      }
+      
     } else {
-      // 1단계 데이터가 없으면 1단계로 리다이렉트
-      router.push("/signup");
+      // 일반 회원가입
+      const data = sessionStorage.getItem("signup_step1");
+      if (data) {
+        setSignupData(JSON.parse(data));
+      } else {
+        // 1단계 데이터가 없으면 1단계로 리다이렉트
+        router.push("/signup");
+      }
     }
-  }, [router]);
+  }, [router, searchParams]);
 
   // 프로필 이미지 선택
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -138,28 +183,57 @@ export default function SignupStep2Page() {
     try {
       // 프로필 이미지 업로드 (있는 경우)
       let avatarUrl = null;
-      if (profileImage && profileImage.startsWith("data:")) {
-        try {
-          const formData = new FormData();
-          const response = await fetch(profileImage);
-          const blob = await response.blob();
-          formData.append("image", blob, "profile.jpg");
+      if (profileImage) {
+        if (profileImage.startsWith("data:")) {
+          // Base64 이미지 (로컬에서 선택한 이미지)
+          try {
+            const formData = new FormData();
+            const response = await fetch(profileImage);
+            const blob = await response.blob();
+            formData.append("image", blob, "profile.jpg");
 
-          const uploadRes = await fetch("/api/upload/profile", {
-            method: "POST",
-            body: formData,
-          });
+            const uploadRes = await fetch("/api/upload/profile", {
+              method: "POST",
+              body: formData,
+            });
 
-          if (uploadRes.ok) {
-            const uploadData = await uploadRes.json();
-            avatarUrl = uploadData.url;
+            if (uploadRes.ok) {
+              const uploadData = await uploadRes.json();
+              avatarUrl = uploadData.url;
+            }
+          } catch (uploadError) {
+            console.error("Image upload error:", uploadError);
+            // 업로드 실패해도 계속 진행
           }
-        } catch (uploadError) {
-          console.error("Image upload error:", uploadError);
-          // 업로드 실패해도 계속 진행
+        } else if (profileImage.startsWith("http://") || profileImage.startsWith("https://")) {
+          // 외부 URL (구글 프로필 이미지 등)
+          try {
+            const uploadRes = await fetch("/api/upload/profile-from-url", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ imageUrl: profileImage }),
+            });
+
+            if (uploadRes.ok) {
+              const uploadData = await uploadRes.json();
+              avatarUrl = uploadData.url;
+            } else {
+              // 다운로드 실패 시 원본 URL 사용
+              console.warn("Failed to download image from URL, using original URL");
+              avatarUrl = profileImage;
+            }
+          } catch (uploadError) {
+            console.error("Image download error:", uploadError);
+            // 다운로드 실패 시 원본 URL 사용
+            avatarUrl = profileImage;
+          }
+        } else if (profileImage.startsWith("/")) {
+          // 이미 서버에 저장된 이미지
+          avatarUrl = profileImage;
+        } else {
+          // 기타 경우 원본 사용
+          avatarUrl = profileImage;
         }
-      } else if (profileImage) {
-        avatarUrl = profileImage; // 이미 URL인 경우
       }
 
       // 2단계 데이터 저장
@@ -169,7 +243,20 @@ export default function SignupStep2Page() {
         name,
         avatarUrl,
       };
-      sessionStorage.setItem("signup_step2", JSON.stringify(step2Data));
+      
+      if (isGoogleUser) {
+        // 구글 로그인 사용자는 구글 데이터와 합치기
+        const googleData = sessionStorage.getItem("signup_google");
+        if (googleData) {
+          const google = JSON.parse(googleData);
+          step2Data.googleAuth = true;
+          step2Data.userId = google.userId;
+          step2Data.email = google.email;
+        }
+        sessionStorage.setItem("signup_step2", JSON.stringify(step2Data));
+      } else {
+        sessionStorage.setItem("signup_step2", JSON.stringify(step2Data));
+      }
 
       // 다음 단계로 이동
       router.push("/signup/step3");
@@ -195,7 +282,7 @@ export default function SignupStep2Page() {
           &lt;
         </button>
         <h1 className="text-lg font-normal text-gray-900 flex-1 text-center">회원가입</h1>
-        <div className="text-sm text-gray-500">2/5</div>
+        <div className="text-sm text-gray-500">{isGoogleUser ? "1/4" : "2/5"}</div>
       </header>
 
       {/* 메인 컨텐츠 */}
@@ -288,5 +375,20 @@ export default function SignupStep2Page() {
         </form>
       </div>
     </div>
+  );
+}
+
+export default function SignupStep2Page() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-gray-600">로딩 중...</p>
+        </div>
+      </div>
+    }>
+      <SignupStep2Content />
+    </Suspense>
   );
 }

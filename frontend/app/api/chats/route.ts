@@ -44,9 +44,10 @@ export async function GET(request: Request) {
         GROUP BY c.id, c.title, c.pinned, c.created_at, c.updated_at
         ORDER BY c.pinned DESC, c.updated_at DESC
       `;
-    } else if (userId) {
-      // 사용자가 참여한 채팅방 (chat_members 포함)
-      // 나간 채팅방은 제외: chat_members에 사용자가 있거나, 1:1 채팅인 경우 user_id1/user_id2에 사용자가 있어야 함
+  } else if (userId) {
+      // 사용자가 참여한 채팅방만 조회
+      // - 그룹/위치 기반 채팅: chat_members에 사용자 행이 있는 경우만 포함
+      // - 1:1 채팅: chat_type 이 NULL 이고 user_id1 또는 user_id2 에 사용자가 있는 경우 포함
       result = await sql`
         SELECT DISTINCT
           c.id,
@@ -87,7 +88,7 @@ export async function GET(request: Request) {
         LEFT JOIN messages m ON m.chat_id = c.id
         WHERE c.workspace_id IS NULL
           AND (
-            -- chat_members에 사용자가 있는 경우 (그룹 채팅 또는 멤버가 있는 1:1 채팅)
+            -- 그룹/위치 기반 및 멤버가 있는 채팅방: chat_members에 사용자가 있는 경우만 포함
             EXISTS (
               SELECT 1
               FROM chat_members cm
@@ -95,21 +96,10 @@ export async function GET(request: Request) {
                 AND cm.user_id = ${userId}
             )
             OR
-            -- 1:1 채팅이고 chat_members에 아무도 없고 user_id1 또는 user_id2에 사용자가 있는 경우 (기존 1:1 채팅)
+            -- 1:1 채팅: chat_type 이 NULL 이고 user_id1 또는 user_id2 에 사용자가 있는 경우 포함
             (
-              (c.user_id1 = ${userId} OR c.user_id2 = ${userId})
-              AND NOT EXISTS (
-                SELECT 1
-                FROM chat_members cm2
-                WHERE cm2.chat_id = c.id
-              )
-              -- 사용자가 나간 1:1 채팅은 제외: chat_members에 다른 사람이 있으면 제외
-              AND NOT EXISTS (
-                SELECT 1
-                FROM chat_members cm3
-                WHERE cm3.chat_id = c.id
-                  AND cm3.user_id != ${userId}
-              )
+              c.chat_type IS NULL
+              AND (c.user_id1 = ${userId} OR c.user_id2 = ${userId})
             )
           )
         GROUP BY c.id, c.title, c.pinned, c.created_at, c.updated_at, c.user_id1, c.user_id2, c.thumbnail_url, c.chat_type

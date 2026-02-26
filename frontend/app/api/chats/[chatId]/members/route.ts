@@ -11,6 +11,55 @@ export async function GET(request: Request, { params }: Params) {
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get("userId");
 
+    // 채팅방 정보 가져오기
+    const chatInfo = (await sql`
+      SELECT workspace_id, user_id1, user_id2
+      FROM chats
+      WHERE id = ${chatId}
+      LIMIT 1
+    `) as unknown as Array<{
+      workspace_id: string | null;
+      user_id1: string | null;
+      user_id2: string | null;
+    }>;
+
+    if (!chatInfo.length) {
+      return NextResponse.json(
+        { error: "채팅방을 찾을 수 없습니다." },
+        { status: 404 }
+      );
+    }
+
+    const chat = chatInfo[0];
+    const isDirectChat = !chat.workspace_id && (chat.user_id1 || chat.user_id2);
+
+    // userId가 제공되면 접근 권한 체크
+    if (userId) {
+      // chat_members에 사용자가 있는지 확인
+      const isMember = (await sql`
+        SELECT 1
+        FROM chat_members
+        WHERE chat_id = ${chatId}
+          AND user_id = ${userId}
+        LIMIT 1
+      `) as unknown as Array<{ "?column?": number }>;
+
+      // chat_members에 없으면 1:1 채팅인지 확인
+      if (!isMember.length) {
+        if (isDirectChat && (chat.user_id1 === userId || chat.user_id2 === userId)) {
+          // 1:1 채팅이고 사용자가 참여자인 경우 허용
+          // chat_members가 비어있을 수 있으므로 빈 배열 반환
+        } else {
+          // 멤버가 아니면 접근 거부
+          return NextResponse.json(
+            { error: "채팅방에 접근할 권한이 없습니다." },
+            { status: 403 }
+          );
+        }
+      }
+    }
+
+    // chat_members에서 멤버 조회
     const members = await sql`
       SELECT
         cm.user_id::text as id,
@@ -38,6 +87,40 @@ export async function GET(request: Request, { params }: Params) {
       WHERE cm.chat_id = ${chatId}
       ORDER BY cm.joined_at ASC
     `;
+
+    // 1:1 채팅이고 chat_members가 비어있는 경우, user_id1과 user_id2를 멤버로 반환
+    if (isDirectChat && members.length === 0 && userId) {
+      const directChatMembers = await sql`
+        SELECT
+          u.id::text,
+          'member' as role,
+          c.created_at::text as joined_at,
+          u.name,
+          u.nickname,
+          u.avatar_url,
+          ${
+            userId
+              ? sql`EXISTS (
+                  SELECT 1
+                  FROM friendships f
+                  WHERE f.status = 'accepted'
+                    AND (
+                      (f.requester_id = ${userId} AND f.addressee_id = u.id)
+                      OR
+                      (f.requester_id = u.id AND f.addressee_id = ${userId})
+                    )
+                  )`
+              : sql`false`
+          } as is_friend
+        FROM chats c
+        INNER JOIN users u ON (u.id = c.user_id1 OR u.id = c.user_id2)
+        WHERE c.id = ${chatId}
+          AND u.id != ${userId}
+        LIMIT 1
+      `;
+      
+      return NextResponse.json(directChatMembers);
+    }
 
     return NextResponse.json(members);
   } catch (error) {

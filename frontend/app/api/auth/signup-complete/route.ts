@@ -13,11 +13,24 @@ export async function POST(request: Request) {
       phoneNumber,
       phoneVerified,
       agreedTermIds,
+      googleAuth,
+      userId, // 구글 로그인 사용자의 경우 Supabase Auth ID
+      email, // 구글 로그인 사용자의 이메일
     } = await request.json();
 
-    if (!username || !password) {
+    // 구글 로그인 사용자는 비밀번호가 없을 수 있음
+    const isGoogleUser = googleAuth === true;
+    
+    if (!isGoogleUser && (!username || !password)) {
       return NextResponse.json(
         { error: "아이디와 비밀번호가 필요합니다." },
+        { status: 400 }
+      );
+    }
+
+    if (isGoogleUser && !userId) {
+      return NextResponse.json(
+        { error: "구글 로그인 사용자 ID가 필요합니다." },
         { status: 400 }
       );
     }
@@ -25,11 +38,20 @@ export async function POST(request: Request) {
     // 최종 아이디 및 닉네임 중복 확인
     let existingUsers: Array<{ id: string }> | unknown;
     try {
-      existingUsers = await sql`
-        SELECT id FROM users 
-        WHERE username = ${username} OR nickname = ${nickname}
-        LIMIT 1
-      `;
+      if (isGoogleUser) {
+        // 구글 로그인 사용자는 닉네임만 확인
+        existingUsers = await sql`
+          SELECT id FROM users 
+          WHERE nickname = ${nickname} AND id != ${userId}
+          LIMIT 1
+        `;
+      } else {
+        existingUsers = await sql`
+          SELECT id FROM users 
+          WHERE username = ${username} OR nickname = ${nickname}
+          LIMIT 1
+        `;
+      }
     } catch (dbError: any) {
       console.error("Database query error:", dbError);
       if (dbError?.message?.includes("does not exist") || dbError?.message?.includes("relation")) {
@@ -47,46 +69,106 @@ export async function POST(request: Request) {
       );
     }
 
-    // 비밀번호 해싱
-    let hashedPassword;
-    try {
-      hashedPassword = hashSync(password, 10);
-    } catch (hashError: any) {
-      console.error("Password hashing error:", hashError);
-      throw new Error(`비밀번호 해싱 실패: ${hashError?.message}`);
+    // 비밀번호 해싱 (구글 로그인 사용자는 비밀번호 없음)
+    let hashedPassword: string | null = null;
+    if (!isGoogleUser && password) {
+      try {
+        hashedPassword = hashSync(password, 10);
+      } catch (hashError: any) {
+        console.error("Password hashing error:", hashError);
+        throw new Error(`비밀번호 해싱 실패: ${hashError?.message}`);
+      }
     }
 
-    // 최종 사용자 생성 (모든 단계 완료 후)
+    // 최종 사용자 생성 또는 업데이트 (모든 단계 완료 후)
     const now = new Date();
-    let newUser: Array<{ id: string; username: string; nickname: string | null; name: string | null; avatar_url: string | null }> | unknown;
+    let newUser: Array<{ id: string; username: string | null; nickname: string | null; name: string | null; avatar_url: string | null }> | unknown;
+    
     try {
-      newUser = await sql`
-        INSERT INTO users (
-          id,
-          username,
-          password,
-          nickname,
-          name,
-          avatar_url,
-          phone_number,
-          phone_verified,
-          created_at,
-          updated_at
-        )
-        VALUES (
-          gen_random_uuid(),
-          ${username},
-          ${hashedPassword},
-          ${nickname || null},
-          ${name || null},
-          ${avatarUrl || null},
-          ${phoneNumber || null},
-          ${phoneVerified || false},
-          ${now},
-          ${now}
-        )
-        RETURNING id, username, nickname, name, avatar_url
-      `;
+      if (isGoogleUser) {
+        // 구글 로그인 사용자는 업데이트 또는 생성
+        // 먼저 기존 사용자 확인
+        const existingGoogleUser = await sql`
+          SELECT id FROM users WHERE id = ${userId} LIMIT 1
+        `;
+
+        if (existingGoogleUser.length > 0) {
+          // 기존 사용자 업데이트
+          newUser = await sql`
+            UPDATE users
+            SET 
+              email = COALESCE(${email}, email),
+              nickname = ${nickname || null},
+              name = ${name || null},
+              avatar_url = ${avatarUrl || null},
+              phone_number = ${phoneNumber || null},
+              phone_verified = ${phoneVerified || false},
+              updated_at = ${now}
+            WHERE id = ${userId}
+            RETURNING id, username, nickname, name, avatar_url
+          `;
+        } else {
+          // 새 사용자 생성 (구글 로그인)
+          newUser = await sql`
+            INSERT INTO users (
+              id,
+              email,
+              username,
+              password,
+              nickname,
+              name,
+              avatar_url,
+              phone_number,
+              phone_verified,
+              created_at,
+              updated_at
+            )
+            VALUES (
+              ${userId},
+              ${email || null},
+              ${null}, -- 구글 로그인은 username 없음
+              ${null}, -- 구글 로그인은 password 없음
+              ${nickname || null},
+              ${name || null},
+              ${avatarUrl || null},
+              ${phoneNumber || null},
+              ${phoneVerified || false},
+              ${now},
+              ${now}
+            )
+            RETURNING id, username, nickname, name, avatar_url
+          `;
+        }
+      } else {
+        // 일반 회원가입 사용자 생성
+        newUser = await sql`
+          INSERT INTO users (
+            id,
+            username,
+            password,
+            nickname,
+            name,
+            avatar_url,
+            phone_number,
+            phone_verified,
+            created_at,
+            updated_at
+          )
+          VALUES (
+            gen_random_uuid(),
+            ${username},
+            ${hashedPassword},
+            ${nickname || null},
+            ${name || null},
+            ${avatarUrl || null},
+            ${phoneNumber || null},
+            ${phoneVerified || false},
+            ${now},
+            ${now}
+          )
+          RETURNING id, username, nickname, name, avatar_url
+        `;
+      }
     } catch (dbError: any) {
       console.error("Database insert error:", dbError);
       // 중복 에러 처리

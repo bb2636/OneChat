@@ -3,8 +3,14 @@ import type { ReactNode } from "react";
 import { Providers } from "./providers";
 
 export const metadata = {
-  title: "원챗 | OneChat",
-  description: "하나의 화면에서 여러 AI를 효율적으로 관리하는 원챗",
+  title: "OneChat",
+  description: "위치 기반 소셜 플랫폼 OneChat",
+  applicationName: "OneChat",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "OneChat",
+  },
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
