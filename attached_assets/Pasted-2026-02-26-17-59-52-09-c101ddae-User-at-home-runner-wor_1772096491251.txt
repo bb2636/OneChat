@@ -1,0 +1,160 @@
+2026-02-26 17:59:52.09
+c101ddae
+User
+at /home/runner/workspace/frontend/.next/server/chunks/8937.js:1:701
+2026-02-26 17:59:52.09
+c101ddae
+User
+severity: 'ERROR',
+2026-02-26 17:59:52.09
+c101ddae
+User
+at o (/home/runner/workspace/frontend/.next/server/app/api/chats/route.js:31:24) {
+2026-02-26 17:59:52.09
+c101ddae
+User
+code: '42P01',
+2026-02-26 17:59:52.09
+c101ddae
+User
+at TLSSocket.e$ (/home/runner/workspace/frontend/.next/server/chunks/8937.js:4:3240)
+2026-02-26 17:59:52.09
+c101ddae
+User
+Failed to fetch chats: u: relation "chat_members" does not exist
+2026-02-26 17:59:52.09
+c101ddae
+User
+at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)
+2026-02-26 17:59:52.09
+c101ddae
+User
+}
+2026-02-26 17:59:52.09
+c101ddae
+User
+at TLSSocket.emit (node:events:519:28)
+2026-02-26 17:59:52.09
+c101ddae
+User
+line: '1449',
+2026-02-26 17:59:52.09
+c101ddae
+User
+severity_local: 'ERROR',
+2026-02-26 17:59:52.09
+c101ddae
+User
+routine: 'parserOpenTable'
+2026-02-26 17:59:52.09
+c101ddae
+User
+at /home/runner/workspace/frontend/.next/server/chunks/8937.js:4:3235
+2026-02-26 17:59:52.09
+c101ddae
+User
+at addChunk (node:internal/streams/readable:561:12)
+2026-02-26 17:59:52.09
+c101ddae
+User
+at new c (/home/runner/workspace/frontend/.next/server/chunks/8937.js:1:743)
+2026-02-26 17:59:52.09
+c101ddae
+User
+at n (/home/runner/workspace/frontend/.next/server/chunks/8937.js:21:8477)
+2026-02-26 17:59:52.09
+c101ddae
+User
+file: 'parse_relation.c',
+2026-02-26 17:59:52.09
+c101ddae
+User
+at Y (/home/runner/workspace/frontend/.next/server/chunks/8937.js:4:2280)
+2026-02-26 17:59:52.09
+c101ddae
+User
+at TLSWrap.callbackTrampoline (node:internal/async_hooks:130:17)
+2026-02-26 17:59:52.09
+c101ddae
+User
+position: '928',
+2026-02-26 17:59:52.09
+c101ddae
+User
+position: '928',
+2026-02-26 17:59:52.09
+c101ddae
+User
+at TLSWrap.callbackTrampoline (node:internal/async_hooks:130:17)
+2026-02-26 17:59:52.09
+c101ddae
+User
+at Y (/home/runner/workspace/frontend/.next/server/chunks/8937.js:4:2280)
+2026-02-26 17:59:52.09
+c101ddae
+User
+file: 'parse_relation.c',
+2026-02-26 17:59:52.09
+c101ddae
+User
+at n (/home/runner/workspace/frontend/.next/server/chunks/8937.js:21:8477)
+2026-02-26 17:59:52.09
+c101ddae
+User
+at new c (/home/runner/workspace/frontend/.next/server/chunks/8937.js:1:743)
+2026-02-26 17:59:52.09
+c101ddae
+User
+at addChunk (node:internal/streams/readable:561:12)
+2026-02-26 17:59:52.09
+c101ddae
+User
+at /home/runner/workspace/frontend/.next/server/chunks/8937.js:4:3235
+2026-02-26 17:59:52.09
+c101ddae
+User
+routine: 'parserOpenTable'
+2026-02-26 17:59:52.09
+c101ddae
+User
+severity_local: 'ERROR',
+2026-02-26 17:59:52.09
+c101ddae
+User
+line: '1449',
+2026-02-26 17:59:52.09
+c101ddae
+User
+at TLSSocket.emit (node:events:519:28)
+2026-02-26 17:59:52.09
+c101ddae
+User
+}
+2026-02-26 17:59:52.09
+c101ddae
+User
+at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)
+2026-02-26 17:59:52.09
+c101ddae
+User
+Failed to fetch chats: u: relation "chat_members" does not exist
+2026-02-26 17:59:52.09
+c101ddae
+User
+at TLSSocket.e$ (/home/runner/workspace/frontend/.next/server/chunks/8937.js:4:3240)
+2026-02-26 17:59:52.09
+c101ddae
+User
+code: '42P01',
+2026-02-26 17:59:52.09
+c101ddae
+User
+at o (/home/runner/workspace/frontend/.next/server/app/api/chats/route.js:31:24) {
+2026-02-26 17:59:52.09
+c101ddae
+User
+severity: 'ERROR',
+2026-02-26 17:59:52.09
+c101ddae
+User
+at /home/runner/workspace/frontend/.next/server/chunks/8937.js:1:701

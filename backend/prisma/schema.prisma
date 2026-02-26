@@ -34,6 +34,7 @@ model User {
   chatsAsUser1          Chat[]       @relation("ChatUser1")
   chatsAsUser2          Chat[]       @relation("ChatUser2")
   pushNotifications     PushNotification[]
+  chatMembers            ChatMember[]
   sentReports            Report[]    @relation("ReportReporter")
   receivedReports        Report[]    @relation("ReportReported")
   inquiries              Inquiry[]
@@ -60,24 +61,44 @@ model Workspace {
 
 // 채팅 세션
 model Chat {
-  id          String    @id @default(uuid()) @db.Uuid
-  workspaceId String?   @map("workspace_id") @db.Uuid // 워크스페이스 채팅 (nullable)
-  userId1     String?   @map("user_id1") @db.Uuid // 1:1 채팅 사용자1
-  userId2     String?   @map("user_id2") @db.Uuid // 1:1 채팅 사용자2
-  title       String    @db.Text
-  pinned      Boolean   @default(false)
-  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6) // 최근 메시지 시간 추적
+  id           String    @id @default(uuid()) @db.Uuid
+  workspaceId  String?   @map("workspace_id") @db.Uuid
+  userId1      String?   @map("user_id1") @db.Uuid
+  userId2      String?   @map("user_id2") @db.Uuid
+  title        String    @db.Text
+  pinned       Boolean   @default(false)
+  chatType     String?   @map("chat_type") @db.Text
+  thumbnailUrl String?   @map("thumbnail_url") @db.Text
+  description  String?   @db.Text
+  memberLimit  Int?      @map("member_limit")
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  // 관계
-  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  user1     User?     @relation("ChatUser1", fields: [userId1], references: [id], onDelete: Cascade)
-  user2     User?     @relation("ChatUser2", fields: [userId2], references: [id], onDelete: Cascade)
+  workspace Workspace?  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user1     User?       @relation("ChatUser1", fields: [userId1], references: [id], onDelete: Cascade)
+  user2     User?       @relation("ChatUser2", fields: [userId2], references: [id], onDelete: Cascade)
   messages  Message[]
+  members   ChatMember[]
 
   @@index([workspaceId, updatedAt(sort: Desc)])
-  @@index([userId1, userId2]) // 1:1 채팅 검색 최적화
+  @@index([userId1, userId2])
   @@map("chats")
+}
+
+// 채팅방 멤버
+model ChatMember {
+  chatId            String   @map("chat_id") @db.Uuid
+  userId            String   @map("user_id") @db.Uuid
+  role              String   @default("member") @db.Text
+  joinedAt          DateTime @default(now()) @map("joined_at") @db.Timestamptz(6)
+  lastReadMessageId BigInt?  @map("last_read_message_id")
+
+  chat Chat @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([chatId, userId])
+  @@index([userId])
+  @@map("chat_members")
 }
 
 // 메시지
