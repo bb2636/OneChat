@@ -16,8 +16,8 @@ const prisma = new PrismaClient();
 async function main() {
   console.log("관리자 계정 생성 중...");
 
-  const adminUsername = "admin";
-  const adminPassword = "admin1234"; // 기본 비밀번호 (실제 운영 시 변경 필요)
+  const adminUsername = "test";
+  const adminPassword = "test1234"; // 기본 비밀번호 (실제 운영 시 변경 필요)
   const hashedPassword = await bcrypt.hash(adminPassword, 10);
 
   // 기존 관리자 계정 확인
@@ -40,10 +40,10 @@ async function main() {
       data: {
         username: adminUsername,
         password: hashedPassword,
-        nickname: "관리자",
-        name: "관리자",
+        nickname: "테스트",
+        name: "테스트",
         role: "admin",
-        email: "admin@onechat.com",
+        email: "test@test.com",
       },
     });
 

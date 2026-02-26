@@ -34,5 +34,5 @@ backend/           - Express server (port 4000, not actively used)
 - Frontend has its own API routes (`app/api/`) - backend Express server is supplementary
 - Database uses Replit's built-in PostgreSQL, not Supabase PostgreSQL
 - Supabase is used only for Realtime (location sharing) and Auth (Google login)
-- Admin account: `admin` / `admin1234`
+- Test admin account: `test` / `test1234`
 - Prisma schema has `directUrl` removed (single DATABASE_URL from Replit)
