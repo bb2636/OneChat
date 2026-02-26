@@ -1,0 +1,55 @@
+2026-02-26T08:30:14Z info: Deployment: 7abe7c14-9bb9-49f0-96d9-ae8d6ead8533
+2026-02-26T08:30:14Z info: Build: 61beaf1f-4b96-434d-8386-03accd003b78
+2026-02-26T08:30:14Z info: Running Security Scan
+2026-02-26T08:30:20Z info: Security Scan Complete
+2026-02-26T08:30:22Z info: Preparing PostgreSQL 16 tools
+2026-02-26T08:30:27Z info: Preparing development database data
+2026-02-26T08:31:06Z info: Successfully copied development database data to production database
+2026-02-26T08:31:06Z info: Connecting to builder
+2026-02-26T08:31:07Z info: Builder connected
+2026-02-26T08:31:09Z info: Installing packages
+--> npm install
+
+
+up to date, audited 30 packages in 1s
+
+
+found 0 vulnerabilities
+
+npm notice
+npm notice New major version of npm available! 10.9.4 -> 11.11.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v11.11.0
+npm notice To update run: npm install -g npm@11.11.0
+npm notice
+
+2026-02-26T08:31:11Z info: Skipping Build as no Build command set
+2026-02-26T08:31:11Z info: Pushing pid1 binary layer...
+2026-02-26T08:31:17Z info: Pushing Repl layer...
+2026-02-26T08:31:17Z info: Pushing hosting layer...
+2026-02-26T08:31:19Z info: Retrieved cached nix layer
+2026-02-26T08:31:22Z info: Created hosting layer
+2026-02-26T08:31:38Z info: Created pid1 binary layer
+2026-02-26T08:33:08Z info: Created Repl layer
+2026-02-26T08:33:08Z info: Pushing Repl (cache) layer...
+2026-02-26T08:33:09Z info: Created Repl (cache) layer
+2026-02-26T08:33:17Z info: Pushed image manifest
+2026-02-26T08:33:21Z info: Pushed soci index manifest
+2026-02-26T08:33:26Z info: Creating Autoscale service
+
+  code: 'MODULE_NOT_FOUND',
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:171:5)
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:171:5)
+healthcheck failed error=healthcheck /: Get "http://127.0.0.1:1104/": dial tcp 127.0.0.1:1104: connect: connection refused
+command finished with error [node index.js]: exit status 1
+    at Function._load (node:internal/modules/cjs/loader:1192:37)
+  requireStack: []
+
+    at defaultResolveImpl (node:internal/modules/cjs/loader:1025:19)
+  requireStack: []
+node:internal/modules/cjs/loader:1386
+  code: 'MODULE_NOT_FOUND',
+healthcheck failed error=healthcheck / returned status 500
+crash loop detected
+healthcheck failed error=healthcheck / returned status 500
+healthcheck failed error=healthcheck / returned status 500
+2026-02-26T08:34:38Z error: The deployment is crash looping. This can happen if the run command fails or exits immediately after starting. Check the logs for more information.
