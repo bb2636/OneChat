@@ -12,8 +12,7 @@ export async function GET(request: Request) {
     const supabase = getSupabaseServerClient();
 
     // Supabase Auth를 사용한 구글 OAuth 로그인
-    const frontendOrigin = process.env.NEXT_PUBLIC_FRONTEND_ORIGIN || 
-                          (typeof window !== "undefined" ? window.location.origin : "http://localhost:3000");
+    const frontendOrigin = process.env.NEXT_PUBLIC_FRONTEND_ORIGIN || "https://weoncaes.replit.app";
     
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: "google",
@@ -28,7 +27,7 @@ export async function GET(request: Request) {
 
     if (error) {
       console.error("Google OAuth error:", error);
-      const errorUrl = new URL("/login", process.env.NEXT_PUBLIC_FRONTEND_ORIGIN || "http://localhost:3000");
+      const errorUrl = new URL("/login", process.env.NEXT_PUBLIC_FRONTEND_ORIGIN || "https://weoncaes.replit.app");
       errorUrl.searchParams.set("error", "구글 로그인 중 오류가 발생했습니다.");
       return NextResponse.redirect(errorUrl.toString());
     }
@@ -38,12 +37,12 @@ export async function GET(request: Request) {
       return NextResponse.redirect(data.url);
     }
 
-    const errorUrl = new URL("/login", process.env.NEXT_PUBLIC_FRONTEND_ORIGIN || "http://localhost:3000");
+    const errorUrl = new URL("/login", process.env.NEXT_PUBLIC_FRONTEND_ORIGIN || "https://weoncaes.replit.app");
     errorUrl.searchParams.set("error", "구글 로그인 URL을 생성할 수 없습니다.");
     return NextResponse.redirect(errorUrl.toString());
   } catch (error) {
     console.error("Google login error:", error);
-    const errorUrl = new URL("/login", process.env.NEXT_PUBLIC_FRONTEND_ORIGIN || "http://localhost:3000");
+    const errorUrl = new URL("/login", process.env.NEXT_PUBLIC_FRONTEND_ORIGIN || "https://weoncaes.replit.app");
     errorUrl.searchParams.set("error", "구글 로그인 중 오류가 발생했습니다.");
     return NextResponse.redirect(errorUrl.toString());
   }

@@ -9,9 +9,10 @@ requiredFiles = [".replit", "replit.nix", "package.json", "package-lock.json"]
 channel = "stable-24_11"
 
 [deployment]
-run = ["node", "index.js"]
+run = ["bash", "-c", "cd frontend && npm start"]
 deploymentTarget = "autoscale"
 ignorePorts = false
+build = ["bash", "-c", "cd frontend && npm install && npm run build"]
 
 [agent]
 expertMode = true
@@ -20,8 +21,8 @@ expertMode = true
 
 [userenv.shared]
 PORT = "4000"
-FRONTEND_ORIGIN = "https://b6cac4cd-c073-434b-8497-eff739263f69-00-1qc7irev6jfzk.sisko.replit.dev"
-NEXT_PUBLIC_FRONTEND_ORIGIN = "https://b6cac4cd-c073-434b-8497-eff739263f69-00-1qc7irev6jfzk.sisko.replit.dev"
+FRONTEND_ORIGIN = "https://weoncaes.replit.app"
+NEXT_PUBLIC_FRONTEND_ORIGIN = "https://weoncaes.replit.app"
 NEXT_PUBLIC_SUPABASE_URL = "https://gpumxtrnhkcdoolblfny.supabase.co"
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY = "sb_publishable_6K7p8Xc8A0eh6mV2M0kfig_uFSA_r8B"
 NEXT_PUBLIC_NAVER_MAP_CLIENT_ID = "vbsk9wocnz"

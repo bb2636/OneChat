@@ -27,12 +27,18 @@ backend/           - Express server (port 4000, not actively used)
 - `SUPABASE_SERVICE_ROLE_KEY` - Supabase service role key
 - `NEXT_PUBLIC_NAVER_MAP_CLIENT_ID` - Naver Maps API key
 - `PORT` - Backend port (4000)
-- `FRONTEND_ORIGIN` / `NEXT_PUBLIC_FRONTEND_ORIGIN` - Replit dev domain
+- `FRONTEND_ORIGIN` / `NEXT_PUBLIC_FRONTEND_ORIGIN` - https://weoncaes.replit.app
+
+## Deployment
+- **Target**: Autoscale
+- **Build**: `cd frontend && npm install && npm run build`
+- **Run**: `cd frontend && npm start` (port 5000)
+- **Production URL**: https://weoncaes.replit.app
 
 ## Key Notes
 - Frontend runs on port 5000 (Replit webview)
 - Frontend has its own API routes (`app/api/`) - backend Express server is supplementary
 - Database uses Replit's built-in PostgreSQL, not Supabase PostgreSQL
 - Supabase is used only for Realtime (location sharing) and Auth (Google login)
-- Test admin account: `test` / `test1234`
+- Accounts: `admin` / `admin1234` (관리자), `test` / `test1234` (테스트)
 - Prisma schema has `directUrl` removed (single DATABASE_URL from Replit)

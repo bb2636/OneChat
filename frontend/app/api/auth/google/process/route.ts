@@ -69,7 +69,7 @@ export async function POST(request: Request) {
 
       if (!hasRequiredInfo) {
         // 필수 정보가 없으면 회원가입 단계로 리다이렉트
-        const signupUrl = new URL("/signup/step2", process.env.NEXT_PUBLIC_FRONTEND_ORIGIN || "http://localhost:3000");
+        const signupUrl = new URL("/signup/step2", process.env.NEXT_PUBLIC_FRONTEND_ORIGIN || "https://weoncaes.replit.app");
         signupUrl.searchParams.set("google_auth", "true");
         signupUrl.searchParams.set("user_id", userId);
         signupUrl.searchParams.set("email", email || "");
@@ -82,14 +82,14 @@ export async function POST(request: Request) {
       }
 
       // 모든 필수 정보가 있으면 로그인 성공
-      const redirectUrl = new URL(redirectTo || "/home", process.env.NEXT_PUBLIC_FRONTEND_ORIGIN || "http://localhost:3000");
+      const redirectUrl = new URL(redirectTo || "/home", process.env.NEXT_PUBLIC_FRONTEND_ORIGIN || "https://weoncaes.replit.app");
       redirectUrl.searchParams.set("google_auth", "success");
       redirectUrl.searchParams.set("user_id", userId);
 
       return NextResponse.json({ redirectUrl: redirectUrl.toString() });
     } else {
       // 새 사용자 - 회원가입 단계로 리다이렉트
-      const signupUrl = new URL("/signup/step2", process.env.NEXT_PUBLIC_FRONTEND_ORIGIN || "http://localhost:3000");
+      const signupUrl = new URL("/signup/step2", process.env.NEXT_PUBLIC_FRONTEND_ORIGIN || "https://weoncaes.replit.app");
       signupUrl.searchParams.set("google_auth", "true");
       signupUrl.searchParams.set("user_id", providerId);
       signupUrl.searchParams.set("email", email || "");
