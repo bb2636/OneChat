@@ -1,4 +1,3 @@
-// Prisma 스키마 - Supabase PostgreSQL 최적화
 generator client {
   provider = "prisma-client-js"
 }
@@ -6,7 +5,6 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
 }
 
 // 사용자 테이블

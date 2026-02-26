@@ -22,9 +22,9 @@ expertMode = true
 PORT = "4000"
 FRONTEND_ORIGIN = "https://b6cac4cd-c073-434b-8497-eff739263f69-00-1qc7irev6jfzk.sisko.replit.dev"
 NEXT_PUBLIC_FRONTEND_ORIGIN = "https://b6cac4cd-c073-434b-8497-eff739263f69-00-1qc7irev6jfzk.sisko.replit.dev"
-DIRECT_URL = "postgresql://postgres.gpumxtrnhkcdoolblfny:onechat1234!@aws-1-ap-northeast-1.pooler.supabase.com:5432/postgres"
 NEXT_PUBLIC_SUPABASE_URL = "https://gpumxtrnhkcdoolblfny.supabase.co"
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY = "sb_publishable_6K7p8Xc8A0eh6mV2M0kfig_uFSA_r8B"
+NEXT_PUBLIC_NAVER_MAP_CLIENT_ID = "vbsk9wocnz"
 
 [workflows]
 runButton = "Project"
