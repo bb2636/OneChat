@@ -209,6 +209,7 @@ export function ChatListItem({ chat, onClick, onLeave, isLeaveModalOpen, onReset
             fallback={chat.title}
             size="lg"
             className="w-12 h-12"
+            colorSeed={chat.other_user_id || chat.id}
           />
         )}
       </div>

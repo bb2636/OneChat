@@ -7,6 +7,7 @@ export interface AvatarProps extends HTMLAttributes<HTMLDivElement> {
   alt?: string;
   fallback?: string;
   size?: "sm" | "md" | "lg" | "xl";
+  colorSeed?: string;
 }
 
 const sizeClasses = {
@@ -16,12 +17,27 @@ const sizeClasses = {
   xl: "h-16 w-16 text-lg",
 };
 
+const AVATAR_COLORS = [
+  '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7',
+  '#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E9',
+  '#F1948A', '#82E0AA', '#F8C471', '#AED6F1', '#D7BDE2',
+];
+
+export function getColorFromSeed(seed: string): string {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) {
+    hash = seed.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+}
+
 export function Avatar({
   src,
   alt = "Avatar",
   fallback,
   size = "md",
   className,
+  colorSeed,
   ...props
 }: AvatarProps) {
   const initials = fallback
@@ -31,13 +47,17 @@ export function Avatar({
     .toUpperCase()
     .slice(0, 2);
 
+  const bgColor = !src ? getColorFromSeed(colorSeed || fallback || "?") : undefined;
+
   return (
     <div
       className={cn(
-        "relative flex items-center justify-center rounded-full bg-muted text-muted-foreground overflow-hidden",
+        "relative flex items-center justify-center rounded-full overflow-hidden",
+        src ? "bg-muted text-muted-foreground" : "text-white",
         sizeClasses[size],
         className
       )}
+      style={bgColor ? { backgroundColor: bgColor } : undefined}
       {...props}
     >
       {src ? (

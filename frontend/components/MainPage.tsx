@@ -19,6 +19,12 @@ import { BottomNavigation } from "@/components/BottomNavigation";
 import { Skeleton } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import type { Chat } from "@/types";
+import { getColorFromSeed } from "@/components/ui/avatar";
+
+function getInitial(name: string | null | undefined): string {
+  if (!name) return '?';
+  return name.charAt(0);
+}
 
 interface MainPageProps {
   initialChats: Chat[];
@@ -764,7 +770,11 @@ export function MainPage({ initialChats }: MainPageProps) {
                         }}
                       />
                     ) : null}
-                    <div className={`h-9 w-9 rounded-full bg-gray-200 ${friend.avatar_url ? 'hidden' : ''}`} />
+                    <div className={`h-9 w-9 rounded-full flex items-center justify-center text-white text-sm font-bold ${friend.avatar_url ? 'hidden' : ''}`}
+                      style={{ backgroundColor: getColorFromSeed(friend.id) }}
+                    >
+                      {getInitial(friend.name || friend.nickname)}
+                    </div>
                     <span className="text-sm font-medium text-gray-900">
                       {friend.name || friend.nickname || "이름 없음"}
                     </span>
