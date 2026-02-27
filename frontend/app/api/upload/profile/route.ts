@@ -30,11 +30,9 @@ export async function POST(request: Request) {
       // 디렉토리가 이미 존재하는 경우 무시
     }
 
-    // 파일 저장
     const filepath = join(uploadDir, filename);
-    await writeFile(filepath, buffer);
+    await writeFile(filepath, buffer, { mode: 0o644 });
 
-    // URL 반환
     const url = `/uploads/profiles/${filename}`;
 
     return NextResponse.json({ url });
