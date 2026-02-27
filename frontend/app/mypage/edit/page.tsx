@@ -142,6 +142,7 @@ export default function MyPageEditPage() {
               className="hidden"
               onChange={async (e) => {
                 const file = e.target.files?.[0];
+                const input = e.currentTarget;
                 if (!file) return;
                 try {
                   if (!isEditing) setIsEditing(true);
@@ -152,7 +153,7 @@ export default function MyPageEditPage() {
                   alert(error instanceof Error ? error.message : "이미지 업로드 실패");
                 } finally {
                   setIsUploadingAvatar(false);
-                  e.currentTarget.value = "";
+                  if (input) input.value = "";
                 }
               }}
             />
