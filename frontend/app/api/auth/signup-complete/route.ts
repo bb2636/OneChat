@@ -98,6 +98,7 @@ export async function POST(request: Request) {
             UPDATE users
             SET 
               email = COALESCE(${email}, email),
+              username = CASE WHEN username IS NULL OR username = '' THEN ${email || null} ELSE username END,
               nickname = ${nickname || null},
               name = ${name || null},
               avatar_url = ${avatarUrl || null},
@@ -126,8 +127,8 @@ export async function POST(request: Request) {
             VALUES (
               ${userId},
               ${email || null},
-              ${null}, -- 구글 로그인은 username 없음
-              ${null}, -- 구글 로그인은 password 없음
+              ${email || null},
+              ${null},
               ${nickname || null},
               ${name || null},
               ${avatarUrl || null},

@@ -52,6 +52,7 @@ export async function POST(request: Request) {
           UPDATE users
           SET 
             email = COALESCE(${email}, email),
+            username = CASE WHEN username IS NULL OR username = '' THEN ${email || null} ELSE username END,
             name = CASE WHEN name IS NULL OR name = '' THEN COALESCE(${name}, name) ELSE name END,
             avatar_url = CASE WHEN avatar_url IS NULL OR avatar_url = '' THEN COALESCE(${avatarUrl}, avatar_url) ELSE avatar_url END,
             updated_at = NOW()
