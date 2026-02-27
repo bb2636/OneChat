@@ -26,6 +26,8 @@ NEXT_PUBLIC_FRONTEND_ORIGIN = "https://weoncaes.replit.app"
 NEXT_PUBLIC_SUPABASE_URL = "https://gpumxtrnhkcdoolblfny.supabase.co"
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY = "sb_publishable_6K7p8Xc8A0eh6mV2M0kfig_uFSA_r8B"
 NEXT_PUBLIC_NAVER_MAP_CLIENT_ID = "vbsk9wocnz"
+GOOGLE_CLIENT_ID = "1056979954995-6m3be43uqkecd2215g4rig5sncj0qm3f.apps.googleusercontent.com"
+GOOGLE_CLIENT_SECRET = "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"
 
 [workflows]
 runButton = "Project"
