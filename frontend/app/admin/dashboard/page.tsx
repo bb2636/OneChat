@@ -834,10 +834,10 @@ export default function AdminDashboardPage() {
           <div className="h-[calc(100vh-56px)] overflow-auto">
             {activeMenu === "users" && (
               <section>
-                <div className="mb-5  py-3">
-                  <h2 className="text-xl font-semibold text-black">유저 관리</h2>
+                <div className="px-6 pt-3">
+                  <h2 className="mb-4 text-[34px] font-semibold tracking-tight text-gray-900">유저 관리</h2>
                 </div>
-                <div className="mb-4 mt-5 flex justify-end">
+                <div className="mb-4 flex justify-end px-6">
                   <div className="relative w-[320px]">
                     <Search className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                     <input
@@ -1045,8 +1045,10 @@ export default function AdminDashboardPage() {
 
             {activeMenu === "terms" && (
               <section>
-                <h2 className="mb-4 text-xl font-semibold text-gray-800">약관 관리</h2>
-                <div className="mb-3 flex gap-0 border-b text-sm">
+                <div className="px-6 pt-3">
+                  <h2 className="mb-4 text-[34px] font-semibold tracking-tight text-gray-900">약관 관리</h2>
+                </div>
+                <div className="mb-3 flex gap-0 border-b px-6 text-sm">
                   {[
                     { key: "privacy_policy", label: "개인정보 처리방침" },
                     { key: "terms_of_service", label: "서비스 이용약관" },
@@ -1065,7 +1067,7 @@ export default function AdminDashboardPage() {
                     </button>
                   ))}
                 </div>
-                <div className="space-y-3">
+                <div className="space-y-3 px-6">
                   <div className="flex items-center justify-end">
                     <div className="flex items-center gap-2 text-xs text-gray-400">
                       <p>{formatUpdatedAt(currentTerm?.updated_at)} 업데이트 됨</p>
