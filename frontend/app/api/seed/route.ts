@@ -6,9 +6,13 @@ export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
   try {
+    const seedKey = process.env.SEED_API_KEY;
+    if (!seedKey) {
+      return NextResponse.json({ error: "Seed API is disabled" }, { status: 403 });
+    }
     const { searchParams } = new URL(request.url);
     const key = searchParams.get("key");
-    if (key !== "onechat-seed-2026") {
+    if (key !== seedKey) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
