@@ -98,22 +98,7 @@ function LoginForm() {
     setErrors([]);
 
     try {
-      const userAgent = navigator.userAgent || '';
-      const isWebView = /wv|WebView/i.test(userAgent) || /; wv\)/.test(userAgent);
-
-      if (isWebView) {
-        const res = await fetch(`/api/auth/google?redirect_to=${encodeURIComponent("/home")}&mode=json`);
-        const data = await res.json();
-        if (data.url) {
-          const intentUrl = `intent://${data.url.replace(/^https?:\/\//, '')}#Intent;scheme=https;action=android.intent.action.VIEW;end`;
-          window.location.href = intentUrl;
-        } else {
-          setErrors([data.error || "구글 로그인 URL을 가져올 수 없습니다."]);
-          setIsGoogleLoading(false);
-        }
-      } else {
-        window.location.href = `/api/auth/google?redirect_to=${encodeURIComponent("/home")}`;
-      }
+      window.location.href = `/api/auth/google?redirect_to=${encodeURIComponent("/home")}`;
     } catch (error) {
       console.error("Google login error:", error);
       setErrors(["구글 로그인 중 오류가 발생했습니다."]);
