@@ -59,7 +59,7 @@ type TermItem = {
 };
 
 const PAGE_SIZE = 10;
-const DASHBOARD_CACHE_KEY = "admin_dashboard_cache_v1";
+const DASHBOARD_CACHE_KEY = "admin_dashboard_cache_v2";
 const DETAIL_REPLY_MIN_HEIGHT = 260;
 const DETAIL_REPLY_MAX_HEIGHT = 380;
 
