@@ -306,9 +306,10 @@ export default function AdminDashboardPage() {
       setLoading(true);
     }
 
+    const excludeId = adminUser.id || "";
     const requestUrl = cached
-      ? `/api/admin/users?page=${usersPage}&q=${encodeURIComponent(search)}&since=${encodeURIComponent(cached.syncedAt)}`
-      : `/api/admin/users?page=${usersPage}&q=${encodeURIComponent(search)}`;
+      ? `/api/admin/users?page=${usersPage}&q=${encodeURIComponent(search)}&excludeId=${excludeId}&since=${encodeURIComponent(cached.syncedAt)}`
+      : `/api/admin/users?page=${usersPage}&q=${encodeURIComponent(search)}&excludeId=${excludeId}`;
 
     fetch(requestUrl)
       .then((r) => r.json())

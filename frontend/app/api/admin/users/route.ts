@@ -10,6 +10,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const rawPage = Number(searchParams.get("page") || "1");
     const keyword = (searchParams.get("q") || "").trim();
+    const excludeId = (searchParams.get("excludeId") || "").trim();
     const since = (searchParams.get("since") || "").trim();
     const sinceDate = since ? new Date(since) : null;
     const isDelta = !!sinceDate && !Number.isNaN(sinceDate.getTime());
@@ -33,7 +34,7 @@ export async function GET(request: Request) {
       const totalRows = (await sql`
         SELECT COUNT(*)::int AS count
         FROM users
-        WHERE COALESCE(role, 'user') <> 'admin'
+        WHERE (${excludeId} = '' OR id::text <> ${excludeId})
           AND (
             username ILIKE ${like}
             OR nickname ILIKE ${like}
@@ -47,7 +48,7 @@ export async function GET(request: Request) {
         items = (await sql`
           SELECT id, username, nickname, name, avatar_url, phone_number, role, created_at::text
           FROM users
-          WHERE COALESCE(role, 'user') <> 'admin'
+          WHERE (${excludeId} = '' OR id::text <> ${excludeId})
             AND (
               username ILIKE ${like}
               OR nickname ILIKE ${like}
@@ -61,7 +62,7 @@ export async function GET(request: Request) {
         items = (await sql`
           SELECT id, username, nickname, name, avatar_url, phone_number, role, created_at::text
           FROM users
-          WHERE COALESCE(role, 'user') <> 'admin'
+          WHERE (${excludeId} = '' OR id::text <> ${excludeId})
             AND (
               username ILIKE ${like}
               OR nickname ILIKE ${like}
@@ -76,7 +77,7 @@ export async function GET(request: Request) {
       const totalRows = (await sql`
         SELECT COUNT(*)::int AS count
         FROM users
-        WHERE COALESCE(role, 'user') <> 'admin'
+        WHERE (${excludeId} = '' OR id::text <> ${excludeId})
       `) as unknown as Array<{ count: number }>;
 
       total = totalRows[0]?.count || 0;
@@ -85,7 +86,7 @@ export async function GET(request: Request) {
         items = (await sql`
           SELECT id, username, nickname, name, avatar_url, phone_number, role, created_at::text
           FROM users
-          WHERE COALESCE(role, 'user') <> 'admin'
+          WHERE (${excludeId} = '' OR id::text <> ${excludeId})
             AND COALESCE(updated_at, created_at) > ${sinceDate as Date}
           ORDER BY created_at DESC
           LIMIT ${PAGE_SIZE}
@@ -94,7 +95,7 @@ export async function GET(request: Request) {
         items = (await sql`
           SELECT id, username, nickname, name, avatar_url, phone_number, role, created_at::text
           FROM users
-          WHERE COALESCE(role, 'user') <> 'admin'
+          WHERE (${excludeId} = '' OR id::text <> ${excludeId})
           ORDER BY created_at DESC
           LIMIT ${PAGE_SIZE}
           OFFSET ${offset}
@@ -127,7 +128,6 @@ export async function DELETE(request: Request) {
     const rows = (await sql`
       DELETE FROM users
       WHERE id = ${id}
-        AND COALESCE(role, 'user') <> 'admin'
       RETURNING id
     `) as unknown as Array<{ id: string }>;
 
