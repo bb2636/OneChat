@@ -98,7 +98,14 @@ function LoginForm() {
     setErrors([]);
 
     try {
-      window.location.href = `/api/auth/google?redirect_to=${encodeURIComponent("/home")}`;
+      const res = await fetch(`/api/auth/google?redirect_to=${encodeURIComponent("/home")}&mode=json`);
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        setErrors([data.error || "구글 로그인 URL을 가져올 수 없습니다."]);
+        setIsGoogleLoading(false);
+      }
     } catch (error) {
       console.error("Google login error:", error);
       setErrors(["구글 로그인 중 오류가 발생했습니다."]);
