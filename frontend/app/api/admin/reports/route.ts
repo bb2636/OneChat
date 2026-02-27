@@ -109,6 +109,13 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "id와 status가 필요합니다." }, { status: 400 });
     }
 
+    if (adminNote && adminNote.trim().length > 500) {
+      return NextResponse.json(
+        { error: "답변은 500자 이내로 작성해주세요." },
+        { status: 400 }
+      );
+    }
+
     const rows = (await sql`
       UPDATE reports
       SET

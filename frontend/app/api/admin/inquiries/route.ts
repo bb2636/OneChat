@@ -152,6 +152,13 @@ export async function POST(request: Request) {
       );
     }
 
+    if (content.trim().length > 500) {
+      return NextResponse.json(
+        { error: "답변은 500자 이내로 작성해주세요." },
+        { status: 400 }
+      );
+    }
+
     const now = new Date();
     const inserted = (await sql`
       INSERT INTO inquiry_replies (id, inquiry_id, user_id, content, is_admin, created_at)

@@ -1193,8 +1193,11 @@ export default function AdminDashboardPage() {
                       <textarea
                         ref={detailReplyRef}
                         value={detailReply}
+                        maxLength={500}
                         onChange={(e) => {
-                          setDetailReply(e.target.value);
+                          const val = e.target.value;
+                          if (val.length > 500) return;
+                          setDetailReply(val);
                           e.currentTarget.style.height = "auto";
                           const nextHeight = Math.min(
                             Math.max(e.currentTarget.scrollHeight, DETAIL_REPLY_MIN_HEIGHT),
@@ -1207,6 +1210,7 @@ export default function AdminDashboardPage() {
                         placeholder="내용을 입력해 주세요."
                         className="h-[260px] w-full resize-none overflow-y-hidden border-none bg-transparent pt-3 text-sm leading-6 text-gray-700 placeholder:text-gray-400 outline-none"
                       />
+                      <p className="text-right text-[10px] text-gray-400">{detailReply.length}/500</p>
                     </div>
                   </div>
                 </div>
