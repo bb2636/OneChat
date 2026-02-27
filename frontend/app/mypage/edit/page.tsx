@@ -123,10 +123,17 @@ export default function MyPageEditPage() {
         <div className="mb-5 flex flex-col items-center">
           <div className="relative h-[72px] w-[72px]">
             {avatarUrl ? (
-              <img src={avatarUrl} alt="avatar" className="h-[72px] w-[72px] rounded-full object-cover" />
-            ) : (
-              <div className="h-[72px] w-[72px] rounded-full bg-gray-300" />
-            )}
+              <img
+                src={avatarUrl}
+                alt="avatar"
+                className="h-[72px] w-[72px] rounded-full object-cover"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).style.display = 'none';
+                  (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
+                }}
+              />
+            ) : null}
+            <div className={`h-[72px] w-[72px] rounded-full bg-gray-300 ${avatarUrl ? 'hidden' : ''}`} />
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}

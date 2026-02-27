@@ -198,10 +198,13 @@ export default function FriendSearchPage() {
                       src={friend.avatar_url}
                       alt={friend.name || friend.nickname || "friend"}
                       className="h-10 w-10 rounded-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = 'none';
+                        (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
+                      }}
                     />
-                  ) : (
-                    <div className="h-10 w-10 rounded-full bg-[#eceef1]" />
-                  )}
+                  ) : null}
+                  <div className={`h-10 w-10 rounded-full bg-[#eceef1] ${friend.avatar_url ? 'hidden' : ''}`} />
                   <span className="text-sm font-medium text-gray-900">
                     {friend.name || friend.nickname || "이름 없음"}
                   </span>
