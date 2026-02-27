@@ -28,6 +28,7 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY = "sb_publishable_6K7p8Xc8A0eh6mV2M
 NEXT_PUBLIC_NAVER_MAP_CLIENT_ID = "vbsk9wocnz"
 GOOGLE_CLIENT_ID = "1056979954995-6m3be43uqkecd2215g4rig5sncj0qm3f.apps.googleusercontent.com"
 GOOGLE_CLIENT_SECRET = "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"
+SEED_API_KEY = "onechat-seed-2026-prod"
 
 [workflows]
 runButton = "Project"
