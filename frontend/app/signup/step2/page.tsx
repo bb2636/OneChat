@@ -100,9 +100,9 @@ function SignupStep2Content() {
     }
 
     // 닉네임 유효성 검사 (한글, 영문 대소문자만)
-    const nicknameRegex = /^[가-힣a-zA-Z]+$/;
+    const nicknameRegex = /^[가-힣a-zA-Z0-9]+$/;
     if (!nicknameRegex.test(value)) {
-      setNicknameError("한글, 영문 대/소문자를 사용해 주세요. (특수기호, 공백 사용 불가)");
+      setNicknameError("한글, 영문 대/소문자, 숫자를 사용해 주세요. (특수기호, 공백 사용 불가)");
       return;
     }
 

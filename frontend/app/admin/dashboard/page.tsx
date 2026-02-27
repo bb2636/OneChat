@@ -483,13 +483,14 @@ export default function AdminDashboardPage() {
   }, [adminUser, activeMenu]);
 
   useEffect(() => {
-    const current = terms.find((term) => term.type === activeTermType);
+    const safeTerms = Array.isArray(terms) ? terms : [];
+    const current = safeTerms.find((term) => term.type === activeTermType);
     setTermTitle(current?.title || TERM_TITLE_MAP[activeTermType] || "");
     setTermContent(current?.content || "");
   }, [terms, activeTermType]);
 
   const currentTerm = useMemo(
-    () => terms.find((term) => term.type === activeTermType),
+    () => (Array.isArray(terms) ? terms : []).find((term) => term.type === activeTermType),
     [terms, activeTermType]
   );
 
