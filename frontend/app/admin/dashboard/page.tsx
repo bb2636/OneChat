@@ -1099,8 +1099,8 @@ export default function AdminDashboardPage() {
         </main>
 
         {selectedItem && (
-          <div className="fixed inset-0 z-50 bg-black/45">
-            <div className="ml-auto h-full w-[430px] border-l border-gray-200 bg-white">
+          <div className="fixed inset-0 z-50 bg-black/45" onClick={() => setSelectedItem(null)}>
+            <div className="ml-auto h-full w-[430px] border-l border-gray-200 bg-white" onClick={(e) => e.stopPropagation()}>
               <div className="flex h-14 items-center justify-between border-b border-gray-200 px-4">
                 <h3 className="text-base font-semibold text-gray-800">
                   {activeMenu === "reports" ? "신고내역 상세보기" : "문의내역 상세보기"}
