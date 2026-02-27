@@ -446,13 +446,14 @@ export default function AdminDashboardPage() {
     if (!adminUser || activeMenu !== "terms") return;
     const cache = loadDashboardCache();
     const cached = cache.terms.all;
-    if (cached) {
-      setTerms(cached.items || []);
+    const cachedItems = Array.isArray(cached?.items) ? cached.items : [];
+    if (cachedItems.length > 0) {
+      setTerms(cachedItems);
     } else {
       setLoading(true);
     }
 
-    const requestUrl = cached
+    const requestUrl = cached?.syncedAt
       ? `/api/admin/terms?since=${encodeURIComponent(cached.syncedAt)}`
       : "/api/admin/terms";
 
@@ -460,23 +461,23 @@ export default function AdminDashboardPage() {
       try {
         const res = await fetch(requestUrl);
         const data = await res.json();
-        const incoming = (data || []).items ? (data.items as TermItem[]) : ((data || []) as TermItem[]);
-        const nextItems = cached && data.delta
+        const incoming: TermItem[] = Array.isArray(data) ? data : Array.isArray(data?.items) ? data.items : [];
+        const nextItems = cached?.syncedAt && data?.delta && cachedItems.length > 0
           ? Array.from(
-              new Map([...(cached.items || []), ...incoming].map((item) => [item.type, item] as const)).values()
+              new Map([...cachedItems, ...incoming].map((item) => [item.type, item] as const)).values()
             )
           : incoming;
 
-        setTerms(nextItems || []);
+        setTerms(nextItems);
         const fresh = loadDashboardCache();
         fresh.terms.all = {
-          items: nextItems || [],
+          items: nextItems,
           totalPages: 1,
-          syncedAt: data.syncedAt || new Date().toISOString(),
+          syncedAt: data?.syncedAt || new Date().toISOString(),
         };
         saveDashboardCache(fresh);
       } finally {
-        if (!cached) setLoading(false);
+        if (cachedItems.length === 0) setLoading(false);
       }
     };
     void loadTerms();
