@@ -98,8 +98,16 @@ function LoginForm() {
     setErrors([]);
 
     try {
-      // 구글 로그인 API 호출 (리다이렉트 처리)
-      window.location.href = `/api/auth/google?redirect_to=${encodeURIComponent("/home")}`;
+      const origin = window.location.origin;
+      const googleUrl = `${origin}/api/auth/google?redirect_to=${encodeURIComponent("/home")}`;
+
+      const isCapacitor = typeof (window as any).Capacitor !== 'undefined' && (window as any).Capacitor.isNativePlatform?.();
+      if (isCapacitor) {
+        const { Browser } = await import('@capacitor/browser');
+        await Browser.open({ url: googleUrl });
+      } else {
+        window.location.href = googleUrl;
+      }
     } catch (error) {
       console.error("Google login error:", error);
       setErrors(["구글 로그인 중 오류가 발생했습니다."]);
