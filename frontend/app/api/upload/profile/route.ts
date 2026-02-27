@@ -1,6 +1,4 @@
 import { NextResponse } from "next/server";
-import { writeFile, mkdir } from "fs/promises";
-import { join } from "path";
 
 export async function POST(request: Request) {
   try {
@@ -14,28 +12,13 @@ export async function POST(request: Request) {
       );
     }
 
-    // 파일을 바이트로 변환
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
+    const base64 = buffer.toString("base64");
+    const mimeType = file.type || "image/png";
+    const dataUrl = `data:${mimeType};base64,${base64}`;
 
-    // 파일명 생성
-    const timestamp = Date.now();
-    const filename = `profile-${timestamp}.${file.name.split(".").pop()}`;
-
-    // 업로드 디렉토리 생성 (없는 경우)
-    const uploadDir = join(process.cwd(), "public", "uploads", "profiles");
-    try {
-      await mkdir(uploadDir, { recursive: true });
-    } catch (error) {
-      // 디렉토리가 이미 존재하는 경우 무시
-    }
-
-    const filepath = join(uploadDir, filename);
-    await writeFile(filepath, buffer, { mode: 0o644 });
-
-    const url = `/uploads/profiles/${filename}`;
-
-    return NextResponse.json({ url });
+    return NextResponse.json({ url: dataUrl });
   } catch (error) {
     console.error("Upload error:", error);
     return NextResponse.json(
