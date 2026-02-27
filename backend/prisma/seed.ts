@@ -18,8 +18,8 @@ const sql = postgres(process.env.DATABASE_URL, { prepare: false, max: 1 });
 async function main() {
   console.log("관리자 계정 생성 중...");
 
-  const adminUsername = "test";
-  const adminPassword = "test1234";
+  const adminUsername = "admin@admin.com";
+  const adminPassword = "admin1234";
   const hashedPassword = await bcrypt.hash(adminPassword, 10);
 
   const existing = await sql`
@@ -36,7 +36,7 @@ async function main() {
   } else {
     const created = await sql`
       INSERT INTO users (id, username, password, nickname, name, role, email, created_at, updated_at)
-      VALUES (gen_random_uuid(), ${adminUsername}, ${hashedPassword}, '테스트', '테스트', 'admin', 'test@test.com', NOW(), NOW())
+      VALUES (gen_random_uuid(), ${adminUsername}, ${hashedPassword}, '관리자', '관리자', 'admin', ${adminUsername}, NOW(), NOW())
       RETURNING id
     `;
     console.log("✅ 관리자 계정이 생성되었습니다!");
