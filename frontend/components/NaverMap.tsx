@@ -680,21 +680,21 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
     let realtimeChannel: ReturnType<typeof supabase.channel> | null = null;
 
     const bootstrapRealtime = async () => {
-      const { data: initialUsers, error } = await supabase
-        .from("users")
-        .select("id, latitude, longitude, avatar_url, nickname")
-        .not("latitude", "is", null)
-        .not("longitude", "is", null);
+      try {
+        const res = await fetch(`/api/users/locations${userId ? `?excludeUserId=${userId}` : ""}`);
+        if (!res.ok) throw new Error("Failed to fetch user locations");
+        const initialUsers = await res.json();
 
-      if (!active) return;
+        if (!active) return;
 
-      if (error) {
+        if (Array.isArray(initialUsers)) {
+          initialUsers.forEach((user: any) => {
+            if (user.id === userId || user.latitude == null || user.longitude == null) return;
+            createOrUpdateOtherUserMarker(user as SupabaseUser, naverObj, mapRef.current!);
+          });
+        }
+      } catch (error) {
         console.error("initial users fetch error:", error);
-      } else if (initialUsers) {
-        initialUsers.forEach((user) => {
-          if (user.id === userId || user.latitude == null || user.longitude == null) return;
-          createOrUpdateOtherUserMarker(user as SupabaseUser, naverObj, mapRef.current!);
-        });
       }
 
       realtimeChannel = supabase
