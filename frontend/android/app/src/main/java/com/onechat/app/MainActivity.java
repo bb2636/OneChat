@@ -1,6 +1,8 @@
 package com.onechat.app;
 
 import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
 import android.net.Uri;
 import android.os.Bundle;
 import android.webkit.WebResourceRequest;
@@ -9,6 +11,8 @@ import android.webkit.WebView;
 
 import com.getcapacitor.BridgeActivity;
 import com.getcapacitor.BridgeWebViewClient;
+
+import java.util.List;
 
 public class MainActivity extends BridgeActivity {
 
@@ -30,12 +34,22 @@ public class MainActivity extends BridgeActivity {
                 if (url.contains("accounts.google.com") ||
                     url.contains("googleapis.com") ||
                     url.contains("supabase.co/auth")) {
-                    Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
-                    startActivity(intent);
+                    openInChrome(url);
                     return true;
                 }
                 return super.shouldOverrideUrlLoading(view, request);
             }
         });
+    }
+
+    private void openInChrome(String url) {
+        Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+        intent.setPackage("com.android.chrome");
+        try {
+            startActivity(intent);
+        } catch (Exception e) {
+            intent.setPackage(null);
+            startActivity(intent);
+        }
     }
 }
