@@ -284,6 +284,7 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
 
   const createOrUpdateOtherUserMarker = useCallback((userData: SupabaseUser, naverObj: any, map: naver.maps.Map) => {
     if (userData.latitude == null || userData.longitude == null) return;
+    if (!naverObj?.maps?.Marker) return;
     const color = getOtherUserColor(userData.id);
 
     const existing = otherUsersMarkersRef.current.get(userData.id);
@@ -674,6 +675,7 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
     if (typeof window === "undefined" || !(window as any).naver) return;
 
     const naverObj = (window as any).naver;
+    if (!naverObj?.maps?.Marker) return;
     let active = true;
     let realtimeChannel: ReturnType<typeof supabase.channel> | null = null;
 
