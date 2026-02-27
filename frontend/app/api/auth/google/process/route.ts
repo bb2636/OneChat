@@ -46,17 +46,14 @@ export async function POST(request: Request) {
       phoneNumber = existingUser[0].phone_number;
       phoneVerified = existingUser[0].phone_verified;
 
-      // 프로필 정보 업데이트
+      // 프로필 정보 업데이트 (사용자가 직접 설정한 값은 덮어쓰지 않음)
       try {
         await sql`
           UPDATE users
           SET 
             email = COALESCE(${email}, email),
-            name = COALESCE(${name}, name),
-            avatar_url = CASE 
-              WHEN ${avatarUrl} IS NOT NULL THEN ${avatarUrl}
-              ELSE avatar_url
-            END,
+            name = CASE WHEN name IS NULL OR name = '' THEN COALESCE(${name}, name) ELSE name END,
+            avatar_url = CASE WHEN avatar_url IS NULL OR avatar_url = '' THEN COALESCE(${avatarUrl}, avatar_url) ELSE avatar_url END,
             updated_at = NOW()
           WHERE id = ${userId}
         `;
