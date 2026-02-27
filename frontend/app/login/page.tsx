@@ -117,7 +117,7 @@ function LoginForm() {
     <div className="min-h-screen flex flex-col items-center justify-center px-4 py-8" style={{ backgroundColor: '#6983FC' }}>
 
       {/* 로고 영역 */}
-      <div className="mb-12">
+      <div className="mb-6 sm:mb-12">
         <div className="flex items-center justify-center">
           <Image
             src={LOGO_PATHS.main}
