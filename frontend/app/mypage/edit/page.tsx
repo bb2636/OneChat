@@ -98,6 +98,7 @@ export default function MyPageEditPage() {
       setAvatarUrl(data.user.avatar_url || null);
       setIsEditing(false);
       setToast("프로필 정보가 수정되었습니다.");
+      localStorage.setItem("profileUpdated", Date.now().toString());
     } catch (error) {
       alert(error instanceof Error ? error.message : "프로필 수정 중 오류가 발생했습니다.");
     } finally {

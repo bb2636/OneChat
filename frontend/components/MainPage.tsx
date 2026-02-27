@@ -246,7 +246,7 @@ export function MainPage({ initialChats }: MainPageProps) {
     gcTime: 10 * 60 * 1000,
   });
 
-  const { data: currentUserProfile } = useQuery({
+  const { data: currentUserProfile, refetch: refetchProfile } = useQuery({
     queryKey: ["current-user-profile", currentUserId],
     enabled: !!currentUserId,
     queryFn: async () => {
@@ -258,6 +258,16 @@ export function MainPage({ initialChats }: MainPageProps) {
     staleTime: 60 * 1000,
     gcTime: 10 * 60 * 1000,
   });
+
+  useEffect(() => {
+    if (activeTab === "mypage") {
+      const updated = localStorage.getItem("profileUpdated");
+      if (updated) {
+        localStorage.removeItem("profileUpdated");
+        refetchProfile();
+      }
+    }
+  }, [activeTab, refetchProfile]);
 
   useEffect(() => {
     if (!toastMessage) return;
@@ -744,10 +754,13 @@ export function MainPage({ initialChats }: MainPageProps) {
                         src={friend.avatar_url}
                         alt={friend.name || friend.nickname || "friend"}
                         className="h-9 w-9 rounded-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = 'none';
+                          (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
+                        }}
                       />
-                    ) : (
-                      <div className="h-9 w-9 rounded-full bg-gray-200" />
-                    )}
+                    ) : null}
+                    <div className={`h-9 w-9 rounded-full bg-gray-200 ${friend.avatar_url ? 'hidden' : ''}`} />
                     <span className="text-sm font-medium text-gray-900">
                       {friend.name || friend.nickname || "이름 없음"}
                     </span>
@@ -1198,10 +1211,13 @@ export function MainPage({ initialChats }: MainPageProps) {
                       src={currentUserProfile.avatar_url}
                       alt="profile"
                       className="h-11 w-11 rounded-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = 'none';
+                        (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
+                      }}
                     />
-                  ) : (
-                    <div className="h-11 w-11 rounded-full bg-gray-200" />
-                  )}
+                  ) : null}
+                  <div className={`h-11 w-11 rounded-full bg-gray-200 ${currentUserProfile?.avatar_url ? 'hidden' : ''}`} />
                   <div>
                     <p className="text-sm font-medium text-gray-900">안녕하세요</p>
                     <p className="text-sm font-bold text-blue-600">{profileName} 님</p>
