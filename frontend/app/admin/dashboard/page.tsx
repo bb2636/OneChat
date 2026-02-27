@@ -596,12 +596,13 @@ export default function AdminDashboardPage() {
 
     const refresh = await fetch("/api/admin/terms");
     const data = await refresh.json();
-    setTerms(data || []);
+    const refreshedItems = Array.isArray(data) ? data : (data?.items || []);
+    setTerms(refreshedItems as TermItem[]);
     const cache = loadDashboardCache();
     cache.terms.all = {
-      items: (data || []) as TermItem[],
+      items: refreshedItems as TermItem[],
       totalPages: 1,
-      syncedAt: new Date().toISOString(),
+      syncedAt: data?.syncedAt || new Date().toISOString(),
     };
     saveDashboardCache(cache);
     alert("저장되었습니다.");
@@ -676,12 +677,13 @@ export default function AdminDashboardPage() {
     try {
       const refresh = await fetch("/api/admin/terms");
       const data = await refresh.json();
-      setTerms(data || []);
+      const refreshedItems = Array.isArray(data) ? data : (data?.items || []);
+      setTerms(refreshedItems as TermItem[]);
       const cache = loadDashboardCache();
       cache.terms.all = {
-        items: (data || []) as TermItem[],
+        items: refreshedItems as TermItem[],
         totalPages: 1,
-        syncedAt: new Date().toISOString(),
+        syncedAt: data?.syncedAt || new Date().toISOString(),
       };
       saveDashboardCache(cache);
     } finally {
