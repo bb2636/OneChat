@@ -147,7 +147,7 @@ export function MainPage({ initialChats }: MainPageProps) {
       myPageScreen === "inquiry-create");
 
   // React Query로 데이터 관리 (캐싱 및 업데이트)
-  const { data: chats, isLoading: chatsLoading } = useQuery({
+  const { data: chats, isLoading: chatsLoading, isFetching: chatsFetching } = useQuery({
     queryKey: ["chats", currentUserId],
     queryFn: async () => {
       if (!currentUserId) return [];
@@ -157,9 +157,11 @@ export function MainPage({ initialChats }: MainPageProps) {
     },
     initialData: initialChats,
     enabled: !!currentUserId,
-    staleTime: 2 * 60 * 1000, // 2분간 fresh 상태 유지
+    staleTime: 2 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
-    refetchInterval: 30 * 1000, // 30초마다 백그라운드 업데이트
+    refetchInterval: 30 * 1000,
+    placeholderData: (prev) => prev,
+    refetchOnWindowFocus: false,
   });
 
   const chatReadStorageKey = useMemo(
@@ -220,6 +222,8 @@ export function MainPage({ initialChats }: MainPageProps) {
     },
     staleTime: 60 * 1000,
     gcTime: 10 * 60 * 1000,
+    placeholderData: (prev) => prev,
+    refetchOnWindowFocus: false,
   });
 
   const { data: reports = [], refetch: refetchReports } = useQuery({
@@ -627,7 +631,7 @@ export function MainPage({ initialChats }: MainPageProps) {
   const renderContent = () => {
     switch (activeTab) {
       case "chat":
-        if (chatsLoading) {
+        if (chatsLoading && (!chats || chats.length === 0)) {
           return (
             <div className="space-y-0">
               {[1, 2, 3, 4, 5].map((i) => (
