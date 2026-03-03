@@ -21,7 +21,7 @@ export async function POST(request: Request) {
 
     const testUser = await sql`
       INSERT INTO users (id, username, password, email, name, nickname, phone_number, phone_verified, role, updated_at)
-      VALUES (gen_random_uuid(), 'test', ${pw}, 'testuser@onechat.com', '테스트', '테스트유저', '01000000000', true, 'user', ${now})
+      VALUES (gen_random_uuid(), 'test@test.com', ${pw}, 'test@test.com', '테스트', '테스트유저', '01000000000', true, 'user', ${now})
       ON CONFLICT (username) DO UPDATE SET
         phone_number = COALESCE(NULLIF(users.phone_number, ''), '01000000000'),
         phone_verified = true,
