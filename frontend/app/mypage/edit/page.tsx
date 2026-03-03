@@ -187,7 +187,7 @@ export default function MyPageEditPage() {
           onChange={(e) => setNickname(e.target.value)}
           disabled={!isEditing}
           className={`mb-3 h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-blue-500 ${
-            isEditing ? "bg-gray-200 text-gray-900" : "bg-gray-200 text-gray-700"
+            isEditing ? "bg-white text-gray-900" : "bg-gray-200 text-gray-700"
           }`}
         />
 
@@ -199,7 +199,7 @@ export default function MyPageEditPage() {
           disabled={!isEditing}
           placeholder={isEditing ? "새 비밀번호를 입력하세요" : "••••••••••••"}
           className={`h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-blue-500 ${
-            isEditing ? "bg-gray-200 text-gray-900" : "bg-gray-200 text-gray-700"
+            isEditing ? "bg-white text-gray-900" : "bg-gray-200 text-gray-700"
           }`}
         />
       </main>
