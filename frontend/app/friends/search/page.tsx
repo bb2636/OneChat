@@ -83,7 +83,7 @@ export default function FriendSearchPage() {
         return;
       }
 
-      const res = await fetch(`/api/friends?userId=${userId}`);
+      const res = await fetch(`/api/friends`);
       if (!res.ok) throw new Error("Failed to fetch friends");
 
       const allFriends = (await res.json()) as Friend[];

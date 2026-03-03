@@ -237,7 +237,7 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
 
     const loadMyProfile = async () => {
       try {
-        const res = await fetch(`/api/users/profile?userId=${userId}`);
+        const res = await fetch(`/api/users/profile`);
         if (!res.ok) return;
         const data = (await res.json().catch(() => ({}))) as {
           user?: { avatar_url?: string | null };
@@ -497,7 +497,6 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            userId,
             latitude: userLocation.latitude,
             longitude: userLocation.longitude,
           }),
@@ -759,7 +758,7 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
     // 친구 목록 로드
     if (userId) {
       try {
-        const res = await fetch(`/api/friends?userId=${userId}`);
+        const res = await fetch(`/api/friends`);
         if (res.ok) {
           const friendList = (await res.json()) as Array<{ id: string }>;
           setFriends(new Set(friendList.map(f => f.id)));
@@ -786,7 +785,7 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
       const res = await fetch("/api/friends", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ requesterId: userId, addresseeId: targetUserId }),
+        body: JSON.stringify({ addresseeId: targetUserId }),
       });
       const data = (await res.json().catch(() => ({}))) as { error?: string; message?: string };
       if (!res.ok) throw new Error(data.error || "친구 요청 처리에 실패했습니다.");
@@ -802,7 +801,7 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
   const handleOpenRoomForUser = async (target: SupabaseUser) => {
     if (!userId) return;
     try {
-      const res = await fetch(`/api/chats?userId=${userId}`);
+      const res = await fetch(`/api/chats`);
       if (!res.ok) throw new Error("채팅 목록을 확인하지 못했습니다.");
       const chatList = (await res.json()) as Array<{ id: string; title: string; other_user_id?: string; chat_type?: string }>;
       const sharedChats = chatList.filter((chat) => chat.other_user_id === target.id);
@@ -869,7 +868,6 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          creatorId: userId,
           targetUserId: roomTargetUser.id,
           roomName: title,
           description,

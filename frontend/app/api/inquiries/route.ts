@@ -1,18 +1,19 @@
 import { NextResponse } from "next/server";
 import { sql } from "@/lib/db";
+import { getUserFromRequest } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
   try {
-    const { searchParams } = new URL(request.url);
-    const userId = searchParams.get("userId");
-
-    if (!userId) {
-      return NextResponse.json({ error: "userId가 필요합니다." }, { status: 400 });
+    const auth = getUserFromRequest(request);
+    if (!auth) {
+      return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
     }
 
-    const result = (await sql`
+    const userId = auth.userId;
+
+    const result = await sql`
       SELECT
         i.id,
         i.category,
@@ -43,20 +44,7 @@ export async function GET(request: Request) {
       LEFT JOIN users au ON au.id = latest_reply.user_id
       WHERE i.user_id = ${userId}
       ORDER BY i.updated_at DESC
-    `) as unknown as Array<{
-      id: string;
-      category: string;
-      subject: string;
-      content: string;
-      status: string;
-      created_at: string;
-      updated_at: string;
-      admin_reply_content: string | null;
-      admin_reply_created_at: string | null;
-      admin_reply_name: string | null;
-      admin_reply_nickname: string | null;
-      has_admin_reply: boolean;
-    }>;
+    `;
 
     return NextResponse.json(
       result.map((item) => ({
@@ -75,40 +63,30 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const { userId, subject, content, category } = (await request.json()) as {
-      userId?: string;
-      subject?: string;
-      content?: string;
-      category?: string;
-    };
+    const auth = getUserFromRequest(request);
+    if (!auth) {
+      return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
+    }
 
-    if (!userId || !subject?.trim() || !content?.trim()) {
+    const userId = auth.userId;
+    const { subject, content, category } = await request.json();
+
+    if (!subject?.trim() || !content?.trim()) {
       return NextResponse.json({ error: "필수 항목이 누락되었습니다." }, { status: 400 });
     }
 
-    const inserted = (await sql`
+    const inserted = await sql`
       INSERT INTO inquiries (
-        id,
-        user_id,
-        category,
-        subject,
-        content,
-        status,
-        created_at,
-        updated_at
+        id, user_id, category, subject, content,
+        status, created_at, updated_at
       )
       VALUES (
-        gen_random_uuid(),
-        ${userId},
-        ${category?.trim() || "일반문의"},
-        ${subject.trim()},
-        ${content.trim()},
-        'pending',
-        ${new Date()},
-        ${new Date()}
+        gen_random_uuid(), ${userId},
+        ${category?.trim() || "일반문의"}, ${subject.trim()}, ${content.trim()},
+        'pending', ${new Date()}, ${new Date()}
       )
       RETURNING id
-    `) as unknown as Array<{ id: string }>;
+    `;
 
     return NextResponse.json({ success: true, id: inserted[0]?.id }, { status: 201 });
   } catch (error) {
@@ -116,4 +94,3 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "문의 등록에 실패했습니다." }, { status: 500 });
   }
 }
-

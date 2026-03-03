@@ -1,19 +1,17 @@
 import { NextResponse } from "next/server";
 import { sql } from "@/lib/db";
+import { getUserFromRequest } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
   try {
-    const { searchParams } = new URL(request.url);
-    const userId = searchParams.get("userId");
-
-    if (!userId) {
-      return NextResponse.json(
-        { error: "userId is required" },
-        { status: 400 }
-      );
+    const auth = getUserFromRequest(request);
+    if (!auth) {
+      return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
     }
+
+    const userId = auth.userId;
 
     const result = await sql`
       SELECT 
@@ -45,11 +43,17 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const { requesterId, addresseeId } = await request.json();
+    const auth = getUserFromRequest(request);
+    if (!auth) {
+      return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
+    }
 
-    if (!requesterId || !addresseeId) {
+    const { addresseeId } = await request.json();
+    const requesterId = auth.userId;
+
+    if (!addresseeId) {
       return NextResponse.json(
-        { error: "requesterId와 addresseeId가 필요합니다." },
+        { error: "addresseeId가 필요합니다." },
         { status: 400 }
       );
     }
@@ -61,18 +65,13 @@ export async function POST(request: Request) {
       );
     }
 
-    const existing = (await sql`
+    const existing = await sql`
       SELECT id, requester_id, addressee_id, status
       FROM friendships
       WHERE (requester_id = ${requesterId} AND addressee_id = ${addresseeId})
          OR (requester_id = ${addresseeId} AND addressee_id = ${requesterId})
       LIMIT 1
-    `) as unknown as Array<{
-      id: string;
-      requester_id: string;
-      addressee_id: string;
-      status: string;
-    }>;
+    `;
 
     if (existing.length > 0) {
       const relation = existing[0];
@@ -84,7 +83,6 @@ export async function POST(request: Request) {
         );
       }
 
-      // 상대방이 이미 나에게 보낸 요청이라면 바로 수락 처리
       if (
         relation.status === "pending" &&
         relation.requester_id === addresseeId &&
@@ -109,12 +107,11 @@ export async function POST(request: Request) {
       );
     }
 
-    // 바로 accepted 상태로 친구 추가
-    const inserted = (await sql`
+    const inserted = await sql`
       INSERT INTO friendships (id, requester_id, addressee_id, status, created_at, updated_at)
       VALUES (gen_random_uuid(), ${requesterId}, ${addresseeId}, 'accepted', ${new Date()}, ${new Date()})
       RETURNING id, status
-    `) as unknown as Array<{ id: string; status: string }>;
+    `;
 
     return NextResponse.json(
       {
@@ -136,19 +133,22 @@ export async function POST(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
-    const { userId, friendId } = (await request.json()) as {
-      userId?: string;
-      friendId?: string;
-    };
+    const auth = getUserFromRequest(request);
+    if (!auth) {
+      return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
+    }
 
-    if (!userId || !friendId) {
+    const { friendId } = await request.json();
+    const userId = auth.userId;
+
+    if (!friendId) {
       return NextResponse.json(
-        { error: "userId와 friendId가 필요합니다." },
+        { error: "friendId가 필요합니다." },
         { status: 400 }
       );
     }
 
-    const deleted = (await sql`
+    const deleted = await sql`
       DELETE FROM friendships
       WHERE status = 'accepted'
         AND (
@@ -157,7 +157,7 @@ export async function DELETE(request: Request) {
           (requester_id = ${friendId} AND addressee_id = ${userId})
         )
       RETURNING id
-    `) as unknown as Array<{ id: string }>;
+    `;
 
     if (deleted.length === 0) {
       return NextResponse.json(

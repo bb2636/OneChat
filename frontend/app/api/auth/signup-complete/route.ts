@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { sql } from "@/lib/db";
 import { hashSync } from "bcryptjs";
-import { signToken, createTokenCookieHeader } from "@/lib/auth";
+import { signToken, createTokenCookieHeader, verifyGoogleSignupToken, clearGoogleSignupCookieHeader } from "@/lib/auth";
 
 export async function POST(request: Request) {
   try {
@@ -15,11 +15,8 @@ export async function POST(request: Request) {
       phoneVerified,
       agreedTermIds,
       googleAuth,
-      userId, // 구글 로그인 사용자의 경우 Supabase Auth ID
-      email, // 구글 로그인 사용자의 이메일
     } = await request.json();
 
-    // 구글 로그인 사용자는 비밀번호가 없을 수 있음
     const isGoogleUser = googleAuth === true;
     
     if (!isGoogleUser && (!username || !password)) {
@@ -29,80 +26,73 @@ export async function POST(request: Request) {
       );
     }
 
-    if (isGoogleUser && !userId) {
-      return NextResponse.json(
-        { error: "구글 로그인 사용자 ID가 필요합니다." },
-        { status: 400 }
-      );
-    }
+    let googleData: { providerId: string; email: string; name: string | null; avatarUrl: string | null } | null = null;
 
-    // 최종 아이디 및 닉네임 중복 확인
-    let existingUsers: Array<{ id: string }> | unknown;
-    try {
-      if (isGoogleUser) {
-        // 구글 로그인 사용자는 닉네임만 확인
-        existingUsers = await sql`
-          SELECT id FROM users 
-          WHERE nickname = ${nickname} AND id != ${userId}
-          LIMIT 1
-        `;
-      } else {
-        existingUsers = await sql`
-          SELECT id FROM users 
-          WHERE username = ${username} OR nickname = ${nickname}
-          LIMIT 1
-        `;
+    if (isGoogleUser) {
+      const verified = verifyGoogleSignupToken(request);
+      if (!verified) {
+        return NextResponse.json(
+          { error: "구글 인증 정보가 유효하지 않거나 만료되었습니다. 다시 로그인해주세요." },
+          { status: 401 }
+        );
       }
-    } catch (dbError: any) {
-      console.error("Database query error:", dbError);
-      if (dbError?.message?.includes("does not exist") || dbError?.message?.includes("relation")) {
-        existingUsers = [];
-      } else {
-        throw dbError;
+      googleData = verified;
+    }
+
+    const userId = isGoogleUser ? googleData!.providerId : null;
+    const email = isGoogleUser ? googleData!.email : null;
+    const finalName = name || (isGoogleUser ? googleData!.name : null);
+    const finalAvatarUrl = avatarUrl || (isGoogleUser ? googleData!.avatarUrl : null);
+
+    if (isGoogleUser) {
+      const existingNickname = await sql`
+        SELECT id FROM users 
+        WHERE nickname = ${nickname} AND id != ${userId}
+        LIMIT 1
+      `;
+      if (existingNickname.length > 0) {
+        return NextResponse.json(
+          { error: "이미 사용 중인 닉네임입니다." },
+          { status: 409 }
+        );
+      }
+    } else {
+      const existingUsers = await sql`
+        SELECT id FROM users 
+        WHERE username = ${username} OR nickname = ${nickname}
+        LIMIT 1
+      `;
+      if (existingUsers.length > 0) {
+        return NextResponse.json(
+          { error: "이미 가입된 아이디 또는 닉네임입니다." },
+          { status: 409 }
+        );
       }
     }
 
-    const usersArray = Array.isArray(existingUsers) ? existingUsers : [];
-    if (usersArray.length > 0) {
-      return NextResponse.json(
-        { error: "이미 가입된 아이디 또는 닉네임입니다." },
-        { status: 409 }
-      );
-    }
-
-    // 비밀번호 해싱 (구글 로그인 사용자는 비밀번호 없음)
     let hashedPassword: string | null = null;
     if (!isGoogleUser && password) {
-      try {
-        hashedPassword = hashSync(password, 10);
-      } catch (hashError: any) {
-        console.error("Password hashing error:", hashError);
-        throw new Error(`비밀번호 해싱 실패: ${hashError?.message}`);
-      }
+      hashedPassword = hashSync(password, 10);
     }
 
-    // 최종 사용자 생성 또는 업데이트 (모든 단계 완료 후)
     const now = new Date();
-    let newUser: Array<{ id: string; username: string | null; nickname: string | null; name: string | null; avatar_url: string | null }> | unknown;
+    let newUser: Array<{ id: string; username: string | null; nickname: string | null; name: string | null; avatar_url: string | null }>;
     
     try {
-      if (isGoogleUser) {
-        // 구글 로그인 사용자는 업데이트 또는 생성
-        // 먼저 기존 사용자 확인
+      if (isGoogleUser && userId) {
         const existingGoogleUser = await sql`
           SELECT id FROM users WHERE id = ${userId} LIMIT 1
         `;
 
         if (existingGoogleUser.length > 0) {
-          // 기존 사용자 업데이트
           newUser = await sql`
             UPDATE users
             SET 
               email = COALESCE(${email}, email),
               username = CASE WHEN username IS NULL OR username = '' THEN ${email || null} ELSE username END,
               nickname = ${nickname || null},
-              name = ${name || null},
-              avatar_url = ${avatarUrl || null},
+              name = ${finalName || null},
+              avatar_url = ${finalAvatarUrl || null},
               phone_number = ${phoneNumber || null},
               phone_verified = ${phoneVerified || false},
               updated_at = ${now}
@@ -110,71 +100,38 @@ export async function POST(request: Request) {
             RETURNING id, username, nickname, name, avatar_url
           `;
         } else {
-          // 새 사용자 생성 (구글 로그인)
           newUser = await sql`
             INSERT INTO users (
-              id,
-              email,
-              username,
-              password,
-              nickname,
-              name,
-              avatar_url,
-              phone_number,
-              phone_verified,
-              created_at,
-              updated_at
+              id, email, username, password, nickname, name,
+              avatar_url, phone_number, phone_verified, created_at, updated_at
             )
             VALUES (
-              ${userId},
-              ${email || null},
-              ${email || null},
-              ${null},
-              ${nickname || null},
-              ${name || null},
-              ${avatarUrl || null},
-              ${phoneNumber || null},
-              ${phoneVerified || false},
-              ${now},
-              ${now}
+              ${userId}, ${email || null}, ${email || null}, ${null},
+              ${nickname || null}, ${finalName || null}, ${finalAvatarUrl || null},
+              ${phoneNumber || null}, ${phoneVerified || false}, ${now}, ${now}
             )
             RETURNING id, username, nickname, name, avatar_url
           `;
         }
       } else {
-        // 일반 회원가입 사용자 생성
         newUser = await sql`
           INSERT INTO users (
-            id,
-            username,
-            password,
-            nickname,
-            name,
-            avatar_url,
-            phone_number,
-            phone_verified,
-            created_at,
-            updated_at
+            id, username, password, nickname, name,
+            avatar_url, phone_number, phone_verified, created_at, updated_at
           )
           VALUES (
-            gen_random_uuid(),
-            ${username},
-            ${hashedPassword},
-            ${nickname || null},
-            ${name || null},
-            ${avatarUrl || null},
-            ${phoneNumber || null},
-            ${phoneVerified || false},
-            ${now},
-            ${now}
+            gen_random_uuid(), ${username}, ${hashedPassword}, ${nickname || null},
+            ${finalName || null}, ${finalAvatarUrl || null}, ${phoneNumber || null},
+            ${phoneVerified || false}, ${now}, ${now}
           )
           RETURNING id, username, nickname, name, avatar_url
         `;
       }
-    } catch (dbError: any) {
+    } catch (dbError: unknown) {
       console.error("Database insert error:", dbError);
-      // 중복 에러 처리
-      if (dbError?.message?.includes("unique") || dbError?.code === "23505") {
+      const msg = dbError instanceof Error ? dbError.message : String(dbError);
+      const code = (dbError as { code?: string }).code;
+      if (msg.includes("unique") || code === "23505") {
         return NextResponse.json(
           { error: "이미 가입된 정보가 있습니다." },
           { status: 409 }
@@ -183,43 +140,39 @@ export async function POST(request: Request) {
       throw dbError;
     }
 
-    // 결과가 배열인지 확인
-    const newUserArray = Array.isArray(newUser) ? newUser : [];
-    
-    if (newUserArray.length === 0) {
-      throw new Error("사용자 생성에 실패했습니다.");
+    if (newUser.length === 0) {
+      return NextResponse.json(
+        { error: "사용자 생성에 실패했습니다." },
+        { status: 500 }
+      );
     }
 
-    // 약관 동의 기록 (약관 동의 테이블이 있다면 추가)
-    // 여기서는 간단하게 처리
-
-    const token = signToken({ userId: newUserArray[0].id, role: "user" });
+    const token = signToken({ userId: newUser[0].id, role: "user" });
 
     const response = NextResponse.json(
       {
         user: {
-          id: newUserArray[0].id,
-          username: newUserArray[0].username,
-          nickname: newUserArray[0].nickname,
-          name: newUserArray[0].name,
-          avatar_url: newUserArray[0].avatar_url,
+          id: newUser[0].id,
+          username: newUser[0].username,
+          nickname: newUser[0].nickname,
+          name: newUser[0].name,
+          avatar_url: newUser[0].avatar_url,
         },
-        token,
       },
       { status: 201 }
     );
 
-    response.headers.set("Set-Cookie", createTokenCookieHeader(token));
+    response.headers.append("Set-Cookie", createTokenCookieHeader(token));
+    if (isGoogleUser) {
+      response.headers.append("Set-Cookie", clearGoogleSignupCookieHeader());
+    }
     return response;
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Signup complete error:", error);
-    console.error("Error details:", {
-      message: error?.message,
-      stack: error?.stack,
-    });
-    
-    // 중복 에러 처리
-    if (error.message?.includes("unique") || error.code === "23505") {
+    const msg = error instanceof Error ? error.message : String(error);
+    const code = (error as { code?: string }).code;
+
+    if (msg.includes("unique") || code === "23505") {
       return NextResponse.json(
         { error: "이미 가입된 정보가 있습니다." },
         { status: 409 }
@@ -227,10 +180,7 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json(
-      { 
-        error: "회원가입 중 오류가 발생했습니다.",
-        details: process.env.NODE_ENV === "development" ? error?.message : undefined
-      },
+      { error: "회원가입 중 오류가 발생했습니다." },
       { status: 500 }
     );
   }

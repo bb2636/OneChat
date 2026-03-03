@@ -102,7 +102,7 @@ export function ChatRoomClient({ chatId, chatTitle, initialMessages, chatCreated
     queryKey: ["chat-members", chatId, currentUserId],
     queryFn: async () => {
       if (!currentUserId) return [];
-      const res = await fetch(`/api/chats/${chatId}/members?userId=${currentUserId}`);
+      const res = await fetch(`/api/chats/${chatId}/members`);
       if (!res.ok) {
         if (res.status === 404 || res.status === 403) {
           // 채팅방을 찾을 수 없거나 접근 권한이 없으면 홈으로 리다이렉트
@@ -128,7 +128,7 @@ export function ChatRoomClient({ chatId, chatTitle, initialMessages, chatCreated
     queryKey: ["friends", currentUserId],
     queryFn: async () => {
       if (!currentUserId) return [];
-      const res = await fetch(`/api/friends?userId=${currentUserId}`);
+      const res = await fetch(`/api/friends`);
       if (!res.ok) throw new Error("친구 목록을 불러오지 못했습니다.");
       const friendData = (await res.json()) as Array<{
         id: string;
@@ -222,7 +222,7 @@ export function ChatRoomClient({ chatId, chatTitle, initialMessages, chatCreated
       await fetch(`/api/chats/${chatId}/read`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: currentUserId, messageId }),
+        body: JSON.stringify({ messageId }),
       });
       
       // 로컬 상태도 업데이트
@@ -305,7 +305,7 @@ export function ChatRoomClient({ chatId, chatTitle, initialMessages, chatCreated
         fetch(`/api/chats/${chatId}/members`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userId: currentUserId, inviteUserId: friendId }),
+          body: JSON.stringify({ inviteUserId: friendId }),
         })
       );
       const results = await Promise.all(invitePromises);
@@ -331,7 +331,7 @@ export function ChatRoomClient({ chatId, chatTitle, initialMessages, chatCreated
       const res = await fetch("/api/friends", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ requesterId: currentUserId, addresseeId: targetUserId }),
+        body: JSON.stringify({ addresseeId: targetUserId }),
       });
       const data = (await res.json().catch(() => ({}))) as { error?: string; message?: string };
       if (!res.ok) throw new Error(data.error || "친구 추가에 실패했습니다.");
@@ -354,7 +354,7 @@ export function ChatRoomClient({ chatId, chatTitle, initialMessages, chatCreated
       const res = await fetch("/api/friends", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: currentUserId, friendId: kickTarget.id }),
+        body: JSON.stringify({ friendId: kickTarget.id }),
       });
       const data = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) throw new Error(data.error || "친구 삭제에 실패했습니다.");
@@ -433,7 +433,6 @@ export function ChatRoomClient({ chatId, chatTitle, initialMessages, chatCreated
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          userId: currentUserId,
           content: messageInput.trim() || null,
           imageUrl: imageUrl || null,
         }),
@@ -946,7 +945,7 @@ export function ChatRoomClient({ chatId, chatTitle, initialMessages, chatCreated
                     const res = await fetch(`/api/chats/${chatId}/leave`, {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ userId: currentUserId }),
+                      body: JSON.stringify({}),
                     });
                     const data = (await res.json().catch(() => ({}))) as { error?: string };
                     if (!res.ok) throw new Error(data.error || "채팅방 나가기에 실패했습니다.");

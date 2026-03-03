@@ -1,18 +1,24 @@
 import { NextResponse } from "next/server";
 import { sql } from "@/lib/db";
+import { getUserFromRequest } from "@/lib/auth";
 
 export async function POST(request: Request) {
   try {
-    const { userId, latitude, longitude } = await request.json();
+    const auth = getUserFromRequest(request);
+    if (!auth) {
+      return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
+    }
 
-    if (!userId || latitude === undefined || longitude === undefined) {
+    const userId = auth.userId;
+    const { latitude, longitude } = await request.json();
+
+    if (latitude === undefined || longitude === undefined) {
       return NextResponse.json(
-        { error: "userId, latitude, longitude가 필요합니다." },
+        { error: "latitude, longitude가 필요합니다." },
         { status: 400 }
       );
     }
 
-    // 사용자 위치 업데이트
     const now = new Date();
     await sql`
       UPDATE users
@@ -27,7 +33,7 @@ export async function POST(request: Request) {
       success: true,
       message: "위치가 업데이트되었습니다.",
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Location update error:", error);
     return NextResponse.json(
       { error: "위치 업데이트 중 오류가 발생했습니다." },

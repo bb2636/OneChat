@@ -1,16 +1,26 @@
 import jwt from "jsonwebtoken";
 import { sql } from "@/lib/db";
 
-const JWT_SECRET = process.env.JWT_SECRET;
-if (!JWT_SECRET) {
+const _JWT_SECRET = process.env.JWT_SECRET;
+if (!_JWT_SECRET) {
   throw new Error("JWT_SECRET is not set. Please configure the JWT secret.");
 }
+const JWT_SECRET: string = _JWT_SECRET;
 const TOKEN_EXPIRY = "7d";
 const COOKIE_NAME = "onechat_token";
+const GOOGLE_SIGNUP_COOKIE = "google_signup_token";
 
 export interface JwtPayload {
   userId: string;
   role: string;
+}
+
+export interface GoogleSignupPayload {
+  type: "google_signup";
+  providerId: string;
+  email: string;
+  name: string | null;
+  avatarUrl: string | null;
 }
 
 export function signToken(payload: JwtPayload): string {
@@ -24,6 +34,32 @@ export function verifyToken(token: string): JwtPayload | null {
   } catch {
     return null;
   }
+}
+
+export function signGoogleSignupToken(payload: Omit<GoogleSignupPayload, "type">): string {
+  return jwt.sign({ ...payload, type: "google_signup" }, JWT_SECRET, { expiresIn: "30m" });
+}
+
+export function verifyGoogleSignupToken(request: Request): GoogleSignupPayload | null {
+  const cookieHeader = request.headers.get("cookie") || "";
+  const match = cookieHeader.match(new RegExp(`${GOOGLE_SIGNUP_COOKIE}=([^;]+)`));
+  if (!match) return null;
+  try {
+    const decoded = jwt.verify(match[1], JWT_SECRET) as GoogleSignupPayload;
+    if (decoded.type !== "google_signup") return null;
+    return decoded;
+  } catch {
+    return null;
+  }
+}
+
+export function createGoogleSignupCookieHeader(token: string): string {
+  const isProduction = process.env.NODE_ENV === "production";
+  return `${GOOGLE_SIGNUP_COOKIE}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${30 * 60}${isProduction ? "; Secure" : ""}`;
+}
+
+export function clearGoogleSignupCookieHeader(): string {
+  return `${GOOGLE_SIGNUP_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`;
 }
 
 export function getTokenFromRequest(request: Request): string | null {

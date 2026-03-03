@@ -32,7 +32,7 @@ export default function MyPageEditPage() {
         return;
       }
 
-      const res = await fetch(`/api/users/profile?userId=${userId}`);
+      const res = await fetch(`/api/users/profile`);
       const data = (await res.json().catch(() => ({}))) as { user?: ProfileUser };
       if (!res.ok || !data.user) return;
 
@@ -83,7 +83,6 @@ export default function MyPageEditPage() {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          userId: user.id,
           nickname,
           password: password.trim() || undefined,
           avatarUrl,

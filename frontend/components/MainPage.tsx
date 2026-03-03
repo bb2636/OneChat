@@ -157,7 +157,7 @@ export function MainPage({ initialChats }: MainPageProps) {
     queryKey: ["chats", currentUserId],
     queryFn: async () => {
       if (!currentUserId) return [];
-      const res = await fetch(`/api/chats?userId=${currentUserId}`);
+      const res = await fetch(`/api/chats`);
       if (!res.ok) throw new Error("Failed to fetch chats");
       return res.json() as Promise<Chat[]>;
     },
@@ -222,7 +222,7 @@ export function MainPage({ initialChats }: MainPageProps) {
     queryKey: ["friends", currentUserId],
     enabled: !!currentUserId,
     queryFn: async () => {
-      const res = await fetch(`/api/friends?userId=${currentUserId}`);
+      const res = await fetch(`/api/friends`);
       if (!res.ok) throw new Error("Failed to fetch friends");
       return (await res.json()) as Friend[];
     },
@@ -236,7 +236,7 @@ export function MainPage({ initialChats }: MainPageProps) {
     queryKey: ["user-reports", currentUserId],
     enabled: !!currentUserId,
     queryFn: async () => {
-      const res = await fetch(`/api/reports?userId=${currentUserId}`);
+      const res = await fetch(`/api/reports`);
       if (!res.ok) throw new Error("Failed to fetch reports");
       return (await res.json()) as UserReport[];
     },
@@ -248,7 +248,7 @@ export function MainPage({ initialChats }: MainPageProps) {
     queryKey: ["user-inquiries", currentUserId],
     enabled: !!currentUserId,
     queryFn: async () => {
-      const res = await fetch(`/api/inquiries?userId=${currentUserId}`);
+      const res = await fetch(`/api/inquiries`);
       if (!res.ok) throw new Error("Failed to fetch inquiries");
       return (await res.json()) as UserInquiry[];
     },
@@ -260,7 +260,7 @@ export function MainPage({ initialChats }: MainPageProps) {
     queryKey: ["current-user-profile", currentUserId],
     enabled: !!currentUserId,
     queryFn: async () => {
-      const res = await fetch(`/api/users/profile?userId=${currentUserId}`);
+      const res = await fetch(`/api/users/profile`);
       if (!res.ok) throw new Error("Failed to fetch user profile");
       const data = (await res.json()) as { user?: CurrentUserProfile };
       return data.user || null;
@@ -402,7 +402,7 @@ export function MainPage({ initialChats }: MainPageProps) {
     const res = await fetch("/api/friends", {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId: currentUserId, friendId }),
+      body: JSON.stringify({ friendId }),
     });
 
     if (!res.ok && res.status !== 404) {
@@ -544,7 +544,6 @@ export function MainPage({ initialChats }: MainPageProps) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          reporterId: currentUserId,
           reportedId: reportTargetId,
           type: reportType,
           reason: reportReason.trim(),
@@ -578,7 +577,6 @@ export function MainPage({ initialChats }: MainPageProps) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          userId: currentUserId,
           category: "일반문의",
           subject: inquirySubject.trim(),
           content: inquiryContent.trim(),
@@ -1556,7 +1554,7 @@ export function MainPage({ initialChats }: MainPageProps) {
                     const res = await fetch(`/api/chats/${leaveChatId}/leave`, {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ userId: currentUserId }),
+                      body: JSON.stringify({}),
                     });
                     const data = (await res.json().catch(() => ({}))) as { error?: string };
                     if (!res.ok) throw new Error(data.error || "채팅방 나가기에 실패했습니다.");

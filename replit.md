@@ -156,10 +156,13 @@ frontend/                  - Next.js app (port 5000)
 - 관리자 답변: 신고/문의 답변 500자 제한, 답변 완료 후에도 기존 답변 내용 유지
 - APK 재빌드: 네이티브 코드 변경 시에만 필요
 
+## 보안 완료 사항
+- 모든 User API routes (chats, friends, profile, messages, location 등) JWT 인증 적용 — 서버에서 userId 추출
+- Google OAuth: Supabase accessToken 서버 사이드 검증 (supabaseAdmin.auth.getUser)
+- Google signup: signed httpOnly 쿠키 (google_signup_token, 30분 만료) 사용
+- 채팅 목록 쿼리 LATERAL JOIN 최적화 완료
+- 프론트엔드: userId/requesterId/creatorId를 API 호출 body/query에서 제거 완료
+
 ## 알려진 개선 필요 사항
-- User API routes (chats, friends, profile 등)에 JWT 인증 미적용 — userId를 클라이언트에서 전달받아 스푸핑 가능
-- Google OAuth process 및 signup-complete에서 클라이언트 입력(providerId, email 등)을 서버에서 검증 없이 신뢰
-- 일부 DB 에러 무시 (Google 로그인 처리 경로의 bare try/catch)
 - 다수의 `any` 타입 사용 및 `unknown as` 캐스팅
-- 채팅 목록 쿼리에 correlated subquery 사용 — 대규모 데이터 시 성능 우려
 - 미사용 코드 존재 (backend/, 일부 UI 컴포넌트, unused API routes)

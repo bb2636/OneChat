@@ -1,106 +1,112 @@
 import { NextResponse } from "next/server";
 import { sql } from "@/lib/db";
-import { signToken, createTokenCookieHeader } from "@/lib/auth";
+import { signToken, createTokenCookieHeader, signGoogleSignupToken, createGoogleSignupCookieHeader } from "@/lib/auth";
+import { supabaseAdmin } from "@/lib/supabase";
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
   try {
-    const { email, name, avatarUrl, providerId, redirectTo } = await request.json();
+    const { accessToken, redirectTo } = await request.json();
 
-    if (!email || !providerId) {
+    if (!accessToken) {
       return NextResponse.json(
-        { error: "필수 정보가 없습니다." },
+        { error: "인증 토큰이 필요합니다." },
         { status: 400 }
       );
     }
 
-    // 기존 users 테이블에서 이메일 또는 Supabase Auth ID로 사용자 찾기
-    let existingUser: Array<{ 
-      id: string; 
-      username: string | null; 
-      nickname: string | null; 
-      phone_number: string | null;
-      phone_verified: boolean;
-      email: string | null;
-    }> = [];
-    try {
-      existingUser = await sql`
-        SELECT id, username, nickname, phone_number, phone_verified, email
-        FROM users
-        WHERE email = ${email} OR id = ${providerId}
-        LIMIT 1
-      `;
-    } catch (dbError: any) {
-      console.error("Database query error:", dbError);
+    if (!supabaseAdmin) {
+      console.error("supabaseAdmin is not configured (SUPABASE_SERVICE_ROLE_KEY missing)");
+      return NextResponse.json(
+        { error: "서버 설정 오류입니다." },
+        { status: 500 }
+      );
     }
 
-    let userId: string;
-    let nickname: string | null = null;
-    let phoneNumber: string | null = null;
-    let phoneVerified: boolean = false;
+    const { data: supabaseUser, error: supabaseError } = await supabaseAdmin.auth.getUser(accessToken);
+
+    if (supabaseError || !supabaseUser?.user) {
+      console.error("Supabase token verification failed:", supabaseError);
+      return NextResponse.json(
+        { error: "유효하지 않은 인증 토큰입니다." },
+        { status: 401 }
+      );
+    }
+
+    const verifiedUser = supabaseUser.user;
+    const email = verifiedUser.email;
+    const name = verifiedUser.user_metadata?.full_name || verifiedUser.user_metadata?.name || null;
+    const avatarUrl = verifiedUser.user_metadata?.avatar_url || verifiedUser.user_metadata?.picture || null;
+    const providerId = verifiedUser.id;
+
+    if (!email) {
+      return NextResponse.json(
+        { error: "구글 계정에서 이메일 정보를 가져올 수 없습니다." },
+        { status: 400 }
+      );
+    }
+
+    const existingUser = await sql`
+      SELECT id, username, nickname, phone_number, phone_verified, email
+      FROM users
+      WHERE email = ${email} OR id = ${providerId}
+      LIMIT 1
+    `;
 
     if (existingUser.length > 0) {
-      // 기존 사용자가 있으면 정보 가져오기
-      userId = existingUser[0].id;
-      nickname = existingUser[0].nickname;
-      phoneNumber = existingUser[0].phone_number;
-      phoneVerified = existingUser[0].phone_verified;
+      const userId = existingUser[0].id;
+      const nickname = existingUser[0].nickname;
+      const phoneNumber = existingUser[0].phone_number;
+      const phoneVerified = existingUser[0].phone_verified;
 
-      // 프로필 정보 업데이트 (사용자가 직접 설정한 값은 덮어쓰지 않음)
-      try {
-        await sql`
-          UPDATE users
-          SET 
-            email = COALESCE(${email}, email),
-            username = CASE WHEN username IS NULL OR username = '' THEN ${email || null} ELSE username END,
-            name = CASE WHEN name IS NULL OR name = '' THEN COALESCE(${name}, name) ELSE name END,
-            avatar_url = CASE WHEN avatar_url IS NULL OR avatar_url = '' THEN COALESCE(${avatarUrl}, avatar_url) ELSE avatar_url END,
-            updated_at = NOW()
-          WHERE id = ${userId}
-        `;
-      } catch (updateError: any) {
-        console.error("User update error:", updateError);
-      }
+      await sql`
+        UPDATE users
+        SET 
+          email = COALESCE(${email}, email),
+          username = CASE WHEN username IS NULL OR username = '' THEN ${email || null} ELSE username END,
+          name = CASE WHEN name IS NULL OR name = '' THEN COALESCE(${name}, name) ELSE name END,
+          avatar_url = CASE WHEN avatar_url IS NULL OR avatar_url = '' THEN COALESCE(${avatarUrl}, avatar_url) ELSE avatar_url END,
+          updated_at = NOW()
+        WHERE id = ${userId}
+      `;
 
-      // 필수 정보 확인 (닉네임, 전화번호)
       const hasRequiredInfo = nickname && phoneNumber && phoneVerified;
 
       if (!hasRequiredInfo) {
-        // 필수 정보가 없으면 회원가입 단계로 리다이렉트
-        const signupUrl = new URL("/signup/step2", process.env.NEXT_PUBLIC_FRONTEND_ORIGIN || "https://weoncaes.replit.app");
+        const frontendOrigin = process.env.NEXT_PUBLIC_FRONTEND_ORIGIN || "https://weoncaes.replit.app";
+        const signupUrl = new URL("/signup/step2", frontendOrigin);
         signupUrl.searchParams.set("google_auth", "true");
-        signupUrl.searchParams.set("user_id", userId);
-        signupUrl.searchParams.set("email", email || "");
-        signupUrl.searchParams.set("name", name || "");
-        signupUrl.searchParams.set("avatar_url", avatarUrl || "");
-        signupUrl.searchParams.set("nickname", nickname || "");
-        signupUrl.searchParams.set("phone_number", phoneNumber || "");
 
-        return NextResponse.json({ redirectUrl: signupUrl.toString() });
+        const signupToken = signGoogleSignupToken({ providerId: userId, email, name, avatarUrl });
+
+        const response = NextResponse.json({ redirectUrl: signupUrl.toString() });
+        response.headers.set("Set-Cookie", createGoogleSignupCookieHeader(signupToken));
+        return response;
       }
 
-      const userRole = (await sql`SELECT role FROM users WHERE id = ${userId} LIMIT 1`);
+      const userRole = await sql`SELECT role FROM users WHERE id = ${userId} LIMIT 1`;
       const role = userRole.length > 0 ? (userRole[0].role || "user") : "user";
       const token = signToken({ userId, role });
 
-      const redirectUrl = new URL(redirectTo || "/home", process.env.NEXT_PUBLIC_FRONTEND_ORIGIN || "https://weoncaes.replit.app");
+      const frontendOrigin = process.env.NEXT_PUBLIC_FRONTEND_ORIGIN || "https://weoncaes.replit.app";
+      const redirectUrl = new URL(redirectTo || "/home", frontendOrigin);
       redirectUrl.searchParams.set("google_auth", "success");
       redirectUrl.searchParams.set("user_id", userId);
 
-      const response = NextResponse.json({ redirectUrl: redirectUrl.toString(), token });
+      const response = NextResponse.json({ redirectUrl: redirectUrl.toString() });
       response.headers.set("Set-Cookie", createTokenCookieHeader(token));
       return response;
     } else {
-      // 새 사용자 - 회원가입 단계로 리다이렉트
-      const signupUrl = new URL("/signup/step2", process.env.NEXT_PUBLIC_FRONTEND_ORIGIN || "https://weoncaes.replit.app");
+      const frontendOrigin = process.env.NEXT_PUBLIC_FRONTEND_ORIGIN || "https://weoncaes.replit.app";
+      const signupUrl = new URL("/signup/step2", frontendOrigin);
       signupUrl.searchParams.set("google_auth", "true");
-      signupUrl.searchParams.set("user_id", providerId);
-      signupUrl.searchParams.set("email", email || "");
-      signupUrl.searchParams.set("name", name || "");
-      signupUrl.searchParams.set("avatar_url", avatarUrl || "");
 
-      return NextResponse.json({ redirectUrl: signupUrl.toString() });
+      const signupToken = signGoogleSignupToken({ providerId, email, name, avatarUrl });
+
+      const response = NextResponse.json({ redirectUrl: signupUrl.toString() });
+      response.headers.set("Set-Cookie", createGoogleSignupCookieHeader(signupToken));
+      return response;
     }
   } catch (error) {
     console.error("Google process error:", error);

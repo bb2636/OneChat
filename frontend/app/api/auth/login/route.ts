@@ -57,7 +57,6 @@ export async function POST(request: Request) {
         name: user.name,
         avatar_url: user.avatar_url,
       },
-      token,
     });
 
     response.headers.set("Set-Cookie", createTokenCookieHeader(token));
