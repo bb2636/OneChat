@@ -149,7 +149,7 @@ frontend/                  - Next.js app (port 5000)
 - Frontend has its own API routes (`app/api/`) — backend Express server 미사용
 - Database: Replit PostgreSQL 사용 (Supabase PostgreSQL 아님)
 - Supabase: Realtime (위치 공유) + Auth (Google 로그인)만 사용
-- 개발 DB 테스트 계정: `test` / `test1234`, 관리자: `admin@admin.com` / `admin1234`
+- 개발 DB 테스트 계정: `test@test.com` / `test1234`, 관리자: `admin@admin.com` / `admin1234`
 - Prisma 제거됨 — `postgres` 라이브러리로 직접 SQL 실행
 - Profile images: Base64 data URLs로 DB에 저장
 - Android APK: Google OAuth는 Chrome intent + UA stripping으로 WebView 호환
@@ -176,6 +176,15 @@ frontend/                  - Next.js app (port 5000)
 - **알림 트리거**: 메시지 전송 시 → 다른 멤버에게 알림, 친구 추가 시 → 상대에게 알림
 - **만료 처리**: 404/410 응답 시 자동으로 구독 삭제
 
+## 지도 (NaverMap) UI
+- **오버레이 포지셔닝**: 지도 위 버튼/패널은 `absolute` 포지션 (NaverMap 루트 `relative` div 기준)
+- **겹친 유저 패널**: 드래그 가능한 바텀시트 (위로 슬라이드: 전체화면 확장, 아래로 슬라이드: 축소)
+- **유저 카운트**: `overlapUsers.length` (본인 제외, 겹친 다른 유저 수만 표시)
+- **닫기**: "닫기" 버튼 또는 배경 탭으로 패널 닫기
+- **버튼**: 내 위치 이동 (좌하단), 겹친 유저 보기 (우하단, 겹친 유저 있을 때만 표시)
+- **Seed API (GET)**: `/api/seed?key=...&action=cleanup-chats|fix-username` — 프로덕션 DB 관리용, 사용 후 제거 권장
+
 ## 알려진 개선 필요 사항
 - 다수의 `any` 타입 사용 및 `unknown as` 캐스팅
 - 미사용 코드 존재 (backend/, 일부 UI 컴포넌트, unused API routes)
+- Seed API GET 엔드포인트: 프로덕션 DB 정리 완료 후 제거 권장
