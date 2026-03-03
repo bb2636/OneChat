@@ -118,9 +118,7 @@ export function MainPage({ initialChats }: MainPageProps) {
   const [isFriendsSectionOpen, setIsFriendsSectionOpen] = useState(true);
   const [myPageScreen, setMyPageScreen] = useState<MyPageScreen>("root");
   const [reportTargetId, setReportTargetId] = useState("");
-  const [reportType, setReportType] = useState<(typeof REPORT_TYPE_OPTIONS)[number]>(
-    "개인정보 무단 수집·유포"
-  );
+  const [reportType, setReportType] = useState("");
   const [reportReason, setReportReason] = useState("");
   const [reportDescription, setReportDescription] = useState("");
   const [inquirySubject, setInquirySubject] = useState("");
@@ -520,7 +518,7 @@ export function MainPage({ initialChats }: MainPageProps) {
 
   const resetReportForm = () => {
     setReportTargetId("");
-    setReportType("개인정보 무단 수집·유포");
+    setReportType("");
     setReportReason("");
     setReportDescription("");
     setIsReportTargetModalOpen(false);
@@ -533,8 +531,8 @@ export function MainPage({ initialChats }: MainPageProps) {
 
   const submitReport = async () => {
     if (!currentUserId) return;
-    if (!reportTargetId || !reportReason.trim()) {
-      alert("신고 대상과 신고 사유를 입력해주세요.");
+    if (!reportTargetId || !reportType || !reportReason.trim()) {
+      alert("신고 대상, 신고 유형, 신고 사유를 입력해주세요.");
       return;
     }
 
@@ -975,10 +973,14 @@ export function MainPage({ initialChats }: MainPageProps) {
                         >
                           <span
                             className={cn(
-                              "inline-block h-4 w-4 rounded-full border",
-                              checked ? "border-blue-600 ring-4 ring-blue-50 bg-blue-600" : "border-gray-300"
+                              "relative inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2",
+                              checked ? "border-blue-600" : "border-gray-300"
                             )}
-                          />
+                          >
+                            {checked && (
+                              <span className="absolute h-2.5 w-2.5 rounded-full bg-blue-600" />
+                            )}
+                          </span>
                           <span>{item}</span>
                         </button>
                       );
