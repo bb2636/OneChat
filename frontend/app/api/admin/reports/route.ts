@@ -23,6 +23,7 @@ export async function GET(request: Request) {
       reason: string;
       description: string | null;
       status: string;
+      admin_note: string | null;
       created_at: string;
       reporter_name: string | null;
       reporter_username: string | null;
@@ -44,6 +45,7 @@ export async function GET(request: Request) {
           r.reason,
           r.description,
           r.status,
+          r.admin_note,
           r.created_at::text,
           u.name AS reporter_name,
           u.username AS reporter_username
@@ -70,6 +72,7 @@ export async function GET(request: Request) {
           r.reason,
           r.description,
           r.status,
+          r.admin_note,
           r.created_at::text,
           u.name AS reporter_name,
           u.username AS reporter_username
