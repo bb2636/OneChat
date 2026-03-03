@@ -99,8 +99,7 @@ function SignupStep2Content() {
       return;
     }
 
-    // 닉네임 유효성 검사 (한글, 영문 대소문자만)
-    const nicknameRegex = /^[가-힣a-zA-Z0-9]+$/;
+    const nicknameRegex = /^[ㄱ-ㅎㅏ-ㅣ가-힣a-zA-Z0-9]+$/;
     if (!nicknameRegex.test(value)) {
       setNicknameError("한글, 영문 대/소문자, 숫자를 사용해 주세요. (특수기호, 공백 사용 불가)");
       return;
@@ -130,7 +129,7 @@ function SignupStep2Content() {
       return;
     }
 
-    const nameRegex = /^[가-힣a-zA-Z]+$/;
+    const nameRegex = /^[ㄱ-ㅎㅏ-ㅣ가-힣a-zA-Z]+$/;
     if (!nameRegex.test(value)) {
       setNameError("한글, 영문 대/소문자를 사용해 주세요. (특수기호, 공백 사용 불가)");
     } else {
@@ -275,9 +274,9 @@ function SignupStep2Content() {
     !isCheckingNickname;
 
   return (
-    <div className="min-h-screen bg-white flex flex-col px-4 py-8">
+    <div className="min-h-screen bg-white flex flex-col">
       {/* 헤더 */}
-      <header className="flex items-center gap-4 mb-8">
+      <header className="sticky top-0 z-20 bg-white flex items-center gap-4 px-4 py-3 border-b border-gray-100">
         <button onClick={() => router.back()} className="text-gray-900 text-3xl font-normal">
           &lt;
         </button>
@@ -286,7 +285,7 @@ function SignupStep2Content() {
       </header>
 
       {/* 메인 컨텐츠 */}
-      <div className="flex-1 max-w-sm mx-auto w-full">
+      <div className="flex-1 max-w-sm mx-auto w-full px-4 pt-6">
         <p className="text-gray-700 mb-8">계정 정보를 입력해주세요</p>
 
         <form onSubmit={handleSubmit} className="space-y-6">

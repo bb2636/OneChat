@@ -140,10 +140,11 @@ function LoginForm() {
               아이디
             </label>
             <input
-              type="text"
+              type="email"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="아이디를 입력해주세요."
+              placeholder="이메일을 입력해주세요."
+              autoComplete="email"
               className="w-full h-12 rounded-lg bg-blue-400/30 backdrop-blur-sm border-2 border-white px-4 placeholder:text-white/60 focus:outline-none focus:ring-2 focus:ring-white transition-colors"
               style={{ color: '#FFFFFF' }}
             />

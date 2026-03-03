@@ -1,6 +1,15 @@
 import "./globals.css";
 import type { ReactNode } from "react";
+import type { Viewport } from "next";
 import { Providers } from "./providers";
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: "cover",
+};
 
 export const metadata = {
   title: "OneChat",
@@ -16,7 +25,7 @@ export const metadata = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="ko">
-      <body className="min-h-screen bg-background text-foreground antialiased">
+      <body className="min-h-screen bg-background text-foreground antialiased overscroll-none">
         <Providers>{children}</Providers>
       </body>
     </html>

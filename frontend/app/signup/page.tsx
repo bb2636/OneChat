@@ -64,10 +64,15 @@ export default function SignupPage() {
     }
   };
 
-  // 아이디 변경 시 디바운싱하여 중복 확인
   useEffect(() => {
     if (!username.trim()) {
       setUsernameError(null);
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(username)) {
+      setUsernameError("이메일 형식으로 입력해주세요. (예: example@email.com)");
       return;
     }
 
@@ -78,8 +83,18 @@ export default function SignupPage() {
     return () => clearTimeout(timeoutId);
   }, [username]);
 
+  const validateEmail = (value: string) => {
+    if (!value.trim()) return true;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(value);
+  };
+
   const handleUsernameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setUsername(e.target.value);
+    const value = e.target.value;
+    setUsername(value);
+    if (value.trim() && !validateEmail(value)) {
+      setUsernameError("이메일 형식으로 입력해주세요. (예: example@email.com)");
+    }
   };
 
   const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -100,9 +115,13 @@ export default function SignupPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // 유효성 검사
     if (!username.trim()) {
       setUsernameError("아이디를 입력해주세요.");
+      return;
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(username)) {
+      setUsernameError("이메일 형식으로 입력해주세요. (예: example@email.com)");
       return;
     }
     if (!password.trim()) {
@@ -165,9 +184,9 @@ export default function SignupPage() {
     !confirmPasswordError;
 
   return (
-    <div className="min-h-screen bg-white flex flex-col px-4 py-8">
+    <div className="min-h-screen bg-white flex flex-col">
       {/* 헤더 */}
-      <header className="flex items-center gap-4 mb-8">
+      <header className="sticky top-0 z-20 bg-white flex items-center gap-4 px-4 py-3 border-b border-gray-100">
         <button onClick={() => router.back()} className="text-gray-900 text-3xl font-normal">
           &lt;
         </button>
@@ -175,7 +194,7 @@ export default function SignupPage() {
       </header>
 
       {/* 메인 컨텐츠 */}
-      <div className="flex-1 max-w-sm mx-auto w-full">
+      <div className="flex-1 max-w-sm mx-auto w-full px-4 pt-6">
         <div className="flex items-start justify-between mb-8">
           <p className="text-gray-900 text-lg font-semibold">
             가입하실 아이디와<br /> 
@@ -191,10 +210,11 @@ export default function SignupPage() {
               아이디
             </label>
             <input
-              type="text"
+              type="email"
               value={username}
               onChange={handleUsernameChange}
-              placeholder="아이디를 입력해주세요."
+              placeholder="이메일을 입력해주세요."
+              autoComplete="email"
               className={cn(
                 "w-full h-12 rounded-lg border px-4 text-gray-900 text-sm placeholder:text-sm placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors",
                 usernameError

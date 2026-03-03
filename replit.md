@@ -105,7 +105,7 @@ frontend/                  - Next.js app (port 5000)
 - `push_subscriptions` - 푸시 구독 (id, user_id, endpoint, p256dh, auth, created_at)
 
 ## 주요 기능
-- 일반 로그인/회원가입 (아이디+비밀번호, bcryptjs)
+- 일반 로그인/회원가입 (이메일+비밀번호, bcryptjs) — 아이디는 이메일 형식만 허용
 - Google OAuth 로그인 (Supabase Auth 연동)
 - 실시간 채팅 (Supabase Realtime)
 - 1:1 및 그룹 채팅

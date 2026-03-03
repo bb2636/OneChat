@@ -168,9 +168,9 @@ export default function SignupStep4Page() {
   const isCodeComplete = code.every((digit) => digit !== "");
 
   return (
-    <div className="min-h-screen bg-white flex flex-col px-4 py-8">
+    <div className="min-h-screen bg-white flex flex-col">
       {/* 헤더 */}
-      <header className="flex items-center gap-4 mb-8">
+      <header className="sticky top-0 z-20 bg-white flex items-center gap-4 px-4 py-3 border-b border-gray-100">
         <button onClick={() => router.back()} className="text-gray-900 text-3xl font-normal">
           &lt;
         </button>
@@ -179,7 +179,7 @@ export default function SignupStep4Page() {
       </header>
 
       {/* 메인 컨텐츠 */}
-      <div className="flex-1 max-w-sm mx-auto w-full">
+      <div className="flex-1 max-w-sm mx-auto w-full px-4 pt-6">
         <p className="text-gray-700 mb-4">인증번호를 입력해주세요</p>
         {phoneNumber && (
           <p className="text-sm text-gray-600 mb-8">

@@ -27,6 +27,10 @@
 html,
 body {
   height: 100%;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  overscroll-behavior: none;
+  touch-action: manipulation;
 }
 
 body {
@@ -34,6 +38,11 @@ body {
   font-family: var(--font-pretendard), theme("fontFamily.sans");
   background-color: hsl(var(--background));
   color: hsl(var(--foreground));
+  -webkit-tap-highlight-color: transparent;
+}
+
+input, select, textarea {
+  font-size: 16px !important;
 }
 
 button {
