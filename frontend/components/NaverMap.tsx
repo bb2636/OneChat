@@ -898,15 +898,15 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
         )}
       </div>
 
-      <div className="pointer-events-none absolute inset-x-0 bottom-3 z-30 px-4">
-        <div className="pointer-events-auto flex items-center justify-between">
+      <div className="pointer-events-none fixed inset-x-0 bottom-20 z-30 mx-auto w-full max-w-md px-5">
+        <div className="pointer-events-auto flex items-end justify-between">
           <button
             type="button"
             onClick={handleMoveToMyLocation}
-            className="flex h-12 w-12 items-center justify-center rounded-full bg-white/95 text-gray-800 shadow-lg"
+            className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-gray-700 shadow-md"
             aria-label="내 위치로 이동"
           >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="10" />
               <circle cx="12" cy="12" r="3" />
               <line x1="12" y1="2" x2="12" y2="6" />
@@ -920,10 +920,10 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
             <button
               type="button"
               onClick={handleOpenOverlapUsers}
-              className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-500/95 text-white shadow-lg"
+              className="flex h-11 w-11 items-center justify-center rounded-full bg-blue-500 text-white shadow-md"
               aria-label="겹친 사용자 보기"
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
                 <circle cx="8" cy="8" r="1.5" fill="currentColor" />
                 <circle cx="12" cy="8" r="1.5" fill="currentColor" />
@@ -936,7 +936,7 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
 
       {isOverlapUsersOpen && (
         <div
-          className="absolute inset-0 z-40 bg-black/45 transition-opacity"
+          className="fixed inset-0 z-40 bg-black/45 transition-opacity"
           onClick={() => { setIsOverlapUsersOpen(false); setSheetExpanded(false); }}
         >
           <div
@@ -1029,7 +1029,7 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
       )}
 
       {toastMessage && (
-        <div className="pointer-events-none absolute left-1/2 top-4 z-50 w-[85%] max-w-sm -translate-x-1/2 rounded-full bg-black/65 px-4 py-2.5 text-center text-sm text-white">
+        <div className="pointer-events-none fixed left-1/2 top-20 z-50 w-[85%] max-w-sm -translate-x-1/2 rounded-full bg-black/65 px-4 py-2.5 text-center text-sm text-white">
           {toastMessage}
         </div>
       )}
@@ -1083,7 +1083,7 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
       )}
 
       {newChatBannerVisible && (
-        <div className="pointer-events-none absolute inset-x-0 bottom-16 z-50 flex justify-center px-4">
+        <div className="pointer-events-none fixed inset-x-0 bottom-[136px] z-50 flex justify-center px-4">
           <div className="pointer-events-auto rounded-2xl bg-gray-800/90 px-5 py-4 text-center shadow-xl backdrop-blur-sm">
             <p className="text-sm font-medium text-white">새로운 대화를 시작해볼 수 있어요</p>
           </div>
