@@ -958,12 +958,7 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
               if (dy < -60) {
                 setSheetExpanded(true);
               } else if (dy > 60) {
-                if (sheetExpanded) {
-                  setSheetExpanded(false);
-                } else {
-                  setIsOverlapUsersOpen(false);
-                  setSheetExpanded(false);
-                }
+                setSheetExpanded(false);
               }
             }}
           >
