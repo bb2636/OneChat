@@ -25,8 +25,10 @@ type AdminUser = {
   username: string | null;
   nickname: string | null;
   name: string | null;
+  email: string | null;
   avatar_url: string | null;
   phone_number: string | null;
+  role: string;
   created_at: string;
 };
 
@@ -1103,7 +1105,11 @@ export default function AdminDashboardPage() {
             <div className="ml-auto h-full w-[430px] border-l border-gray-200 bg-white" onClick={(e) => e.stopPropagation()}>
               <div className="flex h-14 items-center justify-between border-b border-gray-200 px-4">
                 <h3 className="text-base font-semibold text-gray-800">
-                  {activeMenu === "reports" ? "신고내역 상세보기" : "문의내역 상세보기"}
+                  {activeMenu === "users"
+                    ? "유저 상세보기"
+                    : activeMenu === "reports"
+                      ? "신고내역 상세보기"
+                      : "문의내역 상세보기"}
                 </h3>
                 <button onClick={() => setSelectedItem(null)} className="text-gray-500 hover:text-gray-800">
                   <X className="h-4 w-4" />
@@ -1111,122 +1117,183 @@ export default function AdminDashboardPage() {
               </div>
 
               <div className="flex h-[calc(100%-56px)] flex-col">
-                <div className="flex-1 overflow-hidden">
-                  <div className="space-y-4 p-4 text-sm">
-                    <div>
-                      <p className="mb-2 text-[11px] text-gray-400">작성자</p>
-                      <div className="rounded-md bg-gray-100 px-3 py-2.5">
-                        <p className="text-sm font-medium text-gray-800">
-                          {String(
-                            (selectedItem.reporter_name as string | undefined) ||
-                              (selectedItem.user_name as string | undefined) ||
-                              "-"
-                          )}
-                        </p>
-                        <p className="mt-0.5 text-[11px] text-gray-500">
-                          {String(
-                            (selectedItem.reporter_username as string | undefined) ||
-                              (selectedItem.user_username as string | undefined) ||
-                              "-"
-                          )}
-                        </p>
+                <div className="flex-1 overflow-y-auto">
+                  {activeMenu === "users" ? (
+                    <div className="space-y-4 p-4 text-sm">
+                      <div className="flex items-center gap-4">
+                        {selectedItem.avatar_url ? (
+                          <img
+                            src={String(selectedItem.avatar_url)}
+                            alt="avatar"
+                            className="h-16 w-16 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gray-200 text-xl font-bold text-gray-500">
+                            {String(selectedItem.nickname || selectedItem.name || "?").charAt(0)}
+                          </div>
+                        )}
+                        <div>
+                          <p className="text-lg font-semibold text-gray-900">
+                            {String(selectedItem.nickname || selectedItem.name || "-")}
+                          </p>
+                          <p className="text-xs text-gray-500">{String(selectedItem.username || "-")}</p>
+                        </div>
+                      </div>
+
+                      <div className="space-y-3 border-t border-gray-200 pt-3">
+                        <div className="grid grid-cols-[80px_1fr] items-start gap-2">
+                          <p className="pt-0.5 text-[11px] text-gray-400">아이디</p>
+                          <p className="text-sm text-gray-800">{String(selectedItem.username || "-")}</p>
+                        </div>
+                        <div className="grid grid-cols-[80px_1fr] items-start gap-2">
+                          <p className="pt-0.5 text-[11px] text-gray-400">이름</p>
+                          <p className="text-sm text-gray-800">{String(selectedItem.name || "-")}</p>
+                        </div>
+                        <div className="grid grid-cols-[80px_1fr] items-start gap-2">
+                          <p className="pt-0.5 text-[11px] text-gray-400">닉네임</p>
+                          <p className="text-sm text-gray-800">{String(selectedItem.nickname || "-")}</p>
+                        </div>
+                        <div className="grid grid-cols-[80px_1fr] items-start gap-2">
+                          <p className="pt-0.5 text-[11px] text-gray-400">이메일</p>
+                          <p className="text-sm text-gray-800">{String(selectedItem.email || "-")}</p>
+                        </div>
+                        <div className="grid grid-cols-[80px_1fr] items-start gap-2">
+                          <p className="pt-0.5 text-[11px] text-gray-400">휴대폰 번호</p>
+                          <p className="text-sm text-gray-800">{formatPhoneNumber(selectedItem.phone_number as string | null)}</p>
+                        </div>
+                        <div className="grid grid-cols-[80px_1fr] items-start gap-2">
+                          <p className="pt-0.5 text-[11px] text-gray-400">가입일</p>
+                          <p className="text-sm text-gray-800">
+                            {String(selectedItem.created_at || "").slice(0, 10).replaceAll("-", ".")}
+                          </p>
+                        </div>
+                        <div className="grid grid-cols-[80px_1fr] items-start gap-2">
+                          <p className="pt-0.5 text-[11px] text-gray-400">권한</p>
+                          <p className="text-sm text-gray-800">{String(selectedItem.role || "user")}</p>
+                        </div>
                       </div>
                     </div>
+                  ) : (
+                    <>
+                      <div className="space-y-4 p-4 text-sm">
+                        <div>
+                          <p className="mb-2 text-[11px] text-gray-400">작성자</p>
+                          <div className="rounded-md bg-gray-100 px-3 py-2.5">
+                            <p className="text-sm font-medium text-gray-800">
+                              {String(
+                                (selectedItem.reporter_name as string | undefined) ||
+                                  (selectedItem.user_name as string | undefined) ||
+                                  "-"
+                              )}
+                            </p>
+                            <p className="mt-0.5 text-[11px] text-gray-500">
+                              {String(
+                                (selectedItem.reporter_username as string | undefined) ||
+                                  (selectedItem.user_username as string | undefined) ||
+                                  "-"
+                              )}
+                            </p>
+                          </div>
+                        </div>
 
-                    <div className="space-y-3 border-t border-gray-200 pt-3">
-                      <div className="grid grid-cols-[64px_1fr] items-start gap-2">
-                        <p className="pt-0.5 text-[11px] text-gray-400">
-                          {activeMenu === "reports" ? "신고 제목" : "문의 제목"}
-                        </p>
-                        <p className="text-sm leading-5 text-gray-800">
-                          {String(
-                            (selectedItem.reason as string | undefined) ||
-                              (selectedItem.subject as string | undefined) ||
-                              "-"
-                          )}
-                        </p>
+                        <div className="space-y-3 border-t border-gray-200 pt-3">
+                          <div className="grid grid-cols-[64px_1fr] items-start gap-2">
+                            <p className="pt-0.5 text-[11px] text-gray-400">
+                              {activeMenu === "reports" ? "신고 제목" : "문의 제목"}
+                            </p>
+                            <p className="text-sm leading-5 text-gray-800">
+                              {String(
+                                (selectedItem.reason as string | undefined) ||
+                                  (selectedItem.subject as string | undefined) ||
+                                  "-"
+                              )}
+                            </p>
+                          </div>
+
+                          <div className="grid grid-cols-[64px_1fr] items-start gap-2">
+                            <p className="pt-0.5 text-[11px] text-gray-400">상태</p>
+                            <span
+                              className={`inline-flex w-fit rounded border px-2 py-0.5 text-[11px] ${
+                                String(selectedItem.status) === "resolved" ||
+                                String(selectedItem.status) === "answered"
+                                  ? "border-emerald-300 bg-emerald-50 text-emerald-600"
+                                  : "border-gray-300 bg-white text-gray-500"
+                              }`}
+                            >
+                              {activeMenu === "reports"
+                                ? REPORT_STATUS_LABEL_MAP[String(selectedItem.status)] || String(selectedItem.status)
+                                : INQUIRY_STATUS_LABEL_MAP[String(selectedItem.status)] || String(selectedItem.status)}
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-[64px_1fr] items-start gap-2">
+                            <p className="pt-0.5 text-[11px] text-gray-400">
+                              {activeMenu === "reports" ? "신고일" : "문의일"}
+                            </p>
+                            <p className="text-sm text-gray-700">
+                              {String(selectedItem.created_at || "").slice(0, 10).replaceAll("-", ".")}
+                            </p>
+                          </div>
+
+                          <div className="grid grid-cols-[64px_1fr] items-start gap-2">
+                            <p className="pt-0.5 text-[11px] text-gray-400">
+                              {activeMenu === "reports" ? "신고 내용" : "문의 내용"}
+                            </p>
+                            <p className="whitespace-pre-wrap text-sm leading-6 text-gray-700">
+                              {String(
+                                (selectedItem.description as string | undefined) ||
+                                  (selectedItem.content as string | undefined) ||
+                                  "-"
+                              )}
+                            </p>
+                          </div>
+                        </div>
                       </div>
 
-                      <div className="grid grid-cols-[64px_1fr] items-start gap-2">
-                        <p className="pt-0.5 text-[11px] text-gray-400">상태</p>
-                        <span
-                          className={`inline-flex w-fit rounded border px-2 py-0.5 text-[11px] ${
-                            String(selectedItem.status) === "resolved" ||
-                            String(selectedItem.status) === "answered"
-                              ? "border-emerald-300 bg-emerald-50 text-emerald-600"
-                              : "border-gray-300 bg-white text-gray-500"
-                          }`}
-                        >
-                          {activeMenu === "reports"
-                            ? REPORT_STATUS_LABEL_MAP[String(selectedItem.status)] || String(selectedItem.status)
-                            : INQUIRY_STATUS_LABEL_MAP[String(selectedItem.status)] || String(selectedItem.status)}
-                        </span>
+                      <div className="mt-5 border-t border-gray-200 bg-gray-100 px-4 pb-8 pt-0">
+                        <div className="grid grid-cols-[64px_1fr] items-start gap-2">
+                          <p className="pt-3 text-[11px] text-gray-400">답변 등록</p>
+                          <textarea
+                            ref={detailReplyRef}
+                            value={detailReply}
+                            maxLength={500}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (val.length > 500) return;
+                              setDetailReply(val);
+                              e.currentTarget.style.height = "auto";
+                              const nextHeight = Math.min(
+                                Math.max(e.currentTarget.scrollHeight, DETAIL_REPLY_MIN_HEIGHT),
+                                DETAIL_REPLY_MAX_HEIGHT
+                              );
+                              e.currentTarget.style.height = `${nextHeight}px`;
+                              e.currentTarget.style.overflowY =
+                                e.currentTarget.scrollHeight > DETAIL_REPLY_MAX_HEIGHT ? "auto" : "hidden";
+                            }}
+                            placeholder="내용을 입력해 주세요."
+                            className="h-[260px] w-full resize-none overflow-y-hidden border-none bg-transparent pt-3 text-sm leading-6 text-gray-700 placeholder:text-gray-400 outline-none"
+                          />
+                          <p className="text-right text-[10px] text-gray-400">{detailReply.length}/500</p>
+                        </div>
                       </div>
-
-                      <div className="grid grid-cols-[64px_1fr] items-start gap-2">
-                        <p className="pt-0.5 text-[11px] text-gray-400">
-                          {activeMenu === "reports" ? "신고일" : "문의일"}
-                        </p>
-                        <p className="text-sm text-gray-700">
-                          {String(selectedItem.created_at || "").slice(0, 10).replaceAll("-", ".")}
-                        </p>
-                      </div>
-
-                      <div className="grid grid-cols-[64px_1fr] items-start gap-2">
-                        <p className="pt-0.5 text-[11px] text-gray-400">
-                          {activeMenu === "reports" ? "신고 내용" : "문의 내용"}
-                        </p>
-                        <p className="whitespace-pre-wrap text-sm leading-6 text-gray-700">
-                          {String(
-                            (selectedItem.description as string | undefined) ||
-                              (selectedItem.content as string | undefined) ||
-                              "-"
-                          )}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-5 border-t border-gray-200 bg-gray-100 px-4 pb-8 pt-0">
-                    <div className="grid grid-cols-[64px_1fr] items-start gap-2">
-                      <p className="pt-3 text-[11px] text-gray-400">답변 등록</p>
-                      <textarea
-                        ref={detailReplyRef}
-                        value={detailReply}
-                        maxLength={500}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          if (val.length > 500) return;
-                          setDetailReply(val);
-                          e.currentTarget.style.height = "auto";
-                          const nextHeight = Math.min(
-                            Math.max(e.currentTarget.scrollHeight, DETAIL_REPLY_MIN_HEIGHT),
-                            DETAIL_REPLY_MAX_HEIGHT
-                          );
-                          e.currentTarget.style.height = `${nextHeight}px`;
-                          e.currentTarget.style.overflowY =
-                            e.currentTarget.scrollHeight > DETAIL_REPLY_MAX_HEIGHT ? "auto" : "hidden";
-                        }}
-                        placeholder="내용을 입력해 주세요."
-                        className="h-[260px] w-full resize-none overflow-y-hidden border-none bg-transparent pt-3 text-sm leading-6 text-gray-700 placeholder:text-gray-400 outline-none"
-                      />
-                      <p className="text-right text-[10px] text-gray-400">{detailReply.length}/500</p>
-                    </div>
-                  </div>
+                    </>
+                  )}
                 </div>
 
-                <div className="border-t border-gray-200 bg-gray-50 px-4 py-5">
-                  <button
-                    type="button"
-                    onClick={handleSaveDetailReply}
-                    disabled={!isDetailReplyEnabled}
-                    className={`ml-auto block h-9 rounded-md px-6 text-xs text-white ${
-                      isDetailReplyEnabled ? "bg-blue-600 hover:bg-blue-700" : "bg-gray-400"
-                    } disabled:opacity-60`}
-                  >
-                    답변 완료
-                  </button>
-                </div>
+                {activeMenu !== "users" && (
+                  <div className="border-t border-gray-200 bg-gray-50 px-4 py-5">
+                    <button
+                      type="button"
+                      onClick={handleSaveDetailReply}
+                      disabled={!isDetailReplyEnabled}
+                      className={`ml-auto block h-9 rounded-md px-6 text-xs text-white ${
+                        isDetailReplyEnabled ? "bg-blue-600 hover:bg-blue-700" : "bg-gray-400"
+                      } disabled:opacity-60`}
+                    >
+                      답변 완료
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </div>

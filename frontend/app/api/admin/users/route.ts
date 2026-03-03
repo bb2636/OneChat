@@ -23,6 +23,7 @@ export async function GET(request: Request) {
       username: string | null;
       nickname: string | null;
       name: string | null;
+      email: string | null;
       avatar_url: string | null;
       phone_number: string | null;
       role: string;
@@ -46,7 +47,7 @@ export async function GET(request: Request) {
 
       if (isDelta) {
         items = (await sql`
-          SELECT id, username, nickname, name, avatar_url, phone_number, role, created_at::text
+          SELECT id, username, nickname, name, email, avatar_url, phone_number, role, created_at::text
           FROM users
           WHERE (${excludeId} = '' OR id::text <> ${excludeId})
             AND (
@@ -60,7 +61,7 @@ export async function GET(request: Request) {
         `) as unknown as typeof items;
       } else {
         items = (await sql`
-          SELECT id, username, nickname, name, avatar_url, phone_number, role, created_at::text
+          SELECT id, username, nickname, name, email, avatar_url, phone_number, role, created_at::text
           FROM users
           WHERE (${excludeId} = '' OR id::text <> ${excludeId})
             AND (
@@ -84,7 +85,7 @@ export async function GET(request: Request) {
 
       if (isDelta) {
         items = (await sql`
-          SELECT id, username, nickname, name, avatar_url, phone_number, role, created_at::text
+          SELECT id, username, nickname, name, email, avatar_url, phone_number, role, created_at::text
           FROM users
           WHERE (${excludeId} = '' OR id::text <> ${excludeId})
             AND COALESCE(updated_at, created_at) > ${sinceDate as Date}
@@ -93,7 +94,7 @@ export async function GET(request: Request) {
         `) as unknown as typeof items;
       } else {
         items = (await sql`
-          SELECT id, username, nickname, name, avatar_url, phone_number, role, created_at::text
+          SELECT id, username, nickname, name, email, avatar_url, phone_number, role, created_at::text
           FROM users
           WHERE (${excludeId} = '' OR id::text <> ${excludeId})
           ORDER BY created_at DESC
