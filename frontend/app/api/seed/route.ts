@@ -4,6 +4,57 @@ import { hashSync } from "bcryptjs";
 
 export const dynamic = "force-dynamic";
 
+export async function GET(request: Request) {
+  try {
+    const seedKey = process.env.SEED_API_KEY;
+    if (!seedKey) {
+      return NextResponse.json({ error: "Disabled" }, { status: 403 });
+    }
+    const { searchParams } = new URL(request.url);
+    const key = searchParams.get("key");
+    const action = searchParams.get("action");
+    if (key !== seedKey) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    if (action === "cleanup-chats") {
+      const dupes = await sql`
+        SELECT title, chat_type, COUNT(*)::int as cnt
+        FROM chats WHERE title IS NOT NULL
+        GROUP BY title, chat_type HAVING COUNT(*) > 1
+      `;
+      let deletedCount = 0;
+      for (const dupe of dupes) {
+        const rows = await sql`
+          SELECT id, created_at FROM chats
+          WHERE title = ${dupe.title} AND chat_type IS NOT DISTINCT FROM ${dupe.chat_type}
+          ORDER BY created_at ASC
+        `;
+        for (const row of rows.slice(1)) {
+          await sql`DELETE FROM messages WHERE chat_id = ${row.id}`;
+          await sql`DELETE FROM chat_members WHERE chat_id = ${row.id}`;
+          await sql`DELETE FROM chats WHERE id = ${row.id}`;
+          deletedCount++;
+        }
+      }
+      const remaining = await sql`SELECT id, title, chat_type FROM chats ORDER BY created_at`;
+      return NextResponse.json({ success: true, deletedCount, remaining });
+    }
+
+    if (action === "fix-username") {
+      const oldU = searchParams.get("old");
+      const newU = searchParams.get("new");
+      if (!oldU || !newU) return NextResponse.json({ error: "old and new required" }, { status: 400 });
+      const result = await sql`UPDATE users SET username = ${newU}, email = ${newU} WHERE username = ${oldU} RETURNING id, username, email, nickname`;
+      return NextResponse.json({ success: true, user: result[0] || null });
+    }
+
+    return NextResponse.json({ error: "action required" }, { status: 400 });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const seedKey = process.env.SEED_API_KEY;
