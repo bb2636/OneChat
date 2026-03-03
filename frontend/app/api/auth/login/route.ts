@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { sql } from "@/lib/db";
 import bcrypt from "bcryptjs";
+import { signToken, createTokenCookieHeader } from "@/lib/auth";
 
 export async function POST(request: Request) {
   try {
@@ -13,9 +14,8 @@ export async function POST(request: Request) {
       );
     }
 
-    // 사용자 조회
     const users = await sql`
-      SELECT id, username, password, nickname, email, name, avatar_url
+      SELECT id, username, password, nickname, email, name, avatar_url, role
       FROM users
       WHERE username = ${username}
       LIMIT 1
@@ -30,7 +30,6 @@ export async function POST(request: Request) {
 
     const user = users[0];
 
-    // 비밀번호 확인
     if (!user.password) {
       return NextResponse.json(
         { error: "비밀번호가 설정되지 않았습니다." },
@@ -47,9 +46,9 @@ export async function POST(request: Request) {
       );
     }
 
-    // 세션 생성 (실제로는 JWT 토큰이나 세션 쿠키 사용)
-    // 여기서는 간단하게 사용자 정보 반환
-    return NextResponse.json({
+    const token = signToken({ userId: user.id, role: user.role || "user" });
+
+    const response = NextResponse.json({
       user: {
         id: user.id,
         username: user.username,
@@ -58,7 +57,12 @@ export async function POST(request: Request) {
         name: user.name,
         avatar_url: user.avatar_url,
       },
+      token,
     });
+
+    response.headers.set("Set-Cookie", createTokenCookieHeader(token));
+
+    return response;
   } catch (error) {
     console.error("Login error:", error);
     return NextResponse.json(

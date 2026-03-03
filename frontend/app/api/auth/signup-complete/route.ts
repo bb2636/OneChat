@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { sql } from "@/lib/db";
 import { hashSync } from "bcryptjs";
+import { signToken, createTokenCookieHeader } from "@/lib/auth";
 
 export async function POST(request: Request) {
   try {
@@ -192,7 +193,9 @@ export async function POST(request: Request) {
     // 약관 동의 기록 (약관 동의 테이블이 있다면 추가)
     // 여기서는 간단하게 처리
 
-    return NextResponse.json(
+    const token = signToken({ userId: newUserArray[0].id, role: "user" });
+
+    const response = NextResponse.json(
       {
         user: {
           id: newUserArray[0].id,
@@ -201,9 +204,13 @@ export async function POST(request: Request) {
           name: newUserArray[0].name,
           avatar_url: newUserArray[0].avatar_url,
         },
+        token,
       },
       { status: 201 }
     );
+
+    response.headers.set("Set-Cookie", createTokenCookieHeader(token));
+    return response;
   } catch (error: any) {
     console.error("Signup complete error:", error);
     console.error("Error details:", {

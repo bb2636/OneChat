@@ -276,6 +276,16 @@ export default function AdminDashboardPage() {
     location_consent: "위치 정보 제공 동의",
   };
 
+  const adminFetch = async (url: string, options?: RequestInit) => {
+    const res = await fetch(url, options);
+    if (res.status === 401 || res.status === 403) {
+      localStorage.removeItem("admin_user");
+      router.replace("/admin/login");
+      throw new Error("AUTH_REDIRECT");
+    }
+    return res;
+  };
+
   useEffect(() => {
     const stored = localStorage.getItem("admin_user");
     if (!stored) {
@@ -313,7 +323,7 @@ export default function AdminDashboardPage() {
       ? `/api/admin/users?page=${usersPage}&q=${encodeURIComponent(search)}&excludeId=${excludeId}&since=${encodeURIComponent(cached.syncedAt)}`
       : `/api/admin/users?page=${usersPage}&q=${encodeURIComponent(search)}&excludeId=${excludeId}`;
 
-    fetch(requestUrl)
+    adminFetch(requestUrl)
       .then((r) => r.json())
       .then((data) => {
         const incoming = (data.items || []) as AdminUser[];
@@ -364,7 +374,7 @@ export default function AdminDashboardPage() {
       ? `/api/admin/reports?page=${reportsPage}&status=${reportStatus}&since=${encodeURIComponent(cached.syncedAt)}`
       : `/api/admin/reports?page=${reportsPage}&status=${reportStatus}`;
 
-    fetch(requestUrl)
+    adminFetch(requestUrl)
       .then((r) => r.json())
       .then((data) => {
         const incoming = (data.items || []) as ReportItem[];
@@ -411,7 +421,7 @@ export default function AdminDashboardPage() {
       ? `/api/admin/inquiries?page=${inquiriesPage}&status=${inquiryStatus}&since=${encodeURIComponent(cached.syncedAt)}`
       : `/api/admin/inquiries?page=${inquiriesPage}&status=${inquiryStatus}`;
 
-    fetch(requestUrl)
+    adminFetch(requestUrl)
       .then((r) => r.json())
       .then((data) => {
         const incoming = (data.items || []) as InquiryItem[];
@@ -462,7 +472,7 @@ export default function AdminDashboardPage() {
 
     const loadTerms = async () => {
       try {
-        const res = await fetch(requestUrl);
+        const res = await adminFetch(requestUrl);
         const data = await res.json();
         const incoming: TermItem[] = Array.isArray(data) ? data : Array.isArray(data?.items) ? data.items : [];
         const nextItems = cached?.syncedAt && data?.delta && cachedItems.length > 0
@@ -508,7 +518,8 @@ export default function AdminDashboardPage() {
     )}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try { await fetch("/api/auth/logout", { method: "POST" }); } catch {}
     localStorage.removeItem("admin_user");
     router.push("/admin/login");
   };
@@ -556,7 +567,7 @@ export default function AdminDashboardPage() {
 
   const handleDeleteUser = async (id: string) => {
     if (!confirm("이 사용자를 삭제하시겠습니까?")) return;
-    const res = await fetch("/api/admin/users", {
+    const res = await adminFetch("/api/admin/users", {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id }),
@@ -583,7 +594,7 @@ export default function AdminDashboardPage() {
   };
 
   const handleSaveTerm = async () => {
-    const res = await fetch("/api/admin/terms", {
+    const res = await adminFetch("/api/admin/terms", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -599,7 +610,7 @@ export default function AdminDashboardPage() {
       return;
     }
 
-    const refresh = await fetch("/api/admin/terms");
+    const refresh = await adminFetch("/api/admin/terms");
     const data = await refresh.json();
     const refreshedItems = Array.isArray(data) ? data : (data?.items || []);
     setTerms(refreshedItems as TermItem[]);
@@ -622,7 +633,7 @@ export default function AdminDashboardPage() {
     setIsSavingDetail(true);
     try {
       if (activeMenu === "inquiries") {
-        const res = await fetch("/api/admin/inquiries", {
+        const res = await adminFetch("/api/admin/inquiries", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -645,7 +656,7 @@ export default function AdminDashboardPage() {
         );
         setDetailToastMessage("문의 내역 답변 작성 완료");
       } else if (activeMenu === "reports") {
-        const res = await fetch("/api/admin/reports", {
+        const res = await adminFetch("/api/admin/reports", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -680,7 +691,7 @@ export default function AdminDashboardPage() {
   const handleRefreshTerms = async () => {
     setLoading(true);
     try {
-      const refresh = await fetch("/api/admin/terms");
+      const refresh = await adminFetch("/api/admin/terms");
       const data = await refresh.json();
       const refreshedItems = Array.isArray(data) ? data : (data?.items || []);
       setTerms(refreshedItems as TermItem[]);

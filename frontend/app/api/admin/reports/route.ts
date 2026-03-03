@@ -1,11 +1,17 @@
 import { NextResponse } from "next/server";
 import { sql } from "@/lib/db";
+import { requireAdmin } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 const PAGE_SIZE = 10;
 
 export async function GET(request: Request) {
+  const auth = await requireAdmin(request);
+  if ("error" in auth) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
+  }
+
   try {
     const { searchParams } = new URL(request.url);
     const rawPage = Number(searchParams.get("page") || "1");
@@ -101,6 +107,11 @@ export async function GET(request: Request) {
 }
 
 export async function PATCH(request: Request) {
+  const auth = await requireAdmin(request);
+  if ("error" in auth) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
+  }
+
   try {
     const { id, status, adminNote } = (await request.json()) as {
       id?: string;

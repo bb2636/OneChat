@@ -29,6 +29,7 @@ NEXT_PUBLIC_NAVER_MAP_CLIENT_ID = "vbsk9wocnz"
 GOOGLE_CLIENT_ID = "1056979954995-6m3be43uqkecd2215g4rig5sncj0qm3f.apps.googleusercontent.com"
 GOOGLE_CLIENT_SECRET = "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"
 SEED_API_KEY = "onechat-seed-2024"
+JWT_SECRET = "4fe89c72ea5e8559044dd644f72cc2bb68367ec3aeb53824a02a97dd600b4ff2"
 
 [workflows]
 runButton = "Project"

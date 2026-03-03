@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { sql } from "@/lib/db";
+import { signToken, createTokenCookieHeader } from "@/lib/auth";
 
 export const dynamic = 'force-dynamic';
 
@@ -79,12 +80,17 @@ export async function POST(request: Request) {
         return NextResponse.json({ redirectUrl: signupUrl.toString() });
       }
 
-      // 모든 필수 정보가 있으면 로그인 성공
+      const userRole = (await sql`SELECT role FROM users WHERE id = ${userId} LIMIT 1`);
+      const role = userRole.length > 0 ? (userRole[0].role || "user") : "user";
+      const token = signToken({ userId, role });
+
       const redirectUrl = new URL(redirectTo || "/home", process.env.NEXT_PUBLIC_FRONTEND_ORIGIN || "https://weoncaes.replit.app");
       redirectUrl.searchParams.set("google_auth", "success");
       redirectUrl.searchParams.set("user_id", userId);
 
-      return NextResponse.json({ redirectUrl: redirectUrl.toString() });
+      const response = NextResponse.json({ redirectUrl: redirectUrl.toString(), token });
+      response.headers.set("Set-Cookie", createTokenCookieHeader(token));
+      return response;
     } else {
       // 새 사용자 - 회원가입 단계로 리다이렉트
       const signupUrl = new URL("/signup/step2", process.env.NEXT_PUBLIC_FRONTEND_ORIGIN || "https://weoncaes.replit.app");

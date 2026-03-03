@@ -5,7 +5,7 @@
 ## Tech Stack
 - **Frontend**: Next.js 14 (App Router), Tailwind CSS, TanStack Query, Supabase Realtime
 - **Database**: Replit PostgreSQL (`postgres` 라이브러리 직접 연결)
-- **Auth**: Custom (bcryptjs) + Supabase Auth (Google OAuth)
+- **Auth**: Custom (bcryptjs + JWT httpOnly cookie) + Supabase Auth (Google OAuth)
 - **Maps**: Naver Maps API
 - **Mobile**: Capacitor (Android APK)
 
@@ -25,7 +25,8 @@ frontend/                  - Next.js app (port 5000)
         send-verification/ - 인증번호 발송
         verify-phone/      - 전화번호 인증
         forgot-password/   - 비밀번호 찾기 (4단계)
-        me/                - 현재 로그인 사용자 조회
+        me/                - 현재 로그인 사용자 조회 (JWT 기반)
+        logout/            - 로그아웃 (쿠키 삭제)
       chats/               - 채팅방 목록 조회
         [chatId]/messages/ - 메시지 CRUD
         [chatId]/members/  - 채팅방 멤버 관리
@@ -69,6 +70,7 @@ frontend/                  - Next.js app (port 5000)
     ui/avatar.tsx          - 아바타 컴포넌트 (컬러 이니셜 폴백)
   lib/
     db.ts                  - PostgreSQL 클라이언트 (postgres 라이브러리)
+    auth.ts                - JWT 인증 유틸리티 (signToken, verifyToken, requireAuth, requireAdmin)
     supabase.ts            - Supabase 클라이언트 (Realtime/Auth)
   android/                 - Capacitor Android 프로젝트
 ```
@@ -82,6 +84,7 @@ frontend/                  - Next.js app (port 5000)
 - `PORT` - 앱 포트 (5000)
 - `FRONTEND_ORIGIN` / `NEXT_PUBLIC_FRONTEND_ORIGIN` - https://weoncaes.replit.app
 - `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` - Google OAuth 인증 정보
+- `JWT_SECRET` - JWT 토큰 서명 키 (자동 생성됨)
 - `SEED_API_KEY` - DB 시드 API 인증 키 (미설정 시 비활성화)
 
 ## Deployment
@@ -116,6 +119,15 @@ frontend/                  - Next.js app (port 5000)
 - 스와이프 삭제 (채팅 목록, 친구 목록)
 - 비밀번호 찾기 (전화번호 인증)
 - Android APK (Capacitor)
+
+## Authentication
+- 로그인/회원가입 시 JWT 토큰 발급 → httpOnly 쿠키(`onechat_token`)로 설정
+- 토큰 만료: 7일
+- `/api/auth/me` — JWT 쿠키에서 사용자 정보 조회
+- `/api/auth/logout` — 쿠키 삭제
+- 관리자 API(`/api/admin/*`) — `requireAdmin()` 미들웨어로 JWT 검증 + role=admin 확인 (DB 재검증)
+- Google OAuth 로그인 완료 시에도 JWT 쿠키 자동 발급
+- 프론트엔드: localStorage에 userId 캐시 유지 (기존 호환), 쿠키는 자동 전송
 
 ## Key Notes
 - Frontend runs on port 5000 (Replit webview)
