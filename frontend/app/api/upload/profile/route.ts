@@ -1,7 +1,13 @@
 import { NextResponse } from "next/server";
+import { getUserFromRequest } from "@/lib/auth";
 
 export async function POST(request: Request) {
   try {
+    const auth = getUserFromRequest(request);
+    if (!auth) {
+      return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
+    }
+
     const formData = await request.formData();
     const file = formData.get("image") as File;
 

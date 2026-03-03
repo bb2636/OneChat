@@ -8,6 +8,11 @@ export const dynamic = "force-dynamic";
 type Params = { params: { chatId: string } };
 
 export async function GET(request: Request, { params }: Params) {
+  const auth = getUserFromRequest(request);
+  if (!auth) {
+    return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
+  }
+
   const chatId = params.chatId;
   const { searchParams } = new URL(request.url);
   const sinceParam = searchParams.get("since");
