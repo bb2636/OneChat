@@ -851,7 +851,7 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
   }
 
   return (
-    <>
+    <div className="relative h-full w-full">
       <Script
         src={`https://oapi.map.naver.com/openapi/v3/maps.js?${authQueryKey}=${mapCredential}${scriptBusterRef.current}`}
         strategy="afterInteractive"
@@ -894,7 +894,7 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
         )}
       </div>
 
-      <div className="pointer-events-none fixed inset-x-0 bottom-[88px] z-30 mx-auto w-full max-w-md px-4">
+      <div className="pointer-events-none absolute inset-x-0 bottom-3 z-30 px-4">
         <div className="pointer-events-auto flex items-center justify-between">
           <button
             type="button"
@@ -931,8 +931,8 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
       </div>
 
       {isOverlapUsersOpen && (
-        <div className="fixed inset-0 z-40 bg-black/45" onClick={() => setIsOverlapUsersOpen(false)}>
-          <div className="absolute inset-x-0 bottom-[80px] mx-auto w-full max-w-md rounded-t-3xl bg-white px-5 pb-5 pt-4" onClick={(e) => e.stopPropagation()}>
+        <div className="absolute inset-0 z-40 bg-black/45" onClick={() => setIsOverlapUsersOpen(false)}>
+          <div className="absolute inset-x-0 bottom-0 rounded-t-3xl bg-white px-5 pb-5 pt-4" onClick={(e) => e.stopPropagation()}>
             <div className="mb-3 flex items-center justify-between">
               <p className="text-sm font-semibold text-gray-900">
                 나 포함 {overlapUsers.length + 1}명 원이 겹쳐져 있어요
@@ -993,7 +993,7 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
       )}
 
       {toastMessage && (
-        <div className="pointer-events-none fixed left-1/2 top-20 z-50 w-[85%] max-w-sm -translate-x-1/2 rounded-full bg-black/65 px-4 py-2.5 text-center text-sm text-white">
+        <div className="pointer-events-none absolute left-1/2 top-4 z-50 w-[85%] max-w-sm -translate-x-1/2 rounded-full bg-black/65 px-4 py-2.5 text-center text-sm text-white">
           {toastMessage}
         </div>
       )}
@@ -1047,7 +1047,7 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
       )}
 
       {newChatBannerVisible && (
-        <div className="pointer-events-none fixed inset-x-0 bottom-[96px] z-50 mx-auto w-[85%] max-w-sm">
+        <div className="pointer-events-none absolute inset-x-0 bottom-16 z-50 flex justify-center px-4">
           <div className="pointer-events-auto rounded-2xl bg-gray-800/90 px-5 py-4 text-center shadow-xl backdrop-blur-sm">
             <p className="text-sm font-medium text-white">새로운 대화를 시작해볼 수 있어요</p>
           </div>
@@ -1169,6 +1169,6 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }
