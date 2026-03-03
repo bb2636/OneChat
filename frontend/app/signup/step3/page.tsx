@@ -48,7 +48,6 @@ export default function SignupStep3Page() {
         return;
       }
 
-      // 3단계 데이터 저장
       const step2Data = sessionStorage.getItem("signup_step2");
       if (step2Data) {
         const step3Data = {
@@ -56,6 +55,9 @@ export default function SignupStep3Page() {
           phoneNumber: phoneNumber.replace(/[^\d]/g, ""),
         };
         sessionStorage.setItem("signup_step3", JSON.stringify(step3Data));
+      }
+      if (data.code) {
+        sessionStorage.setItem("signup_debug_code", data.code);
       }
 
       // 다음 단계로 이동

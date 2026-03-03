@@ -46,8 +46,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       message: "인증번호가 전송되었습니다.",
-      // 개발 환경에서만 코드 반환 (실제로는 제거)
-      ...(process.env.NODE_ENV === "development" && { code }),
+      code,
     });
   } catch (error) {
     console.error("Send verification error:", error);

@@ -11,15 +11,17 @@ export default function ForgotPasswordStep3Page() {
   const [timeLeft, setTimeLeft] = useState(300); // 5분 = 300초
   const [isLoading, setIsLoading] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState("");
+  const [debugCode, setDebugCode] = useState<string | null>(null);
   const codeRef = useRef<string[]>(["", "", "", "", "", ""]);
 
   useEffect(() => {
-    // 세션에서 전화번호 가져오기
     const step2Data = sessionStorage.getItem("forgot_password_step2");
     if (step2Data) {
       const data = JSON.parse(step2Data);
       setPhoneNumber(data.phoneNumber || "");
     }
+    const savedCode = sessionStorage.getItem("forgot_debug_code");
+    if (savedCode) setDebugCode(savedCode);
 
     // 타이머 시작
     const timer = setInterval(() => {
@@ -108,14 +110,19 @@ export default function ForgotPasswordStep3Page() {
         }),
       });
 
+      const resData = await res.json();
       if (res.ok) {
-        setTimeLeft(300); // 타이머 리셋
+        setTimeLeft(300);
         const empty = ["", "", "", "", "", ""];
         codeRef.current = empty;
         setCode(empty);
+        if (resData.code) {
+          setDebugCode(resData.code);
+          sessionStorage.setItem("forgot_debug_code", resData.code);
+        }
         alert("인증번호가 재전송되었습니다.");
       } else {
-        alert("인증번호 재전송에 실패했습니다.");
+        alert(resData.error || "인증번호 재전송에 실패했습니다.");
       }
     } catch (error) {
       console.error("Resend error:", error);
@@ -232,6 +239,9 @@ export default function ForgotPasswordStep3Page() {
           <div className="flex items-center justify-between text-sm text-gray-600">
             <span className={cn(timeLeft <= 60 ? "text-red-500 font-medium" : "")}>
               남은 시간 {formatTime(timeLeft)}
+              {debugCode && (
+                <span className="ml-2 font-mono font-bold text-blue-600">[{debugCode}]</span>
+              )}
             </span>
             <button
               type="button"
