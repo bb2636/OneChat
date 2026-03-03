@@ -102,6 +102,7 @@ frontend/                  - Next.js app (port 5000)
 - `inquiries` - 문의 (id, user_id, category, subject, content, status)
 - `inquiry_replies` - 문의 답변 (id, inquiry_id, user_id, content, is_admin)
 - `terms` - 이용약관 (id, title, content, required, order)
+- `push_subscriptions` - 푸시 구독 (id, user_id, endpoint, p256dh, auth, created_at)
 
 ## 주요 기능
 - 일반 로그인/회원가입 (아이디+비밀번호, bcryptjs)
@@ -162,6 +163,18 @@ frontend/                  - Next.js app (port 5000)
 - Google signup: signed httpOnly 쿠키 (google_signup_token, 30분 만료) 사용
 - 채팅 목록 쿼리 LATERAL JOIN 최적화 완료
 - 프론트엔드: userId/requesterId/creatorId를 API 호출 body/query에서 제거 완료
+
+## Push Notifications (Web Push API)
+- **방식**: Web Push API + VAPID keys (Firebase 불필요)
+- **환경변수**: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `NEXT_PUBLIC_VAPID_PUBLIC_KEY`
+- **패키지**: `web-push` (npm)
+- **DB 테이블**: `push_subscriptions` (id, user_id, endpoint, p256dh, auth, created_at)
+- **서비스 워커**: `frontend/public/sw.js`
+- **클라이언트 훅**: `frontend/hooks/usePushNotification.ts` — MainPage에서 자동 구독
+- **서버 유틸**: `frontend/lib/push.ts` — `sendPushToUser()`, `sendPushToMultipleUsers()`
+- **API**: `/api/push/subscribe` (POST), `/api/push/unsubscribe` (POST)
+- **알림 트리거**: 메시지 전송 시 → 다른 멤버에게 알림, 친구 추가 시 → 상대에게 알림
+- **만료 처리**: 404/410 응답 시 자동으로 구독 삭제
 
 ## 알려진 개선 필요 사항
 - 다수의 `any` 타입 사용 및 `unknown as` 캐스팅

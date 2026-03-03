@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { sql } from "@/lib/db";
 import { getUserFromRequest } from "@/lib/auth";
+import { sendPushToUser } from "@/lib/push";
 
 export const dynamic = "force-dynamic";
 
@@ -112,6 +113,18 @@ export async function POST(request: Request) {
       VALUES (gen_random_uuid(), ${requesterId}, ${addresseeId}, 'accepted', ${new Date()}, ${new Date()})
       RETURNING id, status
     `;
+
+    const requesterInfo = await sql`
+      SELECT nickname, name FROM users WHERE id = ${requesterId} LIMIT 1
+    `;
+    const requesterName = requesterInfo[0]?.nickname || requesterInfo[0]?.name || '알 수 없음';
+
+    sendPushToUser(addresseeId, {
+      title: '원챗',
+      body: `${requesterName}님이 친구로 추가했습니다.`,
+      url: '/home',
+      tag: 'friend-add',
+    }).catch(() => {});
 
     return NextResponse.json(
       {

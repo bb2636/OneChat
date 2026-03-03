@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { sql } from "@/lib/db";
 import { getUserFromRequest } from "@/lib/auth";
+import { sendPushToMultipleUsers } from "@/lib/push";
 
 export const dynamic = "force-dynamic";
 
@@ -160,6 +161,29 @@ export async function POST(request: Request, { params }: Params) {
       SET updated_at = ${new Date()}
       WHERE id = ${chatId}
     `;
+
+    const chatMembers = await sql`
+      SELECT cm.user_id::text FROM chat_members cm
+      WHERE cm.chat_id = ${chatId} AND cm.user_id != ${userId}
+      UNION
+      SELECT CASE WHEN c.user_id1 = ${userId} THEN c.user_id2::text ELSE c.user_id1::text END
+      FROM chats c
+      WHERE c.id = ${chatId} AND c.workspace_id IS NULL
+        AND (c.user_id1 = ${userId} OR c.user_id2 = ${userId})
+    `;
+
+    if (chatMembers.length > 0) {
+      const otherUserIds = chatMembers.map((m: Record<string, unknown>) => String(m.user_id));
+      const senderName = user?.nickname || user?.name || '알 수 없음';
+      const bodyText = imageUrl ? '사진을 보냈습니다.' : (messageContent.length > 50 ? messageContent.slice(0, 50) + '...' : messageContent);
+
+      sendPushToMultipleUsers(otherUserIds, {
+        title: senderName,
+        body: bodyText,
+        url: `/chat/${chatId}`,
+        tag: `chat-${chatId}`,
+      }).catch(() => {});
+    }
 
     return NextResponse.json({ 
       message: {

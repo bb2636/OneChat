@@ -20,6 +20,7 @@ import { Skeleton } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import type { Chat } from "@/types";
 import { getColorFromSeed } from "@/components/ui/avatar";
+import { usePushNotification } from "@/hooks/usePushNotification";
 
 function getInitial(name: string | null | undefined): string {
   if (!name) return '?';
@@ -99,6 +100,7 @@ type MyPageScreen =
 export function MainPage({ initialChats }: MainPageProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
+  usePushNotification();
   const [activeTab, setActiveTab] = useState<"map" | "chat" | "friends" | "mypage">(
     "chat"
   );
