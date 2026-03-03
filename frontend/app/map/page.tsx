@@ -11,16 +11,12 @@ export default function MapPage() {
   const [activeTab, setActiveTab] = useState<TabType>("map");
 
   useEffect(() => {
-    // 현재 로그인한 유저 ID 가져오기
-    // TODO: 실제 세션/쿠키에서 가져오도록 수정 필요
     const fetchCurrentUser = async () => {
       try {
-        // localStorage에서 임시로 가져오기 (실제로는 세션에서 가져와야 함)
         const storedUserId = localStorage.getItem("userId");
         if (storedUserId) {
           setUserId(storedUserId);
         } else {
-          // API를 통해 현재 유저 정보 가져오기
           const res = await fetch("/api/auth/me");
           if (res.ok) {
             const data = await res.json();
@@ -29,7 +25,6 @@ export default function MapPage() {
               localStorage.setItem("userId", data.user.id);
             }
           } else {
-            // 로그인되지 않은 경우 로그인 페이지로 리다이렉트
             router.push("/login");
           }
         }
@@ -61,13 +56,17 @@ export default function MapPage() {
       return;
     }
 
-    // 현재 라우트 구조에서는 채팅/친구/마이페이지를 홈으로 연결
     router.push("/home");
   };
 
   return (
-    <div className="relative h-screen w-full max-w-md mx-auto overflow-hidden bg-white">
-      <NaverMap className="h-full w-full" userId={userId} />
+    <div className="relative h-screen w-full max-w-md mx-auto overflow-hidden bg-white flex flex-col">
+      <div className="flex-shrink-0 z-20 flex items-center justify-between px-5 py-3 bg-white border-b border-gray-100">
+        <h1 className="text-lg font-bold text-gray-900">지도</h1>
+      </div>
+      <div className="flex-1 relative overflow-hidden">
+        <NaverMap className="h-full w-full" userId={userId} />
+      </div>
       <BottomNavigation activeTab={activeTab} onTabChange={handleTabChange} unreadChatCount={0} />
     </div>
   );

@@ -54,7 +54,7 @@ export async function GET(request: Request) {
           COUNT(m.id)::int as message_count,
           last_msg.content as last_message,
           last_msg.created_at::text as last_message_at,
-          0 as unread_count,
+          COALESCE(unread.cnt, 0)::int as unread_count,
           CASE 
             WHEN c.user_id1 = ${userId} THEN c.user_id2
             ELSE c.user_id1
@@ -76,6 +76,17 @@ export async function GET(request: Request) {
           ORDER BY m2.created_at DESC
           LIMIT 1
         ) last_msg ON true
+        LEFT JOIN LATERAL (
+          SELECT COUNT(*)::int as cnt
+          FROM messages um
+          WHERE um.chat_id = c.id
+            AND (um.is_deleted = false OR um.is_deleted IS NULL)
+            AND um.role != ${'user:' + userId}
+            AND um.id > COALESCE(
+              (SELECT cm2.last_read_message_id FROM chat_members cm2 WHERE cm2.chat_id = c.id AND cm2.user_id = ${userId} LIMIT 1),
+              0
+            )
+        ) unread ON true
         WHERE c.workspace_id IS NULL
           AND (
             EXISTS (
@@ -90,7 +101,7 @@ export async function GET(request: Request) {
               AND (c.user_id1 = ${userId} OR c.user_id2 = ${userId})
             )
           )
-        GROUP BY c.id, c.title, c.pinned, c.created_at, c.updated_at, c.user_id1, c.user_id2, c.thumbnail_url, c.chat_type, last_msg.content, last_msg.created_at
+        GROUP BY c.id, c.title, c.pinned, c.created_at, c.updated_at, c.user_id1, c.user_id2, c.thumbnail_url, c.chat_type, last_msg.content, last_msg.created_at, unread.cnt
         ORDER BY c.pinned DESC, c.updated_at DESC
       `;
     }

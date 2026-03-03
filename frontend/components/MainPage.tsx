@@ -311,17 +311,12 @@ export function MainPage({ initialChats }: MainPageProps) {
 
   const chatsWithUnread = useMemo(() => {
     return (chats || []).map((chat) => {
-      const messageCount = Math.max(0, Number(chat.message_count || 0));
-      const savedReadCount = Math.max(0, Number(chatReadCounts[chat.id] || 0));
-      const serverUnread = Math.max(0, Number(chat.unread_count || 0));
-      const computedUnread = Math.max(0, messageCount - savedReadCount);
-
       return {
         ...chat,
-        unread_count: Math.max(serverUnread, computedUnread),
+        unread_count: Math.max(0, Number(chat.unread_count || 0)),
       };
     });
-  }, [chats, chatReadCounts]);
+  }, [chats]);
 
   const totalUnreadCount = useMemo(() => {
     return chatsWithUnread.reduce((sum, chat) => sum + Math.max(0, Number(chat.unread_count || 0)), 0);
