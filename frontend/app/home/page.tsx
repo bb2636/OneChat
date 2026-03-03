@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { MainPage } from "@/components/MainPage";
 import type { Chat } from "@/types";
 import { sql } from "@/lib/db";
@@ -82,5 +83,9 @@ export default async function HomePage({
   // 직접 /home 으로 접속한 경우에는 빈 배열로 두고 클라이언트에서 다시 로딩
   const chats: Chat[] = userId ? await getChatsForUser(userId) : [];
 
-  return <MainPage initialChats={chats} />;
+  return (
+    <Suspense fallback={null}>
+      <MainPage initialChats={chats} />
+    </Suspense>
+  );
 }

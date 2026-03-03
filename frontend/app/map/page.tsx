@@ -52,11 +52,10 @@ export default function MapPage() {
     setActiveTab(tab);
 
     if (tab === "map") {
-      router.push("/map");
       return;
     }
 
-    router.push("/home");
+    router.push(tab === "chat" ? "/home" : `/home?tab=${tab}`);
   };
 
   return (

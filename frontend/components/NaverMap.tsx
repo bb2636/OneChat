@@ -141,6 +141,8 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
   const currentAccuracyRef = useRef<number | null>(null);
   const lastSentLocationRef = useRef<UserLocation | null>(null);
   const lastSyncAtRef = useRef<number>(0);
+  const hasReceivedRealLocationRef = useRef(false);
+  const hasCenteredOnRealLocationRef = useRef(false);
 
   const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
   const [isLocationLoading, setIsLocationLoading] = useState(true);
@@ -415,11 +417,14 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
     const fallbackLocation = { latitude: 37.5665, longitude: 126.978 };
     let settled = false;
 
-    const finishWith = (location: UserLocation, accuracy?: number) => {
+    const finishWith = (location: UserLocation, accuracy?: number, isReal?: boolean) => {
       if (settled) return;
       settled = true;
       if (typeof accuracy === "number" && Number.isFinite(accuracy)) {
         currentAccuracyRef.current = accuracy;
+      }
+      if (isReal) {
+        hasReceivedRealLocationRef.current = true;
       }
       setUserLocation(location);
       setIsLocationLoading(false);
@@ -430,7 +435,6 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
       return;
     }
 
-    // 브라우저 권한/센서 이슈로 콜백이 오지 않는 경우를 대비한 안전 타임아웃
     const hardTimeout = window.setTimeout(() => {
       finishWith(fallbackLocation);
     }, 8000);
@@ -438,7 +442,7 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
     navigator.geolocation.getCurrentPosition(
       (position) => {
         const { latitude, longitude, accuracy } = position.coords;
-        finishWith({ latitude, longitude }, accuracy);
+        finishWith({ latitude, longitude }, accuracy, true);
       },
       () => {
         finishWith(fallbackLocation);
@@ -451,7 +455,8 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
         const { latitude, longitude, accuracy } = position.coords;
         if (accuracy && accuracy > MAX_UI_ACCURACY_METERS) return;
         currentAccuracyRef.current = typeof accuracy === "number" ? accuracy : null;
-        if (!settled) finishWith({ latitude, longitude }, accuracy);
+        if (!settled) finishWith({ latitude, longitude }, accuracy, true);
+        hasReceivedRealLocationRef.current = true;
         setUserLocation({ latitude, longitude });
       },
       (error) => {
@@ -515,11 +520,15 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
     };
   }, [userId, userLocation]);
 
-  // map bootstrap
+  // map bootstrap — created once, never torn down on location changes
   useEffect(() => {
-    if (!isScriptLoaded || !userLocation || !mapDivRef.current || mapRef.current) return;
+    if (!isScriptLoaded || !userLocation || !mapDivRef.current) return;
+    if (mapRef.current) return;
     if (typeof window === "undefined" || !(window as any).naver?.maps?.LatLng) return;
 
+    if (hasReceivedRealLocationRef.current) {
+      hasCenteredOnRealLocationRef.current = true;
+    }
     const naverObj = (window as any).naver;
 
     const map = new naverObj.maps.Map(mapDivRef.current, {
@@ -570,8 +579,10 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
       otherUsersMarkersRef.current.clear();
 
       mapRef.current = null;
+      hasCenteredOnRealLocationRef.current = false;
     };
-  }, [isScriptLoaded, userLocation, onMapLoad]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isScriptLoaded, !!userLocation, onMapLoad]);
 
   useEffect(() => {
     if (!markerRef.current || typeof window === "undefined") return;
@@ -593,6 +604,11 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
 
     markerRef.current?.setPosition(nextPos);
     circleRef.current?.setCenter(nextPos);
+
+    if (hasReceivedRealLocationRef.current && !hasCenteredOnRealLocationRef.current) {
+      hasCenteredOnRealLocationRef.current = true;
+      mapRef.current.panTo(nextPos);
+    }
 
     syncOverlapUsers();
   }, [userLocation, syncOverlapUsers]);

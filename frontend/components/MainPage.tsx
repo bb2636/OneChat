@@ -13,7 +13,7 @@ import {
   MoreHorizontal,
   Search,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ChatListItem } from "@/components/ChatListItem";
 import { BottomNavigation } from "@/components/BottomNavigation";
 import { Skeleton } from "@/components/ui";
@@ -99,10 +99,12 @@ type MyPageScreen =
 
 export function MainPage({ initialChats }: MainPageProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   usePushNotification();
+  const initialTab = searchParams.get("tab");
   const [activeTab, setActiveTab] = useState<"map" | "chat" | "friends" | "mypage">(
-    "chat"
+    initialTab === "friends" || initialTab === "mypage" ? initialTab : "chat"
   );
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [chatReadCounts, setChatReadCounts] = useState<ChatReadCountMap>({});
