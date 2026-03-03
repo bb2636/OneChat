@@ -151,6 +151,10 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
   const [mapLoadError, setMapLoadError] = useState<string | null>(null);
   const [isCreateRoomOpen, setIsCreateRoomOpen] = useState(false);
   const [isOverlapUsersOpen, setIsOverlapUsersOpen] = useState(false);
+  const [sheetExpanded, setSheetExpanded] = useState(false);
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const dragStartYRef = useRef<number>(0);
+  const dragCurrentYRef = useRef<number>(0);
   const [roomTargetUser, setRoomTargetUser] = useState<SupabaseUser | null>(null);
   const [myAvatarUrl, setMyAvatarUrl] = useState<string | null>(null);
   const [overlapUsers, setOverlapUsers] = useState<SupabaseUser[]>([]);
@@ -931,62 +935,99 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
       </div>
 
       {isOverlapUsersOpen && (
-        <div className="absolute inset-0 z-40 bg-black/45" onClick={() => setIsOverlapUsersOpen(false)}>
-          <div className="absolute inset-x-0 bottom-0 rounded-t-3xl bg-white px-5 pb-5 pt-4" onClick={(e) => e.stopPropagation()}>
-            <div className="mb-3 flex items-center justify-between">
+        <div
+          className="absolute inset-0 z-40 bg-black/45 transition-opacity"
+          onClick={() => { setIsOverlapUsersOpen(false); setSheetExpanded(false); }}
+        >
+          <div
+            ref={sheetRef}
+            className={`absolute inset-x-0 rounded-t-3xl bg-white transition-all duration-300 ease-out ${
+              sheetExpanded ? "top-0 rounded-none" : "bottom-0"
+            }`}
+            style={sheetExpanded ? undefined : { maxHeight: "45%" }}
+            onClick={(e) => e.stopPropagation()}
+            onTouchStart={(e) => {
+              dragStartYRef.current = e.touches[0].clientY;
+              dragCurrentYRef.current = e.touches[0].clientY;
+            }}
+            onTouchMove={(e) => {
+              dragCurrentYRef.current = e.touches[0].clientY;
+            }}
+            onTouchEnd={() => {
+              const dy = dragCurrentYRef.current - dragStartYRef.current;
+              if (dy < -60) {
+                setSheetExpanded(true);
+              } else if (dy > 60) {
+                if (sheetExpanded) {
+                  setSheetExpanded(false);
+                } else {
+                  setIsOverlapUsersOpen(false);
+                  setSheetExpanded(false);
+                }
+              }
+            }}
+          >
+            <div className="flex justify-center pt-3 pb-1">
+              <div className="h-1 w-10 rounded-full bg-gray-300" />
+            </div>
+            <div className="flex items-center justify-between px-5 pb-3">
               <p className="text-sm font-semibold text-gray-900">
-                나 포함 {overlapUsers.length + 1}명 원이 겹쳐져 있어요
+                {overlapUsers.length}명의 원이 겹쳐져 있어요
               </p>
               <button
                 type="button"
-                onClick={() => setIsOverlapUsersOpen(false)}
+                onClick={() => { setIsOverlapUsersOpen(false); setSheetExpanded(false); }}
                 className="rounded-full px-2 py-1 text-sm text-gray-500"
               >
                 닫기
               </button>
             </div>
-            <div className="max-h-[40vh] space-y-2 overflow-y-auto">
-              {overlapUsers.length === 0 ? (
-                <div className="rounded-xl bg-gray-50 px-4 py-7 text-center text-sm text-gray-500">
-                  현재 원이 겹친 사용자가 없습니다.
-                </div>
-              ) : (
-                overlapUsers.map((user) => {
-                  const isFriend = friends.has(user.id);
-                  return (
-                    <div key={user.id} className="flex items-center justify-between rounded-xl border border-gray-100 px-3 py-2">
-                      <div className="flex items-center gap-3">
-                        {user.avatar_url ? (
-                          <img src={user.avatar_url} alt={user.nickname || "user"} className="h-10 w-10 rounded-full object-cover" />
-                        ) : (
-                          <div className="h-10 w-10 rounded-full bg-gray-200" />
-                        )}
-                        <span className="text-sm font-semibold text-gray-900">{user.nickname || "사용자"}</span>
+            <div className={`overflow-y-auto px-5 pb-5 ${sheetExpanded ? "flex-1" : "max-h-[calc(45vh-60px)]"}`}
+              style={sheetExpanded ? { height: "calc(100vh - 60px)" } : undefined}
+            >
+              <div className="space-y-2">
+                {overlapUsers.length === 0 ? (
+                  <div className="rounded-xl bg-gray-50 px-4 py-7 text-center text-sm text-gray-500">
+                    현재 원이 겹친 사용자가 없습니다.
+                  </div>
+                ) : (
+                  overlapUsers.map((user) => {
+                    const isFriend = friends.has(user.id);
+                    return (
+                      <div key={user.id} className="flex items-center justify-between rounded-xl border border-gray-100 px-3 py-2.5">
+                        <div className="flex items-center gap-3">
+                          {user.avatar_url ? (
+                            <img src={user.avatar_url} alt={user.nickname || "user"} className="h-10 w-10 rounded-full object-cover" />
+                          ) : (
+                            <div className="h-10 w-10 rounded-full bg-gray-200" />
+                          )}
+                          <span className="text-sm font-semibold text-gray-900">{user.nickname || "사용자"}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleAddFriend(user.id)}
+                            disabled={isFriend}
+                            className={isFriend
+                              ? "h-8 rounded-lg border border-gray-200 px-3 text-xs font-semibold text-gray-400 cursor-not-allowed bg-gray-50"
+                              : "h-8 rounded-lg border border-gray-300 px-3 text-xs font-semibold text-gray-700"
+                            }
+                          >
+                            {isFriend ? "친구" : "친구추가"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenRoomForUser(user)}
+                            className="h-8 rounded-lg bg-blue-600 px-3 text-xs font-semibold text-white"
+                          >
+                            채팅방 만들기
+                          </button>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => handleAddFriend(user.id)}
-                          disabled={isFriend}
-                          className={isFriend 
-                            ? "h-8 rounded-lg border border-gray-200 px-3 text-xs font-semibold text-gray-400 cursor-not-allowed bg-gray-50"
-                            : "h-8 rounded-lg border border-gray-300 px-3 text-xs font-semibold text-gray-700"
-                          }
-                        >
-                          {isFriend ? "친구" : "친구추가"}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleOpenRoomForUser(user)}
-                          className="h-8 rounded-lg bg-blue-600 px-3 text-xs font-semibold text-white"
-                        >
-                          채팅방 만들기
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
+                    );
+                  })
+                )}
+              </div>
             </div>
           </div>
         </div>
