@@ -898,7 +898,7 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
         )}
       </div>
 
-      <div className="pointer-events-none fixed inset-x-0 bottom-20 z-30 mx-auto w-full max-w-md px-5">
+      <div className="pointer-events-none fixed inset-x-0 bottom-28 z-30 mx-auto w-full max-w-md px-5">
         <div className="pointer-events-auto flex items-end justify-between">
           <button
             type="button"
