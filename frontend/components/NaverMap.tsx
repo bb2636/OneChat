@@ -25,7 +25,7 @@ interface OtherUserMarker {
 }
 
 const LOCATION_UPDATE_THROTTLE_MS = 10_000;
-const USER_RADIUS_METERS = 10;
+const USER_RADIUS_METERS = 200;
 const OVERLAP_METERS = USER_RADIUS_METERS * 2;
 const MAX_SYNC_ACCURACY_METERS = 120;
 const MAX_UI_ACCURACY_METERS = 300;
@@ -133,7 +133,6 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
   const mapDivRef = useRef<HTMLDivElement>(null);
   const markerRef = useRef<naver.maps.Marker | null>(null);
   const circleRef = useRef<naver.maps.Circle | null>(null);
-  const pulseOverlayRef = useRef<naver.maps.OverlayView | null>(null);
   const otherUsersMarkersRef = useRef<Map<string, OtherUserMarker>>(new Map());
   const otherUserOrderRef = useRef<string[]>([]);
   const thumbnailInputRef = useRef<HTMLInputElement | null>(null);
@@ -525,7 +524,7 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
 
     const map = new naverObj.maps.Map(mapDivRef.current, {
       center: new naverObj.maps.LatLng(userLocation.latitude, userLocation.longitude),
-      zoom: 17,
+      zoom: 15,
       zoomControl: true,
       zoomControlOptions: { position: naverObj.maps.Position.TOP_RIGHT },
       scaleControl: true,
@@ -549,70 +548,11 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
       center: new naverObj.maps.LatLng(userLocation.latitude, userLocation.longitude),
       radius: USER_RADIUS_METERS,
       fillColor: "#3B82F6",
-      fillOpacity: 0.2,
+      fillOpacity: 0.18,
       strokeColor: "#3B82F6",
-      strokeOpacity: 0.5,
-      strokeWeight: 2,
+      strokeOpacity: 0.35,
+      strokeWeight: 1.5,
     });
-
-    if (!document.getElementById("naver-map-pulse-style")) {
-      const style = document.createElement("style");
-      style.id = "naver-map-pulse-style";
-      style.textContent = `
-        @keyframes naver-map-pulse {
-          0%, 100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-          50% { opacity: 0.5; transform: translate(-50%, -50%) scale(1.2); }
-        }
-      `;
-      document.head.appendChild(style);
-    }
-
-    class PulseOverlay extends naverObj.maps.OverlayView {
-      private pulseElement: HTMLDivElement;
-
-      constructor() {
-        super();
-        this.pulseElement = document.createElement("div");
-        this.pulseElement.style.cssText = `
-          position: absolute;
-          width: 100px;
-          height: 100px;
-          border-radius: 50%;
-          background: rgba(59, 130, 246, 0.3);
-          border: 2px solid rgba(59, 130, 246, 0.5);
-          pointer-events: none;
-          transform: translate(-50%, -50%);
-          animation: naver-map-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-          z-index: 999;
-        `;
-      }
-
-      onAdd() {
-        this.draw();
-      }
-
-      onRemove() {
-        this.pulseElement.remove();
-      }
-
-      draw() {
-        const projection = this.getProjection();
-        const current = currentLocationRef.current;
-        if (!projection || !current) return;
-
-        const pixel = projection.fromCoordToOffset(new naverObj.maps.LatLng(current.latitude, current.longitude));
-        this.pulseElement.style.left = `${pixel.x}px`;
-        this.pulseElement.style.top = `${pixel.y}px`;
-
-        if (mapDivRef.current && !mapDivRef.current.contains(this.pulseElement)) {
-          mapDivRef.current.appendChild(this.pulseElement);
-        }
-      }
-    }
-
-    const pulseOverlay = new PulseOverlay();
-    pulseOverlay.setMap(map);
-    pulseOverlayRef.current = pulseOverlay as unknown as naver.maps.OverlayView;
 
     onMapLoad?.(map);
     setIsMapReady(true);
@@ -621,7 +561,6 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
       setIsMapReady(false);
       safeSetMapNull(markerRef.current as any);
       safeSetMapNull(circleRef.current as any);
-      safeSetMapNull(pulseOverlayRef.current as any);
 
       otherUsersMarkersRef.current.forEach((entry) => {
         entry.infoWindow?.close();
@@ -645,7 +584,6 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
     });
   }, [myAvatarUrl]);
 
-  // keep map centered at current user location
   useEffect(() => {
     if (!mapRef.current || !userLocation || typeof window === "undefined") return;
 
@@ -653,18 +591,9 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
     if (!naverObj?.maps?.LatLng) return;
     const nextPos = new naverObj.maps.LatLng(userLocation.latitude, userLocation.longitude);
 
-    mapRef.current.setCenter(nextPos);
     markerRef.current?.setPosition(nextPos);
     circleRef.current?.setCenter(nextPos);
 
-    const pulseOverlay = pulseOverlayRef.current as any;
-    if (pulseOverlay?.draw) pulseOverlay.draw();
-
-    otherUsersMarkersRef.current.forEach((entry) => {
-      if (entry.userData.latitude != null && entry.userData.longitude != null) {
-        entry.circle?.setCenter(new naverObj.maps.LatLng(entry.userData.latitude, entry.userData.longitude));
-      }
-    });
     syncOverlapUsers();
   }, [userLocation, syncOverlapUsers]);
 
