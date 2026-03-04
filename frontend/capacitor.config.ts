@@ -9,8 +9,7 @@ const config: CapacitorConfig = {
     cleartext: true
   },
   android: {
-    allowMixedContent: true,
-    webContentsDebuggingEnabled: true
+    allowMixedContent: true
   },
   plugins: {
     SplashScreen: {

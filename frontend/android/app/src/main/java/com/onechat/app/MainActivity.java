@@ -21,6 +21,9 @@ import android.Manifest;
 import com.getcapacitor.BridgeActivity;
 import com.getcapacitor.BridgeWebViewClient;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class MainActivity extends BridgeActivity {
 
     private static final String TAG = "OneChat";
@@ -60,10 +63,8 @@ public class MainActivity extends BridgeActivity {
                 Log.d(TAG, "Geolocation permission requested from: " + origin);
 
                 if (hasLocationPermission()) {
-                    Log.d(TAG, "Location permission granted, allowing geolocation");
                     callback.invoke(origin, true, false);
                 } else {
-                    Log.d(TAG, "Location permission not granted, requesting...");
                     pendingGeolocationCallback = callback;
                     pendingGeolocationOrigin = origin;
                     requestLocationPermission();
@@ -72,8 +73,24 @@ public class MainActivity extends BridgeActivity {
 
             @Override
             public void onPermissionRequest(PermissionRequest request) {
-                Log.d(TAG, "WebView permission request: " + java.util.Arrays.toString(request.getResources()));
-                runOnUiThread(() -> request.grant(request.getResources()));
+                String[] resources = request.getResources();
+                List<String> granted = new ArrayList<>();
+
+                for (String resource : resources) {
+                    if (PermissionRequest.RESOURCE_VIDEO_CAPTURE.equals(resource)) {
+                        if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+                            granted.add(resource);
+                        }
+                    } else if (PermissionRequest.RESOURCE_AUDIO_CAPTURE.equals(resource)) {
+                        granted.add(resource);
+                    }
+                }
+
+                if (!granted.isEmpty()) {
+                    request.grant(granted.toArray(new String[0]));
+                } else {
+                    request.deny();
+                }
             }
         });
 
@@ -107,36 +124,25 @@ public class MainActivity extends BridgeActivity {
     }
 
     private void requestAllPermissions() {
-        String[] permissions;
+        List<String> needed = new ArrayList<>();
+
+        needed.add(Manifest.permission.ACCESS_FINE_LOCATION);
+        needed.add(Manifest.permission.ACCESS_COARSE_LOCATION);
+        needed.add(Manifest.permission.CAMERA);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            permissions = new String[]{
-                Manifest.permission.ACCESS_FINE_LOCATION,
-                Manifest.permission.ACCESS_COARSE_LOCATION,
-                Manifest.permission.POST_NOTIFICATIONS,
-                Manifest.permission.CAMERA
-            };
-        } else {
-            permissions = new String[]{
-                Manifest.permission.ACCESS_FINE_LOCATION,
-                Manifest.permission.ACCESS_COARSE_LOCATION,
-                Manifest.permission.CAMERA
-            };
+            needed.add(Manifest.permission.POST_NOTIFICATIONS);
         }
 
-        boolean needRequest = false;
-        for (String perm : permissions) {
+        List<String> toRequest = new ArrayList<>();
+        for (String perm : needed) {
             if (ContextCompat.checkSelfPermission(this, perm) != PackageManager.PERMISSION_GRANTED) {
-                needRequest = true;
-                break;
+                toRequest.add(perm);
             }
         }
 
-        if (needRequest) {
-            Log.d(TAG, "Requesting permissions at startup");
-            ActivityCompat.requestPermissions(this, permissions, PERMISSION_REQUEST_CODE);
-        } else {
-            Log.d(TAG, "All permissions already granted");
+        if (!toRequest.isEmpty()) {
+            ActivityCompat.requestPermissions(this, toRequest.toArray(new String[0]), PERMISSION_REQUEST_CODE);
         }
     }
 
@@ -145,15 +151,8 @@ public class MainActivity extends BridgeActivity {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
 
         if (requestCode == PERMISSION_REQUEST_CODE) {
-            for (int i = 0; i < permissions.length; i++) {
-                String perm = permissions[i];
-                boolean granted = grantResults[i] == PackageManager.PERMISSION_GRANTED;
-                Log.d(TAG, "Permission " + perm + ": " + (granted ? "GRANTED" : "DENIED"));
-            }
-
             if (pendingGeolocationCallback != null && pendingGeolocationOrigin != null) {
                 boolean locationGranted = hasLocationPermission();
-                Log.d(TAG, "Resolving pending geolocation callback: " + locationGranted);
                 pendingGeolocationCallback.invoke(pendingGeolocationOrigin, locationGranted, false);
                 pendingGeolocationCallback = null;
                 pendingGeolocationOrigin = null;
