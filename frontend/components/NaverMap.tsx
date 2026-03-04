@@ -211,7 +211,7 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
 
     const overlapped = Array.from(otherUsersMarkersRef.current.values())
       .map((entry) => entry.userData)
-      .filter((user) => user.latitude != null && user.longitude != null)
+      .filter((user) => user.id !== userId && user.latitude != null && user.longitude != null)
       .filter((user) =>
         getDistanceMeters(my, { latitude: user.latitude!, longitude: user.longitude! }) <= OVERLAP_METERS
       );
@@ -232,7 +232,7 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
 
     prevOverlapUserIdsRef.current = currentIds;
     setOverlapUsers(overlapped);
-  }, []);
+  }, [userId]);
 
   useEffect(() => {
     if (typeof window !== "undefined" && (window as any).naver?.maps) {
@@ -292,6 +292,7 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
   }, []);
 
   const createOrUpdateOtherUserMarker = useCallback((userData: SupabaseUser, naverObj: any, map: naver.maps.Map) => {
+    if (userData.id === userId) return;
     if (userData.latitude == null || userData.longitude == null) return;
     if (!naverObj?.maps?.Marker) return;
     const color = getOtherUserColor(userData.id);
@@ -332,7 +333,7 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
 
     otherUsersMarkersRef.current.set(userData.id, nextEntry);
     syncOverlapUsers();
-  }, [getOtherUserColor, syncOverlapUsers]);
+  }, [userId, getOtherUserColor, syncOverlapUsers]);
 
   useEffect(() => {
     currentLocationRef.current = userLocation;
