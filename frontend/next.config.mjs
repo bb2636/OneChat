@@ -8,6 +8,19 @@ const nextConfig = {
       "http://127.0.0.1:5000",
     ],
   } : {}),
+  async headers() {
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'no-store, no-cache, must-revalidate, proxy-revalidate',
+          },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;
