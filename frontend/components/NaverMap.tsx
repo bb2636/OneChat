@@ -453,10 +453,13 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
         if (bridge && bridge.hasLocationPermission && bridge.hasLocationPermission()) {
           setLocationPermission("granted");
           setLocationGranted(true);
-          if (bridge.hasNotificationPermission && !bridge.hasNotificationPermission()) {
-            setTimeout(() => setShowNotificationGuide(true), 1200);
-          } else {
-            setNotificationPermission("granted");
+          if (bridge.hasNotificationPermission) {
+            if (bridge.hasNotificationPermission()) {
+              setNotificationPermission("granted");
+            } else {
+              setNotificationPermission("prompt");
+              setTimeout(() => setShowNotificationGuide(true), 1200);
+            }
           }
         } else {
           setLocationPermission("prompt");
@@ -491,22 +494,35 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
     checkPerm();
   }, [isCapNative, isNativeApp]);
 
+  const showNotifGuideAfterLocation = useCallback(() => {
+    const bridge = (window as any).OneChatBridge;
+    if (bridge?.hasNotificationPermission) {
+      if (bridge.hasNotificationPermission()) {
+        setNotificationPermission("granted");
+      } else {
+        setNotificationPermission("prompt");
+        setTimeout(() => setShowNotificationGuide(true), 800);
+      }
+    }
+  }, []);
+
   useEffect(() => {
     if (!isNativeApp) return;
 
-    const handleGranted = () => {
-      setLocationPermission("granted");
-      setShowLocationGuide(false);
-      setLocationGranted(true);
-      setNativePermDeniedPermanently(false);
-      const bridge = (window as any).OneChatBridge;
-      if (bridge?.hasNotificationPermission && !bridge.hasNotificationPermission()) {
-        setTimeout(() => setShowNotificationGuide(true), 800);
+    const handleLocationResult = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.granted) {
+        setLocationPermission("granted");
+        setShowLocationGuide(false);
+        setLocationGranted(true);
+        setNativePermDeniedPermanently(false);
+        showNotifGuideAfterLocation();
       } else {
-        setNotificationPermission("granted");
+        setLocationPermission("denied");
+        setNativePermDeniedPermanently(true);
       }
     };
-    window.addEventListener("onechat-location-granted", handleGranted);
+    window.addEventListener("onechat-location-result", handleLocationResult);
 
     const handleNotificationResult = (e: Event) => {
       const detail = (e as CustomEvent).detail;
@@ -529,21 +545,21 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
             setLocationGranted(true);
             setNativePermDeniedPermanently(false);
           }
-          if (bridge?.hasNotificationPermission && bridge.hasNotificationPermission()) {
-            setNotificationPermission("granted");
-            setShowNotificationGuide(false);
-          }
+        }
+        if (bridge?.hasNotificationPermission && bridge.hasNotificationPermission()) {
+          setNotificationPermission("granted");
+          setShowNotificationGuide(false);
         }
       }
     };
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
-      window.removeEventListener("onechat-location-granted", handleGranted);
+      window.removeEventListener("onechat-location-result", handleLocationResult);
       window.removeEventListener("onechat-notification-result", handleNotificationResult);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [isNativeApp, locationPermission]);
+  }, [isNativeApp, locationPermission, showNotifGuideAfterLocation]);
 
   const retryLocationRef = useRef<(() => void) | null>(null);
 
@@ -1307,26 +1323,8 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
                       if (bridge?.openAppSettings) {
                         bridge.openAppSettings();
                       }
-                    } else {
-                      navigator.geolocation.getCurrentPosition(
-                        (pos) => {
-                          setLocationPermission("granted");
-                          setShowLocationGuide(false);
-                          setLocationGranted(true);
-                          setNativePermDeniedPermanently(false);
-                          const b = (window as any).OneChatBridge;
-                          if (b?.hasNotificationPermission && !b.hasNotificationPermission()) {
-                            setTimeout(() => setShowNotificationGuide(true), 800);
-                          }
-                        },
-                        (err) => {
-                          if (err.code === 1) {
-                            setLocationPermission("denied");
-                            setNativePermDeniedPermanently(true);
-                          }
-                        },
-                        { enableHighAccuracy: true, timeout: 10000 }
-                      );
+                    } else if (bridge?.requestLocationPermission) {
+                      bridge.requestLocationPermission();
                     }
                   } else if (locationPermission === "denied") {
                     setShowLocationGuide(false);

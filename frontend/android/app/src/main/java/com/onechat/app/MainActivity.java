@@ -39,7 +39,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        requestAllPermissions();
+        requestStartupPermissions();
     }
 
     @Override
@@ -155,23 +155,28 @@ public class MainActivity extends BridgeActivity {
         }
 
         @JavascriptInterface
+        public boolean canRequestNotificationPermission() {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                return ActivityCompat.shouldShowRequestPermissionRationale(
+                    MainActivity.this, Manifest.permission.POST_NOTIFICATIONS)
+                    || ContextCompat.checkSelfPermission(MainActivity.this,
+                        Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_DENIED
+                    || !hasRequestedNotification;
+            }
+            return true;
+        }
+
+        @JavascriptInterface
         public void requestNotificationPermission() {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                hasRequestedNotification = true;
                 runOnUiThread(() -> {
                     ActivityCompat.requestPermissions(MainActivity.this,
                         new String[]{ Manifest.permission.POST_NOTIFICATIONS },
                         NOTIFICATION_PERMISSION_REQUEST_CODE);
                 });
             } else {
-                WebView webView = getBridge().getWebView();
-                if (webView != null) {
-                    runOnUiThread(() -> {
-                        webView.evaluateJavascript(
-                            "window.dispatchEvent(new CustomEvent('onechat-notification-result', {detail:{granted:true}}));",
-                            null
-                        );
-                    });
-                }
+                dispatchNotificationResult(true);
             }
         }
 
@@ -181,21 +186,18 @@ public class MainActivity extends BridgeActivity {
         }
     }
 
+    private boolean hasRequestedNotification = false;
+
     private boolean hasLocationPermission() {
         return ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
             || ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED;
     }
 
-    private void requestAllPermissions() {
+    private void requestStartupPermissions() {
         List<String> needed = new ArrayList<>();
-
         needed.add(Manifest.permission.ACCESS_FINE_LOCATION);
         needed.add(Manifest.permission.ACCESS_COARSE_LOCATION);
         needed.add(Manifest.permission.CAMERA);
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            needed.add(Manifest.permission.POST_NOTIFICATIONS);
-        }
 
         List<String> toRequest = new ArrayList<>();
         for (String perm : needed) {
@@ -213,8 +215,6 @@ public class MainActivity extends BridgeActivity {
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
 
-        WebView webView = getBridge().getWebView();
-
         if (requestCode == LOCATION_PERMISSION_REQUEST_CODE || requestCode == PERMISSION_REQUEST_CODE) {
             if (pendingGeolocationCallback != null && pendingGeolocationOrigin != null) {
                 boolean locationGranted = hasLocationPermission();
@@ -223,10 +223,12 @@ public class MainActivity extends BridgeActivity {
                 pendingGeolocationOrigin = null;
             }
 
-            if (hasLocationPermission() && webView != null) {
+            WebView webView = getBridge().getWebView();
+            if (webView != null) {
+                boolean locGranted = hasLocationPermission();
                 runOnUiThread(() -> {
                     webView.evaluateJavascript(
-                        "window.dispatchEvent(new Event('onechat-location-granted'));",
+                        "window.dispatchEvent(new CustomEvent('onechat-location-result', {detail:{granted:" + locGranted + "}}));",
                         null
                     );
                 });
@@ -234,23 +236,24 @@ public class MainActivity extends BridgeActivity {
         }
 
         if (requestCode == NOTIFICATION_PERMISSION_REQUEST_CODE) {
-            boolean notifGranted = false;
+            boolean notifGranted = true;
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 notifGranted = ContextCompat.checkSelfPermission(this,
                     Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED;
-            } else {
-                notifGranted = true;
             }
+            dispatchNotificationResult(notifGranted);
+        }
+    }
 
-            if (webView != null) {
-                final boolean granted = notifGranted;
-                runOnUiThread(() -> {
-                    webView.evaluateJavascript(
-                        "window.dispatchEvent(new CustomEvent('onechat-notification-result', {detail:{granted:" + granted + "}}));",
-                        null
-                    );
-                });
-            }
+    private void dispatchNotificationResult(boolean granted) {
+        WebView webView = getBridge().getWebView();
+        if (webView != null) {
+            runOnUiThread(() -> {
+                webView.evaluateJavascript(
+                    "window.dispatchEvent(new CustomEvent('onechat-notification-result', {detail:{granted:" + granted + "}}));",
+                    null
+                );
+            });
         }
     }
 
