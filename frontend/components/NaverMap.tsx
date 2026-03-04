@@ -420,14 +420,16 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
     setThumbnailPreviewUrl(null);
   }, [thumbnailPreviewUrl]);
 
-  const isNative = Capacitor.isNativePlatform();
+  const isNativeApp = typeof navigator !== "undefined" && /OneChat-Android/i.test(navigator.userAgent);
+  const isCapNative = Capacitor.isNativePlatform();
+  const isNative = isNativeApp || isCapNative;
 
   const [locationGranted, setLocationGranted] = useState(false);
 
   // check permission state, show pre-permission dialog if needed
   useEffect(() => {
     const checkPerm = async () => {
-      if (isNative) {
+      if (isCapNative) {
         try {
           const status = await Geolocation.checkPermissions();
           if (status.location === "granted") {
@@ -441,11 +443,10 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
           setLocationPermission("prompt");
           setShowLocationGuide(true);
         }
-      } else {
-        if (!navigator.permissions) {
-          setShowLocationGuide(true);
-          return;
-        }
+        return;
+      }
+
+      if (navigator.permissions) {
         try {
           const status = await navigator.permissions.query({ name: "geolocation" as PermissionName });
           setLocationPermission(status.state as "granted" | "denied" | "prompt");
@@ -462,13 +463,19 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
               setLocationGranted(true);
             }
           });
-        } catch {
-          setShowLocationGuide(true);
-        }
+          return;
+        } catch {}
+      }
+
+      if (isNativeApp) {
+        setLocationPermission("prompt");
+        setShowLocationGuide(true);
+      } else {
+        setShowLocationGuide(true);
       }
     };
     checkPerm();
-  }, [isNative]);
+  }, [isCapNative, isNativeApp]);
 
   const retryLocationRef = useRef<(() => void) | null>(null);
 
@@ -576,14 +583,14 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
       if (hardTimeoutId) window.clearTimeout(hardTimeoutId);
       settled = false;
       setIsLocationLoading(true);
-      if (isNative) {
+      if (isCapNative) {
         startNativeTracking();
       } else {
         startWebTracking();
       }
     };
 
-    if (isNative) {
+    if (isCapNative) {
       startNativeTracking();
     } else {
       startWebTracking();
@@ -595,7 +602,7 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
       if (nativeWatchId !== null) Geolocation.clearWatch({ id: nativeWatchId });
       retryLocationRef.current = null;
     };
-  }, [isNative, locationGranted]);
+  }, [isCapNative, locationGranted]);
 
   // throttled DB sync every 10s or more
   useEffect(() => {
@@ -1213,7 +1220,7 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
               <button
                 type="button"
                 onClick={async () => {
-                  if (isNative) {
+                  if (isCapNative) {
                     try {
                       const perm = await Geolocation.requestPermissions();
                       if (perm.location === "granted") {
@@ -1226,7 +1233,7 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
                     } catch {
                       setLocationPermission("denied");
                     }
-                  } else if (locationPermission === "denied") {
+                  } else if (locationPermission === "denied" && !isNativeApp) {
                     setShowLocationGuide(false);
                     window.location.reload();
                   } else {
@@ -1236,7 +1243,7 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
                 }}
                 className="flex-1 py-3.5 text-sm text-blue-600 font-bold"
               >
-                {locationPermission === "denied" ? (isNative ? "다시 요청" : "새로고침") : "허용하기"}
+                {locationPermission === "denied" && !isNative ? "새로고침" : "허용하기"}
               </button>
             </div>
           </div>
