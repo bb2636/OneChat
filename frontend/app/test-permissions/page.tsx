@@ -24,7 +24,7 @@ export default function TestPermissions() {
       log("Bridge 존재함");
       if (bridge.hasLocationPermission) log("  - hasLocationPermission: " + bridge.hasLocationPermission());
       if (bridge.hasNotificationPermission) log("  - hasNotificationPermission: " + bridge.hasNotificationPermission());
-      if (bridge.isPermissionPermanentlyDenied) log("  - isPermissionPermanentlyDenied: " + bridge.isPermissionPermanentlyDenied());
+      if (bridge.isLocationPermanentlyDenied) log("  - isLocationPermanentlyDenied: " + bridge.isLocationPermanentlyDenied());
       if (bridge.debugInfo) bridge.debugInfo();
     } else {
       log("Bridge 없음 (window.OneChatBridge = undefined)");
