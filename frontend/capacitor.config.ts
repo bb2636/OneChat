@@ -9,7 +9,8 @@ const config: CapacitorConfig = {
     cleartext: true
   },
   android: {
-    allowMixedContent: true
+    allowMixedContent: true,
+    appendUserAgent: 'OneChat-Android'
   },
   plugins: {
     SplashScreen: {

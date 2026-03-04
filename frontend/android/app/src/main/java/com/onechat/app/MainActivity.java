@@ -24,11 +24,11 @@ import com.getcapacitor.BridgeWebViewClient;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 public class MainActivity extends BridgeActivity {
 
     private static final String TAG = "OneChat";
+    private volatile boolean bridgeInjected = false;
 
     private GeolocationPermissions.Callback pendingGeolocationCallback;
     private String pendingGeolocationOrigin;
@@ -38,10 +38,9 @@ public class MainActivity extends BridgeActivity {
             boolean granted = Boolean.TRUE.equals(result.get(Manifest.permission.ACCESS_FINE_LOCATION))
                 || Boolean.TRUE.equals(result.get(Manifest.permission.ACCESS_COARSE_LOCATION));
 
-            Log.d(TAG, "locationPermissionLauncher callback: granted=" + granted + ", results=" + result);
+            Log.d(TAG, "locationPermissionLauncher callback: granted=" + granted);
 
             if (pendingGeolocationCallback != null && pendingGeolocationOrigin != null) {
-                Log.d(TAG, "Invoking pending geolocation callback with granted=" + granted);
                 pendingGeolocationCallback.invoke(pendingGeolocationOrigin, granted, false);
                 pendingGeolocationCallback = null;
                 pendingGeolocationOrigin = null;
@@ -59,39 +58,71 @@ public class MainActivity extends BridgeActivity {
     @Override
     protected void load() {
         super.load();
+        Log.d(TAG, "load() called — attempting WebView setup");
+        try {
+            setupWebView();
+        } catch (Exception e) {
+            Log.e(TAG, "Error in load() setupWebView: " + e.getMessage(), e);
+        }
+    }
 
-        Log.d(TAG, "load() called, bridge created, setting up WebView");
+    @Override
+    public void onStart() {
+        super.onStart();
+        if (!bridgeInjected) {
+            Log.d(TAG, "onStart() — bridge not yet injected, retrying setup");
+            try {
+                setupWebView();
+            } catch (Exception e) {
+                Log.e(TAG, "Error in onStart() setupWebView: " + e.getMessage(), e);
+            }
+        }
+    }
 
-        WebView webView = getBridge().getWebView();
-        if (webView == null) {
-            Log.e(TAG, "WebView is null after bridge creation!");
+    private void setupWebView() {
+        if (bridgeInjected) {
+            Log.d(TAG, "setupWebView: already injected, skipping");
             return;
         }
 
-        Log.d(TAG, "WebView obtained, configuring bridge and settings");
+        if (getBridge() == null) {
+            Log.e(TAG, "setupWebView: getBridge() is null!");
+            return;
+        }
+
+        WebView webView = getBridge().getWebView();
+        if (webView == null) {
+            Log.e(TAG, "setupWebView: WebView is null!");
+            return;
+        }
+
+        Log.d(TAG, "setupWebView: injecting OneChatBridge and configuring WebView");
 
         webView.addJavascriptInterface(new OneChatBridge(), "OneChatBridge");
 
         WebSettings settings = webView.getSettings();
-        String ua = settings.getUserAgentString();
-        Log.d(TAG, "Original UA: " + ua);
-        ua = ua.replace("; wv)", ")").replace(" Version/4.0", "");
-        settings.setUserAgentString(ua + " OneChat-Android");
         settings.setGeolocationEnabled(true);
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
         settings.setMediaPlaybackRequiresUserGesture(false);
-        Log.d(TAG, "New UA: " + settings.getUserAgentString());
+
+        String currentUa = settings.getUserAgentString();
+        Log.d(TAG, "Current UA: " + currentUa);
+        if (currentUa != null && !currentUa.contains("OneChat-Android")) {
+            String cleanUa = currentUa.replace("; wv)", ")").replace(" Version/4.0", "");
+            settings.setUserAgentString(cleanUa + " OneChat-Android");
+            Log.d(TAG, "UA updated to: " + settings.getUserAgentString());
+        }
 
         webView.setWebChromeClient(new BridgeWebChromeClient(getBridge()) {
             @Override
             public void onGeolocationPermissionsShowPrompt(String origin, GeolocationPermissions.Callback callback) {
                 Log.d(TAG, "onGeolocationPermissionsShowPrompt: " + origin);
                 if (hasLocationPermission()) {
-                    Log.d(TAG, "Location already granted, invoking callback directly");
+                    Log.d(TAG, "Location already granted");
                     callback.invoke(origin, true, false);
                 } else {
-                    Log.d(TAG, "Location not granted, launching permission request");
+                    Log.d(TAG, "Requesting location permission");
                     pendingGeolocationCallback = callback;
                     pendingGeolocationOrigin = origin;
                     locationPermissionLauncher.launch(new String[]{
@@ -110,7 +141,6 @@ public class MainActivity extends BridgeActivity {
             public void onPermissionRequest(PermissionRequest request) {
                 String[] resources = request.getResources();
                 List<String> granted = new ArrayList<>();
-
                 for (String resource : resources) {
                     if (PermissionRequest.RESOURCE_VIDEO_CAPTURE.equals(resource)) {
                         if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
@@ -120,7 +150,6 @@ public class MainActivity extends BridgeActivity {
                         granted.add(resource);
                     }
                 }
-
                 if (!granted.isEmpty()) {
                     request.grant(granted.toArray(new String[0]));
                 } else {
@@ -143,13 +172,14 @@ public class MainActivity extends BridgeActivity {
             }
         });
 
-        Log.d(TAG, "WebView setup complete");
+        bridgeInjected = true;
+        Log.d(TAG, "setupWebView: complete, bridgeInjected=true");
     }
 
     private class OneChatBridge {
         @JavascriptInterface
         public void openAppSettings() {
-            Log.d(TAG, "Bridge: openAppSettings called");
+            Log.d(TAG, "Bridge: openAppSettings");
             Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
             intent.setData(Uri.parse("package:" + getPackageName()));
             startActivity(intent);
@@ -158,19 +188,18 @@ public class MainActivity extends BridgeActivity {
         @JavascriptInterface
         public boolean hasLocationPermission() {
             boolean has = MainActivity.this.hasLocationPermission();
-            Log.d(TAG, "Bridge: hasLocationPermission = " + has);
+            Log.d(TAG, "Bridge: hasLocationPermission=" + has);
             return has;
         }
 
         @JavascriptInterface
         public void requestLocationPermission() {
-            Log.d(TAG, "Bridge: requestLocationPermission called");
+            Log.d(TAG, "Bridge: requestLocationPermission");
             runOnUiThread(() -> {
-                if (isPermissionPermanentlyDenied(Manifest.permission.ACCESS_FINE_LOCATION)) {
-                    Log.d(TAG, "Location permanently denied, opening app settings");
-                    openAppSettings();
+                if (isPermDeniedForever(Manifest.permission.ACCESS_FINE_LOCATION)) {
+                    Log.d(TAG, "Location permanently denied → opening settings");
+                    openAppSettingsInternal();
                 } else {
-                    Log.d(TAG, "Launching location permission request via ActivityResultLauncher");
                     locationPermissionLauncher.launch(new String[]{
                         Manifest.permission.ACCESS_FINE_LOCATION,
                         Manifest.permission.ACCESS_COARSE_LOCATION
@@ -182,25 +211,21 @@ public class MainActivity extends BridgeActivity {
         @JavascriptInterface
         public boolean hasNotificationPermission() {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                boolean has = ContextCompat.checkSelfPermission(MainActivity.this,
+                return ContextCompat.checkSelfPermission(MainActivity.this,
                     Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED;
-                Log.d(TAG, "Bridge: hasNotificationPermission = " + has + " (API " + Build.VERSION.SDK_INT + ")");
-                return has;
             }
-            Log.d(TAG, "Bridge: hasNotificationPermission = true (pre-TIRAMISU)");
             return true;
         }
 
         @JavascriptInterface
         public void requestNotificationPermission() {
-            Log.d(TAG, "Bridge: requestNotificationPermission called");
+            Log.d(TAG, "Bridge: requestNotificationPermission");
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 runOnUiThread(() -> {
-                    if (isPermissionPermanentlyDenied(Manifest.permission.POST_NOTIFICATIONS)) {
-                        Log.d(TAG, "Notification permanently denied, opening app settings");
-                        openAppSettings();
+                    if (isPermDeniedForever(Manifest.permission.POST_NOTIFICATIONS)) {
+                        Log.d(TAG, "Notification permanently denied → opening settings");
+                        openAppSettingsInternal();
                     } else {
-                        Log.d(TAG, "Launching notification permission request via ActivityResultLauncher");
                         notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS);
                     }
                 });
@@ -211,39 +236,25 @@ public class MainActivity extends BridgeActivity {
 
         @JavascriptInterface
         public boolean isLocationPermanentlyDenied() {
-            boolean denied = isPermissionPermanentlyDenied(Manifest.permission.ACCESS_FINE_LOCATION);
-            Log.d(TAG, "Bridge: isLocationPermanentlyDenied = " + denied);
-            return denied;
+            return isPermDeniedForever(Manifest.permission.ACCESS_FINE_LOCATION);
         }
 
         @JavascriptInterface
-        public void debugInfo() {
+        public String getDebugInfo() {
             boolean hasLoc = MainActivity.this.hasLocationPermission();
-            boolean locDenied = isPermissionPermanentlyDenied(Manifest.permission.ACCESS_FINE_LOCATION);
+            boolean locDenied = isPermDeniedForever(Manifest.permission.ACCESS_FINE_LOCATION);
             boolean hasNotif = true;
-            boolean notifDenied = false;
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 hasNotif = ContextCompat.checkSelfPermission(MainActivity.this,
                     Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED;
-                notifDenied = isPermissionPermanentlyDenied(Manifest.permission.POST_NOTIFICATIONS);
             }
-            String info = "hasLocation=" + hasLoc
-                + ", locPermanentlyDenied=" + locDenied
-                + ", hasNotification=" + hasNotif
-                + ", notifPermanentlyDenied=" + notifDenied
-                + ", SDK=" + Build.VERSION.SDK_INT;
-            Log.d(TAG, "DEBUG: " + info);
-
-            WebView webView = getBridge().getWebView();
-            if (webView != null) {
-                runOnUiThread(() -> {
-                    webView.evaluateJavascript(
-                        "console.log('[OneChatBridge] " + info + "');"
-                        + "window.dispatchEvent(new CustomEvent('onechat-debug', {detail:{" + info + "}}));",
-                        null
-                    );
-                });
-            }
+            String info = "{\"hasLocation\":" + hasLoc
+                + ",\"locPermanentlyDenied\":" + locDenied
+                + ",\"hasNotification\":" + hasNotif
+                + ",\"sdk\":" + Build.VERSION.SDK_INT
+                + ",\"bridgeInjected\":" + bridgeInjected + "}";
+            Log.d(TAG, "Bridge: getDebugInfo=" + info);
+            return info;
         }
     }
 
@@ -252,18 +263,22 @@ public class MainActivity extends BridgeActivity {
             || ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED;
     }
 
-    private boolean isPermissionPermanentlyDenied(String permission) {
+    private boolean isPermDeniedForever(String permission) {
         return ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_DENIED
             && !shouldShowRequestPermissionRationale(permission);
     }
 
+    private void openAppSettingsInternal() {
+        Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+        intent.setData(Uri.parse("package:" + getPackageName()));
+        startActivity(intent);
+    }
+
     private void dispatchToWebView(String eventName, boolean granted) {
+        if (getBridge() == null) return;
         WebView webView = getBridge().getWebView();
-        if (webView == null) {
-            Log.w(TAG, "dispatchToWebView: WebView is null, cannot dispatch " + eventName);
-            return;
-        }
-        Log.d(TAG, "dispatchToWebView: " + eventName + " granted=" + granted);
+        if (webView == null) return;
+        Log.d(TAG, "dispatchToWebView: " + eventName + "=" + granted);
         runOnUiThread(() -> {
             webView.evaluateJavascript(
                 "window.dispatchEvent(new CustomEvent('" + eventName + "', {detail:{granted:" + granted + "}}));",
