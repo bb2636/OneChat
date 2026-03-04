@@ -278,7 +278,6 @@ export default function LoginPage() {
       </div>
     }>
       <LoginForm />
-      <a href="/test-permissions" style={{ position: "fixed", top: 40, left: 12, fontSize: 13, color: "#fff", background: "rgba(0,0,0,0.4)", padding: "4px 10px", borderRadius: 6, textDecoration: "none", zIndex: 9999 }}>🔧 디버그</a>
     </Suspense>
   );
 }
