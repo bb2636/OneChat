@@ -4,6 +4,8 @@ import { type ChangeEvent, useCallback, useEffect, useRef, useState } from "reac
 import Script from "next/script";
 import { useRouter } from "next/navigation";
 import { supabase, type SupabaseUser } from "@/lib/supabase";
+import { Capacitor } from "@capacitor/core";
+import { Geolocation } from "@capacitor/geolocation";
 
 interface NaverMapProps {
   className?: string;
@@ -418,8 +420,17 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
     setThumbnailPreviewUrl(null);
   }, [thumbnailPreviewUrl]);
 
+  const isNative = Capacitor.isNativePlatform();
+
   // check permission state via Permissions API
   useEffect(() => {
+    if (isNative) {
+      Geolocation.checkPermissions().then((status) => {
+        const state = status.location === "granted" ? "granted" : status.location === "denied" ? "denied" : "prompt";
+        setLocationPermission(state);
+      }).catch(() => {});
+      return;
+    }
     if (!navigator.permissions) return;
     let cancelled = false;
     navigator.permissions.query({ name: "geolocation" as PermissionName }).then((status) => {
@@ -434,7 +445,7 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
       });
     }).catch(() => {});
     return () => { cancelled = true; };
-  }, []);
+  }, [isNative]);
 
   const retryLocationRef = useRef<(() => void) | null>(null);
 
@@ -443,6 +454,7 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
     const fallbackLocation = { latitude: 37.5665, longitude: 126.978 };
     let settled = false;
     let watchId: number | null = null;
+    let nativeWatchId: string | null = null;
     let hardTimeoutId: number | null = null;
 
     const finishWith = (location: UserLocation, accuracy?: number, isReal?: boolean) => {
@@ -460,7 +472,48 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
       }
     };
 
-    const startTracking = () => {
+    const startNativeTracking = async () => {
+      try {
+        let perm = await Geolocation.checkPermissions();
+        if (perm.location !== "granted") {
+          perm = await Geolocation.requestPermissions();
+        }
+        if (perm.location === "denied") {
+          setLocationPermission("denied");
+          setShowLocationGuide(true);
+          finishWith(fallbackLocation);
+          return;
+        }
+        setLocationPermission("granted");
+
+        const pos = await Geolocation.getCurrentPosition({ enableHighAccuracy: true, timeout: 10000 });
+        finishWith(
+          { latitude: pos.coords.latitude, longitude: pos.coords.longitude },
+          pos.coords.accuracy ?? undefined,
+          true
+        );
+
+        nativeWatchId = await Geolocation.watchPosition(
+          { enableHighAccuracy: true },
+          (position, err) => {
+            if (err || !position) return;
+            const { latitude, longitude, accuracy } = position.coords;
+            if (accuracy !== null && accuracy !== undefined && accuracy > MAX_UI_ACCURACY_METERS) return;
+            currentAccuracyRef.current = typeof accuracy === "number" ? accuracy : null;
+            hasReceivedRealLocationRef.current = true;
+            setLocationPermission("granted");
+            setShowLocationGuide(false);
+            finishWith({ latitude, longitude }, accuracy ?? undefined, true);
+          }
+        );
+      } catch (e) {
+        console.warn("Native geolocation error:", e);
+        finishWith(fallbackLocation);
+        setShowLocationGuide(true);
+      }
+    };
+
+    const startWebTracking = () => {
       if (!navigator.geolocation) {
         finishWith(fallbackLocation);
         return;
@@ -512,22 +565,32 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
       );
     };
 
-    retryLocationRef.current = () => {
+    retryLocationRef.current = async () => {
       if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+      if (nativeWatchId !== null) { await Geolocation.clearWatch({ id: nativeWatchId }); nativeWatchId = null; }
       if (hardTimeoutId) window.clearTimeout(hardTimeoutId);
       settled = false;
       setIsLocationLoading(true);
-      startTracking();
+      if (isNative) {
+        startNativeTracking();
+      } else {
+        startWebTracking();
+      }
     };
 
-    startTracking();
+    if (isNative) {
+      startNativeTracking();
+    } else {
+      startWebTracking();
+    }
 
     return () => {
       if (hardTimeoutId) window.clearTimeout(hardTimeoutId);
       if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+      if (nativeWatchId !== null) Geolocation.clearWatch({ id: nativeWatchId });
       retryLocationRef.current = null;
     };
-  }, []);
+  }, [isNative]);
 
   // throttled DB sync every 10s or more
   useEffect(() => {
@@ -1103,7 +1166,7 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
               <p className="text-sm text-gray-600 leading-relaxed">
                 원챗은 주변 사용자를 찾기 위해 위치 정보가 필요합니다. 위치 권한을 허용해주세요.
               </p>
-              {locationPermission === "denied" && (
+              {locationPermission === "denied" && !isNative && (
                 <div className="mt-3 rounded-xl bg-blue-50 px-4 py-3">
                   <p className="text-xs font-semibold text-blue-800 mb-1">브라우저 설정에서 권한을 변경해주세요:</p>
                   <ol className="text-xs text-blue-700 space-y-0.5 list-decimal pl-4">
@@ -1111,6 +1174,16 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
                     <li>「권한」또는「사이트 설정」을 탭</li>
                     <li>「위치」를 「허용」으로 변경</li>
                     <li>페이지를 새로고침</li>
+                  </ol>
+                </div>
+              )}
+              {locationPermission === "denied" && isNative && (
+                <div className="mt-3 rounded-xl bg-blue-50 px-4 py-3">
+                  <p className="text-xs font-semibold text-blue-800 mb-1">앱 설정에서 권한을 변경해주세요:</p>
+                  <ol className="text-xs text-blue-700 space-y-0.5 list-decimal pl-4">
+                    <li>휴대폰 설정 → 앱 → OneChat</li>
+                    <li>「권한」→「위치」를 「허용」으로 변경</li>
+                    <li>아래 「다시 요청」버튼을 탭</li>
                   </ol>
                 </div>
               )}
@@ -1126,17 +1199,30 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
               <div className="w-px bg-gray-200" />
               <button
                 type="button"
-                onClick={() => {
+                onClick={async () => {
                   setShowLocationGuide(false);
-                  if (locationPermission === "denied") {
+                  if (locationPermission === "denied" && !isNative) {
                     window.location.reload();
+                  } else if (isNative) {
+                    try {
+                      const perm = await Geolocation.requestPermissions();
+                      if (perm.location === "granted") {
+                        setLocationPermission("granted");
+                        retryLocationRef.current?.();
+                      } else {
+                        setLocationPermission("denied");
+                        setShowLocationGuide(true);
+                      }
+                    } catch {
+                      retryLocationRef.current?.();
+                    }
                   } else {
                     retryLocationRef.current?.();
                   }
                 }}
                 className="flex-1 py-3.5 text-sm text-blue-600 font-bold"
               >
-                {locationPermission === "denied" ? "새로고침" : "위치 허용하기"}
+                {locationPermission === "denied" && !isNative ? "새로고침" : "다시 요청"}
               </button>
             </div>
           </div>
