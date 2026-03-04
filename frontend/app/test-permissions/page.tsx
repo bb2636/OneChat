@@ -123,7 +123,7 @@ export default function TestPermissions() {
 
   return (
     <div style={{ padding: 16, fontFamily: "monospace", fontSize: 13, background: "#111", color: "#0f0", minHeight: "100vh" }}>
-      <h2 style={{ color: "#fff", marginBottom: 8 }}>권한 테스트 v3</h2>
+      <h2 style={{ color: "#fff", marginBottom: 4 }}>권한 테스트 v4 (빌드: 0304-B)</h2>
       <div style={{ marginBottom: 8, color: "#aaa", fontSize: 11, wordBreak: "break-all" }}>
         UA: {ua}
       </div>

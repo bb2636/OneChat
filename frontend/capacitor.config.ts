@@ -4,6 +4,7 @@ const config: CapacitorConfig = {
   appId: 'com.onechat.app',
   appName: 'OneChat',
   webDir: 'out',
+  appendUserAgent: 'OneChat-Android',
   server: {
     url: 'https://weoncaes.replit.app',
     cleartext: true
