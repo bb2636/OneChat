@@ -450,16 +450,21 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
 
       if (isNativeApp) {
         const bridge = (window as any).OneChatBridge;
-        if (bridge && bridge.hasLocationPermission && bridge.hasLocationPermission()) {
-          setLocationPermission("granted");
-          setLocationGranted(true);
-          if (bridge.hasNotificationPermission) {
-            if (bridge.hasNotificationPermission()) {
-              setNotificationPermission("granted");
-            } else {
-              setNotificationPermission("prompt");
-              setTimeout(() => setShowNotificationGuide(true), 1200);
+        if (bridge?.hasLocationPermission) {
+          if (bridge.hasLocationPermission()) {
+            setLocationPermission("granted");
+            setLocationGranted(true);
+            if (bridge.hasNotificationPermission) {
+              if (bridge.hasNotificationPermission()) {
+                setNotificationPermission("granted");
+              } else {
+                setNotificationPermission("prompt");
+                setTimeout(() => setShowNotificationGuide(true), 1200);
+              }
             }
+          } else {
+            setLocationPermission("prompt");
+            setShowLocationGuide(true);
           }
         } else {
           setLocationPermission("prompt");
@@ -1325,6 +1330,21 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
                       }
                     } else if (bridge?.requestLocationPermission) {
                       bridge.requestLocationPermission();
+                    } else {
+                      navigator.geolocation.getCurrentPosition(
+                        () => {
+                          setLocationPermission("granted");
+                          setShowLocationGuide(false);
+                          setLocationGranted(true);
+                        },
+                        (err) => {
+                          if (err.code === 1) {
+                            setLocationPermission("denied");
+                            setNativePermDeniedPermanently(true);
+                          }
+                        },
+                        { enableHighAccuracy: true, timeout: 10000 }
+                      );
                     }
                   } else if (locationPermission === "denied") {
                     setShowLocationGuide(false);

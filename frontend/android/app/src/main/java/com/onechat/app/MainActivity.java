@@ -35,89 +35,81 @@ public class MainActivity extends BridgeActivity {
 
     private GeolocationPermissions.Callback pendingGeolocationCallback;
     private String pendingGeolocationOrigin;
+    private boolean hasRequestedNotification = false;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        requestStartupPermissions();
-    }
-
-    @Override
-    public void onStart() {
-        super.onStart();
 
         WebView webView = getBridge().getWebView();
-        if (webView == null) {
-            Log.e(TAG, "WebView is null");
-            return;
-        }
+        if (webView != null) {
+            webView.addJavascriptInterface(new OneChatBridge(), "OneChatBridge");
 
-        webView.addJavascriptInterface(new OneChatBridge(), "OneChatBridge");
-
-        WebSettings settings = webView.getSettings();
-        String ua = settings.getUserAgentString();
-        if (!ua.contains("OneChat-Android")) {
+            WebSettings settings = webView.getSettings();
+            String ua = settings.getUserAgentString();
             ua = ua.replace("; wv)", ")").replace(" Version/4.0", "");
             settings.setUserAgentString(ua + " OneChat-Android");
-        }
-        settings.setGeolocationEnabled(true);
-        settings.setJavaScriptEnabled(true);
-        settings.setDomStorageEnabled(true);
-        settings.setMediaPlaybackRequiresUserGesture(false);
+            settings.setGeolocationEnabled(true);
+            settings.setJavaScriptEnabled(true);
+            settings.setDomStorageEnabled(true);
+            settings.setMediaPlaybackRequiresUserGesture(false);
 
-        webView.setWebChromeClient(new WebChromeClient() {
-            @Override
-            public void onGeolocationPermissionsShowPrompt(String origin, GeolocationPermissions.Callback callback) {
-                if (hasLocationPermission()) {
-                    callback.invoke(origin, true, false);
-                } else {
-                    pendingGeolocationCallback = callback;
-                    pendingGeolocationOrigin = origin;
-                    ActivityCompat.requestPermissions(MainActivity.this,
-                        new String[]{
-                            Manifest.permission.ACCESS_FINE_LOCATION,
-                            Manifest.permission.ACCESS_COARSE_LOCATION
-                        },
-                        LOCATION_PERMISSION_REQUEST_CODE);
-                }
-            }
-
-            @Override
-            public void onPermissionRequest(PermissionRequest request) {
-                String[] resources = request.getResources();
-                List<String> granted = new ArrayList<>();
-
-                for (String resource : resources) {
-                    if (PermissionRequest.RESOURCE_VIDEO_CAPTURE.equals(resource)) {
-                        if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
-                            granted.add(resource);
-                        }
-                    } else if (PermissionRequest.RESOURCE_AUDIO_CAPTURE.equals(resource)) {
-                        granted.add(resource);
+            webView.setWebChromeClient(new WebChromeClient() {
+                @Override
+                public void onGeolocationPermissionsShowPrompt(String origin, GeolocationPermissions.Callback callback) {
+                    if (hasLocationPermission()) {
+                        callback.invoke(origin, true, false);
+                    } else {
+                        pendingGeolocationCallback = callback;
+                        pendingGeolocationOrigin = origin;
+                        ActivityCompat.requestPermissions(MainActivity.this,
+                            new String[]{
+                                Manifest.permission.ACCESS_FINE_LOCATION,
+                                Manifest.permission.ACCESS_COARSE_LOCATION
+                            },
+                            LOCATION_PERMISSION_REQUEST_CODE);
                     }
                 }
 
-                if (!granted.isEmpty()) {
-                    request.grant(granted.toArray(new String[0]));
-                } else {
-                    request.deny();
-                }
-            }
-        });
+                @Override
+                public void onPermissionRequest(PermissionRequest request) {
+                    String[] resources = request.getResources();
+                    List<String> granted = new ArrayList<>();
 
-        getBridge().setWebViewClient(new BridgeWebViewClient(getBridge()) {
-            @Override
-            public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
-                String url = request.getUrl().toString();
-                if (url.contains("accounts.google.com") ||
-                    url.contains("googleapis.com") ||
-                    url.contains("supabase.co/auth")) {
-                    openInChrome(url);
-                    return true;
+                    for (String resource : resources) {
+                        if (PermissionRequest.RESOURCE_VIDEO_CAPTURE.equals(resource)) {
+                            if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+                                granted.add(resource);
+                            }
+                        } else if (PermissionRequest.RESOURCE_AUDIO_CAPTURE.equals(resource)) {
+                            granted.add(resource);
+                        }
+                    }
+
+                    if (!granted.isEmpty()) {
+                        request.grant(granted.toArray(new String[0]));
+                    } else {
+                        request.deny();
+                    }
                 }
-                return super.shouldOverrideUrlLoading(view, request);
-            }
-        });
+            });
+
+            getBridge().setWebViewClient(new BridgeWebViewClient(getBridge()) {
+                @Override
+                public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                    String url = request.getUrl().toString();
+                    if (url.contains("accounts.google.com") ||
+                        url.contains("googleapis.com") ||
+                        url.contains("supabase.co/auth")) {
+                        openInChrome(url);
+                        return true;
+                    }
+                    return super.shouldOverrideUrlLoading(view, request);
+                }
+            });
+        }
+
+        requestStartupPermissions();
     }
 
     private class OneChatBridge {
@@ -155,18 +147,6 @@ public class MainActivity extends BridgeActivity {
         }
 
         @JavascriptInterface
-        public boolean canRequestNotificationPermission() {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                return ActivityCompat.shouldShowRequestPermissionRationale(
-                    MainActivity.this, Manifest.permission.POST_NOTIFICATIONS)
-                    || ContextCompat.checkSelfPermission(MainActivity.this,
-                        Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_DENIED
-                    || !hasRequestedNotification;
-            }
-            return true;
-        }
-
-        @JavascriptInterface
         public void requestNotificationPermission() {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 hasRequestedNotification = true;
@@ -185,8 +165,6 @@ public class MainActivity extends BridgeActivity {
             return Build.VERSION.SDK_INT;
         }
     }
-
-    private boolean hasRequestedNotification = false;
 
     private boolean hasLocationPermission() {
         return ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
