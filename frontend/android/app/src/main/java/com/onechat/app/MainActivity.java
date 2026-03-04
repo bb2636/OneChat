@@ -31,6 +31,7 @@ public class MainActivity extends BridgeActivity {
     private static final String TAG = "OneChat";
     private static final int PERMISSION_REQUEST_CODE = 1001;
     private static final int LOCATION_PERMISSION_REQUEST_CODE = 1002;
+    private static final int NOTIFICATION_PERMISSION_REQUEST_CODE = 1003;
 
     private GeolocationPermissions.Callback pendingGeolocationCallback;
     private String pendingGeolocationOrigin;
@@ -67,8 +68,6 @@ public class MainActivity extends BridgeActivity {
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
             public void onGeolocationPermissionsShowPrompt(String origin, GeolocationPermissions.Callback callback) {
-                Log.d(TAG, "Geolocation permission requested from: " + origin);
-
                 if (hasLocationPermission()) {
                     callback.invoke(origin, true, false);
                 } else {
@@ -145,6 +144,41 @@ public class MainActivity extends BridgeActivity {
                     LOCATION_PERMISSION_REQUEST_CODE);
             });
         }
+
+        @JavascriptInterface
+        public boolean hasNotificationPermission() {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                return ContextCompat.checkSelfPermission(MainActivity.this,
+                    Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED;
+            }
+            return true;
+        }
+
+        @JavascriptInterface
+        public void requestNotificationPermission() {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                runOnUiThread(() -> {
+                    ActivityCompat.requestPermissions(MainActivity.this,
+                        new String[]{ Manifest.permission.POST_NOTIFICATIONS },
+                        NOTIFICATION_PERMISSION_REQUEST_CODE);
+                });
+            } else {
+                WebView webView = getBridge().getWebView();
+                if (webView != null) {
+                    runOnUiThread(() -> {
+                        webView.evaluateJavascript(
+                            "window.dispatchEvent(new CustomEvent('onechat-notification-result', {detail:{granted:true}}));",
+                            null
+                        );
+                    });
+                }
+            }
+        }
+
+        @JavascriptInterface
+        public int getAndroidVersion() {
+            return Build.VERSION.SDK_INT;
+        }
     }
 
     private boolean hasLocationPermission() {
@@ -179,6 +213,8 @@ public class MainActivity extends BridgeActivity {
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
 
+        WebView webView = getBridge().getWebView();
+
         if (requestCode == LOCATION_PERMISSION_REQUEST_CODE || requestCode == PERMISSION_REQUEST_CODE) {
             if (pendingGeolocationCallback != null && pendingGeolocationOrigin != null) {
                 boolean locationGranted = hasLocationPermission();
@@ -187,16 +223,33 @@ public class MainActivity extends BridgeActivity {
                 pendingGeolocationOrigin = null;
             }
 
-            if (hasLocationPermission()) {
-                WebView webView = getBridge().getWebView();
-                if (webView != null) {
-                    runOnUiThread(() -> {
-                        webView.evaluateJavascript(
-                            "window.dispatchEvent(new Event('onechat-location-granted'));",
-                            null
-                        );
-                    });
-                }
+            if (hasLocationPermission() && webView != null) {
+                runOnUiThread(() -> {
+                    webView.evaluateJavascript(
+                        "window.dispatchEvent(new Event('onechat-location-granted'));",
+                        null
+                    );
+                });
+            }
+        }
+
+        if (requestCode == NOTIFICATION_PERMISSION_REQUEST_CODE) {
+            boolean notifGranted = false;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                notifGranted = ContextCompat.checkSelfPermission(this,
+                    Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED;
+            } else {
+                notifGranted = true;
+            }
+
+            if (webView != null) {
+                final boolean granted = notifGranted;
+                runOnUiThread(() -> {
+                    webView.evaluateJavascript(
+                        "window.dispatchEvent(new CustomEvent('onechat-notification-result', {detail:{granted:" + granted + "}}));",
+                        null
+                    );
+                });
             }
         }
     }

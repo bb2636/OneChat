@@ -426,6 +426,8 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
 
   const [locationGranted, setLocationGranted] = useState(false);
   const [nativePermDeniedPermanently, setNativePermDeniedPermanently] = useState(false);
+  const [showNotificationGuide, setShowNotificationGuide] = useState(false);
+  const [notificationPermission, setNotificationPermission] = useState<"granted" | "denied" | "prompt" | "unknown">("unknown");
 
   useEffect(() => {
     const checkPerm = async () => {
@@ -451,6 +453,11 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
         if (bridge && bridge.hasLocationPermission && bridge.hasLocationPermission()) {
           setLocationPermission("granted");
           setLocationGranted(true);
+          if (bridge.hasNotificationPermission && !bridge.hasNotificationPermission()) {
+            setTimeout(() => setShowNotificationGuide(true), 1200);
+          } else {
+            setNotificationPermission("granted");
+          }
         } else {
           setLocationPermission("prompt");
           setShowLocationGuide(true);
@@ -492,14 +499,40 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
       setShowLocationGuide(false);
       setLocationGranted(true);
       setNativePermDeniedPermanently(false);
+      const bridge = (window as any).OneChatBridge;
+      if (bridge?.hasNotificationPermission && !bridge.hasNotificationPermission()) {
+        setTimeout(() => setShowNotificationGuide(true), 800);
+      } else {
+        setNotificationPermission("granted");
+      }
     };
     window.addEventListener("onechat-location-granted", handleGranted);
+
+    const handleNotificationResult = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.granted) {
+        setNotificationPermission("granted");
+        setShowNotificationGuide(false);
+      } else {
+        setNotificationPermission("denied");
+      }
+    };
+    window.addEventListener("onechat-notification-result", handleNotificationResult);
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible" && isNativeApp) {
         const bridge = (window as any).OneChatBridge;
-        if (bridge && bridge.hasLocationPermission && bridge.hasLocationPermission()) {
-          handleGranted();
+        if (bridge?.hasLocationPermission && bridge.hasLocationPermission()) {
+          if (locationPermission !== "granted") {
+            setLocationPermission("granted");
+            setShowLocationGuide(false);
+            setLocationGranted(true);
+            setNativePermDeniedPermanently(false);
+          }
+          if (bridge?.hasNotificationPermission && bridge.hasNotificationPermission()) {
+            setNotificationPermission("granted");
+            setShowNotificationGuide(false);
+          }
         }
       }
     };
@@ -507,9 +540,10 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
 
     return () => {
       window.removeEventListener("onechat-location-granted", handleGranted);
+      window.removeEventListener("onechat-notification-result", handleNotificationResult);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [isNativeApp]);
+  }, [isNativeApp, locationPermission]);
 
   const retryLocationRef = useRef<(() => void) | null>(null);
 
@@ -1280,6 +1314,10 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
                           setShowLocationGuide(false);
                           setLocationGranted(true);
                           setNativePermDeniedPermanently(false);
+                          const b = (window as any).OneChatBridge;
+                          if (b?.hasNotificationPermission && !b.hasNotificationPermission()) {
+                            setTimeout(() => setShowNotificationGuide(true), 800);
+                          }
                         },
                         (err) => {
                           if (err.code === 1) {
@@ -1305,6 +1343,65 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
                   : locationPermission === "denied" && !isNative
                     ? "새로고침"
                     : "허용하기"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showNotificationGuide && isNative && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-6">
+          <div className="w-full max-w-sm rounded-2xl bg-white shadow-2xl">
+            <div className="px-6 pt-6 pb-4">
+              <div className="mb-4 flex justify-center">
+                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-indigo-100">
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-indigo-600">
+                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                    <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                  </svg>
+                </div>
+              </div>
+              <h3 className="text-center text-base font-bold text-gray-900 mb-2">알림 권한이 필요합니다</h3>
+              <p className="text-center text-sm text-gray-600 leading-relaxed">
+                새로운 메시지와 친구 요청 알림을 받으려면 알림 권한을 허용해주세요.
+              </p>
+              {notificationPermission === "denied" && (
+                <div className="mt-3 rounded-xl bg-indigo-50 px-4 py-3">
+                  <p className="text-xs font-semibold text-indigo-800 mb-1">앱 설정에서 권한을 변경해주세요:</p>
+                  <ol className="text-xs text-indigo-700 space-y-0.5 list-decimal pl-4">
+                    <li>아래 「설정 열기」 버튼을 탭</li>
+                    <li>「알림」을 「허용」으로 변경</li>
+                    <li>앱으로 돌아오면 자동으로 적용됩니다</li>
+                  </ol>
+                </div>
+              )}
+            </div>
+            <div className="flex border-t border-gray-200">
+              <button
+                type="button"
+                onClick={() => setShowNotificationGuide(false)}
+                className="flex-1 py-3.5 text-sm text-gray-500 font-medium"
+              >
+                나중에
+              </button>
+              <div className="w-px bg-gray-200" />
+              <button
+                type="button"
+                onClick={() => {
+                  const bridge = (window as any).OneChatBridge;
+                  if (notificationPermission === "denied") {
+                    if (bridge?.openAppSettings) {
+                      bridge.openAppSettings();
+                    }
+                  } else {
+                    if (bridge?.requestNotificationPermission) {
+                      bridge.requestNotificationPermission();
+                    }
+                  }
+                }}
+                className="flex-1 py-3.5 text-sm text-indigo-600 font-bold"
+              >
+                {notificationPermission === "denied" ? "설정 열기" : "허용하기"}
               </button>
             </div>
           </div>
