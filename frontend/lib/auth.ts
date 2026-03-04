@@ -1,11 +1,13 @@
 import jwt from "jsonwebtoken";
 import { sql } from "@/lib/db";
 
-const _JWT_SECRET = process.env.JWT_SECRET;
-if (!_JWT_SECRET) {
-  throw new Error("JWT_SECRET is not set. Please configure the JWT secret.");
+function getJwtSecret(): string {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error("JWT_SECRET is not set. Please configure the JWT secret.");
+  }
+  return secret;
 }
-const JWT_SECRET: string = _JWT_SECRET;
 const TOKEN_EXPIRY = "7d";
 const COOKIE_NAME = "onechat_token";
 const GOOGLE_SIGNUP_COOKIE = "google_signup_token";
@@ -24,12 +26,12 @@ export interface GoogleSignupPayload {
 }
 
 export function signToken(payload: JwtPayload): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: TOKEN_EXPIRY });
+  return jwt.sign(payload, getJwtSecret(), { expiresIn: TOKEN_EXPIRY });
 }
 
 export function verifyToken(token: string): JwtPayload | null {
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as JwtPayload;
+    const decoded = jwt.verify(token, getJwtSecret()) as JwtPayload;
     return decoded;
   } catch {
     return null;
@@ -37,7 +39,7 @@ export function verifyToken(token: string): JwtPayload | null {
 }
 
 export function signGoogleSignupToken(payload: Omit<GoogleSignupPayload, "type">): string {
-  return jwt.sign({ ...payload, type: "google_signup" }, JWT_SECRET, { expiresIn: "30m" });
+  return jwt.sign({ ...payload, type: "google_signup" }, getJwtSecret(), { expiresIn: "30m" });
 }
 
 export function verifyGoogleSignupToken(request: Request): GoogleSignupPayload | null {
@@ -45,7 +47,7 @@ export function verifyGoogleSignupToken(request: Request): GoogleSignupPayload |
   const match = cookieHeader.match(new RegExp(`${GOOGLE_SIGNUP_COOKIE}=([^;]+)`));
   if (!match) return null;
   try {
-    const decoded = jwt.verify(match[1], JWT_SECRET) as GoogleSignupPayload;
+    const decoded = jwt.verify(match[1], getJwtSecret()) as GoogleSignupPayload;
     if (decoded.type !== "google_signup") return null;
     return decoded;
   } catch {
