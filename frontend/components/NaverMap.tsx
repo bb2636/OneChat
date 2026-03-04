@@ -420,10 +420,9 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
   useEffect(() => {
     const fallbackLocation = { latitude: 37.5665, longitude: 126.978 };
     let settled = false;
+    let permissionDenied = false;
 
     const finishWith = (location: UserLocation, accuracy?: number, isReal?: boolean) => {
-      if (settled) return;
-      settled = true;
       if (typeof accuracy === "number" && Number.isFinite(accuracy)) {
         currentAccuracyRef.current = accuracy;
       }
@@ -431,7 +430,10 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
         hasReceivedRealLocationRef.current = true;
       }
       setUserLocation(location);
-      setIsLocationLoading(false);
+      if (!settled) {
+        settled = true;
+        setIsLocationLoading(false);
+      }
     };
 
     if (!navigator.geolocation) {
@@ -440,31 +442,49 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
     }
 
     const hardTimeout = window.setTimeout(() => {
-      finishWith(fallbackLocation);
+      if (!settled) {
+        finishWith(fallbackLocation);
+        if (!hasReceivedRealLocationRef.current) {
+          setToastMessage("위치 권한을 허용하면 내 위치가 반영됩니다.");
+          setTimeout(() => setToastMessage(null), 4000);
+        }
+      }
     }, 8000);
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
+        window.clearTimeout(hardTimeout);
         const { latitude, longitude, accuracy } = position.coords;
         finishWith({ latitude, longitude }, accuracy, true);
       },
-      () => {
-        finishWith(fallbackLocation);
+      (error) => {
+        console.warn("getCurrentPosition error:", error.code, error.message);
+        if (error.code === 1) {
+          permissionDenied = true;
+          setToastMessage("위치 권한이 거부되었습니다. 설정에서 허용해주세요.");
+          setTimeout(() => setToastMessage(null), 4000);
+        }
+        if (!settled) finishWith(fallbackLocation);
       },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
     );
 
     const watchId = navigator.geolocation.watchPosition(
       (position) => {
+        window.clearTimeout(hardTimeout);
         const { latitude, longitude, accuracy } = position.coords;
         if (accuracy && accuracy > MAX_UI_ACCURACY_METERS) return;
         currentAccuracyRef.current = typeof accuracy === "number" ? accuracy : null;
-        if (!settled) finishWith({ latitude, longitude }, accuracy, true);
         hasReceivedRealLocationRef.current = true;
-        setUserLocation({ latitude, longitude });
+        finishWith({ latitude, longitude }, accuracy, true);
       },
       (error) => {
-        console.error("watchPosition error:", error);
+        console.warn("watchPosition error:", error.code, error.message);
+        if (error.code === 1 && !permissionDenied) {
+          permissionDenied = true;
+          setToastMessage("위치 권한이 거부되었습니다. 설정에서 허용해주세요.");
+          setTimeout(() => setToastMessage(null), 4000);
+        }
         if (!settled) finishWith(fallbackLocation);
       },
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
@@ -479,6 +499,7 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
   // throttled DB sync every 10s or more
   useEffect(() => {
     if (!userId || !userLocation) return;
+    if (!hasReceivedRealLocationRef.current) return;
     if (
       typeof currentAccuracyRef.current === "number" &&
       currentAccuracyRef.current > MAX_SYNC_ACCURACY_METERS
@@ -487,9 +508,10 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
     }
 
     const now = Date.now();
-    if (now - lastSyncAtRef.current < LOCATION_UPDATE_THROTTLE_MS) return;
-
     const previous = lastSentLocationRef.current;
+    const isFirstReal = !previous;
+    if (!isFirstReal && now - lastSyncAtRef.current < LOCATION_UPDATE_THROTTLE_MS) return;
+
     if (previous) {
       const moved = getDistanceMeters(previous, userLocation);
       if (moved < 1) return;
