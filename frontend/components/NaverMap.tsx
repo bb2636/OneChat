@@ -425,9 +425,9 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
   const isNative = isNativeApp || isCapNative;
 
   const [locationGranted, setLocationGranted] = useState(false);
-  const [nativePermDeniedPermanently, setNativePermDeniedPermanently] = useState(false);
   const [showNotificationGuide, setShowNotificationGuide] = useState(false);
   const [notificationPermission, setNotificationPermission] = useState<"granted" | "denied" | "prompt" | "unknown">("unknown");
+  const locationDeniedCountRef = useRef(0);
 
   useEffect(() => {
     const checkPerm = async () => {
@@ -448,68 +448,34 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
         return;
       }
 
-      if (isNativeApp) {
-        const bridge = (window as any).OneChatBridge;
-        if (bridge?.hasLocationPermission) {
-          if (bridge.hasLocationPermission()) {
-            setLocationPermission("granted");
-            setLocationGranted(true);
-            if (bridge.hasNotificationPermission) {
-              if (bridge.hasNotificationPermission()) {
-                setNotificationPermission("granted");
-              } else {
-                setNotificationPermission("prompt");
-                setTimeout(() => setShowNotificationGuide(true), 1200);
-              }
-            }
-          } else {
-            setLocationPermission("prompt");
-            setShowLocationGuide(true);
-          }
-        } else {
-          setLocationPermission("prompt");
-          setShowLocationGuide(true);
-        }
+      if (isNativeApp || !navigator.permissions) {
+        setLocationPermission("prompt");
+        setShowLocationGuide(true);
         return;
       }
 
-      if (navigator.permissions) {
-        try {
-          const status = await navigator.permissions.query({ name: "geolocation" as PermissionName });
-          setLocationPermission(status.state as "granted" | "denied" | "prompt");
-          if (status.state === "granted") {
+      try {
+        const status = await navigator.permissions.query({ name: "geolocation" as PermissionName });
+        setLocationPermission(status.state as "granted" | "denied" | "prompt");
+        if (status.state === "granted") {
+          setLocationGranted(true);
+        } else {
+          setShowLocationGuide(true);
+        }
+        status.addEventListener("change", () => {
+          const newState = status.state as "granted" | "denied" | "prompt";
+          setLocationPermission(newState);
+          if (newState === "granted") {
+            setShowLocationGuide(false);
             setLocationGranted(true);
-          } else {
-            setShowLocationGuide(true);
           }
-          status.addEventListener("change", () => {
-            const newState = status.state as "granted" | "denied" | "prompt";
-            setLocationPermission(newState);
-            if (newState === "granted") {
-              setShowLocationGuide(false);
-              setLocationGranted(true);
-            }
-          });
-          return;
-        } catch {}
+        });
+      } catch {
+        setShowLocationGuide(true);
       }
-
-      setShowLocationGuide(true);
     };
     checkPerm();
   }, [isCapNative, isNativeApp]);
-
-  const showNotifGuideAfterLocation = useCallback(() => {
-    const bridge = (window as any).OneChatBridge;
-    if (bridge?.hasNotificationPermission) {
-      if (bridge.hasNotificationPermission()) {
-        setNotificationPermission("granted");
-      } else {
-        setNotificationPermission("prompt");
-        setTimeout(() => setShowNotificationGuide(true), 800);
-      }
-    }
-  }, []);
 
   useEffect(() => {
     if (!isNativeApp) return;
@@ -520,11 +486,15 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
         setLocationPermission("granted");
         setShowLocationGuide(false);
         setLocationGranted(true);
-        setNativePermDeniedPermanently(false);
-        showNotifGuideAfterLocation();
+        locationDeniedCountRef.current = 0;
+        const bridge = (window as any).OneChatBridge;
+        if (bridge?.hasNotificationPermission && !bridge.hasNotificationPermission()) {
+          setNotificationPermission("prompt");
+          setTimeout(() => setShowNotificationGuide(true), 800);
+        }
       } else {
         setLocationPermission("denied");
-        setNativePermDeniedPermanently(true);
+        locationDeniedCountRef.current += 1;
       }
     };
     window.addEventListener("onechat-location-result", handleLocationResult);
@@ -541,21 +511,24 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
     window.addEventListener("onechat-notification-result", handleNotificationResult);
 
     const handleVisibilityChange = () => {
-      if (document.visibilityState === "visible" && isNativeApp) {
-        const bridge = (window as any).OneChatBridge;
-        if (bridge?.hasLocationPermission && bridge.hasLocationPermission()) {
+      if (document.visibilityState !== "visible" || !isNativeApp) return;
+      navigator.geolocation.getCurrentPosition(
+        () => {
           if (locationPermission !== "granted") {
             setLocationPermission("granted");
             setShowLocationGuide(false);
             setLocationGranted(true);
-            setNativePermDeniedPermanently(false);
+            locationDeniedCountRef.current = 0;
           }
-        }
-        if (bridge?.hasNotificationPermission && bridge.hasNotificationPermission()) {
-          setNotificationPermission("granted");
-          setShowNotificationGuide(false);
-        }
-      }
+          const bridge = (window as any).OneChatBridge;
+          if (bridge?.hasNotificationPermission && bridge.hasNotificationPermission()) {
+            setNotificationPermission("granted");
+            setShowNotificationGuide(false);
+          }
+        },
+        () => {},
+        { enableHighAccuracy: false, timeout: 3000, maximumAge: 60000 }
+      );
     };
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
@@ -564,7 +537,7 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
       window.removeEventListener("onechat-notification-result", handleNotificationResult);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [isNativeApp, locationPermission, showNotifGuideAfterLocation]);
+  }, [isNativeApp, locationPermission]);
 
   const retryLocationRef = useRef<(() => void) | null>(null);
 
@@ -1280,13 +1253,12 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
                   </ol>
                 </div>
               )}
-              {(locationPermission === "denied" || nativePermDeniedPermanently) && isNative && (
+              {locationPermission === "denied" && isNative && (
                 <div className="mt-3 rounded-xl bg-blue-50 px-4 py-3">
-                  <p className="text-xs font-semibold text-blue-800 mb-1">앱 설정에서 권한을 변경해주세요:</p>
+                  <p className="text-xs font-semibold text-blue-800 mb-1">위치 권한이 거부되었습니다:</p>
                   <ol className="text-xs text-blue-700 space-y-0.5 list-decimal pl-4">
-                    <li>아래 「설정 열기」 버튼을 탭</li>
-                    <li>「권한」→「위치」를 「허용」으로 변경</li>
-                    <li>앱으로 돌아오면 자동으로 적용됩니다</li>
+                    <li>「허용하기」를 눌러 다시 시도해주세요</li>
+                    <li>계속 안 되면 휴대폰 설정 → 앱 → OneChat → 권한 → 위치를 「허용」으로 변경</li>
                   </ol>
                 </div>
               )}
@@ -1323,27 +1295,31 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
                       setLocationPermission("denied");
                     }
                   } else if (isNativeApp) {
-                    const bridge = (window as any).OneChatBridge;
-                    if (nativePermDeniedPermanently || locationPermission === "denied") {
+                    if (locationPermission === "denied" && locationDeniedCountRef.current >= 2) {
+                      const bridge = (window as any).OneChatBridge;
                       if (bridge?.openAppSettings) {
                         bridge.openAppSettings();
                       }
-                    } else if (bridge?.requestLocationPermission) {
-                      bridge.requestLocationPermission();
                     } else {
                       navigator.geolocation.getCurrentPosition(
                         () => {
                           setLocationPermission("granted");
                           setShowLocationGuide(false);
                           setLocationGranted(true);
+                          locationDeniedCountRef.current = 0;
+                          const bridge = (window as any).OneChatBridge;
+                          if (bridge?.hasNotificationPermission && !bridge.hasNotificationPermission()) {
+                            setNotificationPermission("prompt");
+                            setTimeout(() => setShowNotificationGuide(true), 800);
+                          }
                         },
                         (err) => {
                           if (err.code === 1) {
+                            locationDeniedCountRef.current += 1;
                             setLocationPermission("denied");
-                            setNativePermDeniedPermanently(true);
                           }
                         },
-                        { enableHighAccuracy: true, timeout: 10000 }
+                        { enableHighAccuracy: true, timeout: 15000 }
                       );
                     }
                   } else if (locationPermission === "denied") {
@@ -1356,7 +1332,7 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
                 }}
                 className="flex-1 py-3.5 text-sm text-blue-600 font-bold"
               >
-                {isNative && (nativePermDeniedPermanently || locationPermission === "denied")
+                {isNative && locationPermission === "denied" && locationDeniedCountRef.current >= 2
                   ? "설정 열기"
                   : locationPermission === "denied" && !isNative
                     ? "새로고침"
