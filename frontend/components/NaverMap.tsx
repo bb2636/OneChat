@@ -159,6 +159,8 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
   const [myAvatarUrl, setMyAvatarUrl] = useState<string | null>(null);
   const [overlapUsers, setOverlapUsers] = useState<SupabaseUser[]>([]);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [locationPermission, setLocationPermission] = useState<"granted" | "denied" | "prompt" | "unknown">("unknown");
+  const [showLocationGuide, setShowLocationGuide] = useState(false);
   const [newChatBannerVisible, setNewChatBannerVisible] = useState(false);
   const prevOverlapUserIdsRef = useRef<Set<string>>(new Set());
   const [friends, setFriends] = useState<Set<string>>(new Set());
@@ -416,11 +418,32 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
     setThumbnailPreviewUrl(null);
   }, [thumbnailPreviewUrl]);
 
+  // check permission state via Permissions API
+  useEffect(() => {
+    if (!navigator.permissions) return;
+    let cancelled = false;
+    navigator.permissions.query({ name: "geolocation" as PermissionName }).then((status) => {
+      if (cancelled) return;
+      setLocationPermission(status.state as "granted" | "denied" | "prompt");
+      status.addEventListener("change", () => {
+        setLocationPermission(status.state as "granted" | "denied" | "prompt");
+        if (status.state === "granted") {
+          setShowLocationGuide(false);
+          retryLocationRef.current?.();
+        }
+      });
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
+  const retryLocationRef = useRef<(() => void) | null>(null);
+
   // watchPosition for live location tracking
   useEffect(() => {
     const fallbackLocation = { latitude: 37.5665, longitude: 126.978 };
     let settled = false;
-    let permissionDenied = false;
+    let watchId: number | null = null;
+    let hardTimeoutId: number | null = null;
 
     const finishWith = (location: UserLocation, accuracy?: number, isReal?: boolean) => {
       if (typeof accuracy === "number" && Number.isFinite(accuracy)) {
@@ -428,6 +451,7 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
       }
       if (isReal) {
         hasReceivedRealLocationRef.current = true;
+        setLocationPermission("granted");
       }
       setUserLocation(location);
       if (!settled) {
@@ -436,63 +460,72 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
       }
     };
 
-    if (!navigator.geolocation) {
-      finishWith(fallbackLocation);
-      return;
-    }
-
-    const hardTimeout = window.setTimeout(() => {
-      if (!settled) {
+    const startTracking = () => {
+      if (!navigator.geolocation) {
         finishWith(fallbackLocation);
-        if (!hasReceivedRealLocationRef.current) {
-          setToastMessage("위치 권한을 허용하면 내 위치가 반영됩니다.");
-          setTimeout(() => setToastMessage(null), 4000);
-        }
+        return;
       }
-    }, 8000);
 
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        window.clearTimeout(hardTimeout);
-        const { latitude, longitude, accuracy } = position.coords;
-        finishWith({ latitude, longitude }, accuracy, true);
-      },
-      (error) => {
-        console.warn("getCurrentPosition error:", error.code, error.message);
-        if (error.code === 1) {
-          permissionDenied = true;
-          setToastMessage("위치 권한이 거부되었습니다. 설정에서 허용해주세요.");
-          setTimeout(() => setToastMessage(null), 4000);
+      hardTimeoutId = window.setTimeout(() => {
+        if (!settled) {
+          finishWith(fallbackLocation);
         }
-        if (!settled) finishWith(fallbackLocation);
-      },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
-    );
+      }, 8000);
 
-    const watchId = navigator.geolocation.watchPosition(
-      (position) => {
-        window.clearTimeout(hardTimeout);
-        const { latitude, longitude, accuracy } = position.coords;
-        if (accuracy && accuracy > MAX_UI_ACCURACY_METERS) return;
-        currentAccuracyRef.current = typeof accuracy === "number" ? accuracy : null;
-        hasReceivedRealLocationRef.current = true;
-        finishWith({ latitude, longitude }, accuracy, true);
-      },
-      (error) => {
-        console.warn("watchPosition error:", error.code, error.message);
-        if (error.code === 1 && !permissionDenied) {
-          permissionDenied = true;
-          setToastMessage("위치 권한이 거부되었습니다. 설정에서 허용해주세요.");
-          setTimeout(() => setToastMessage(null), 4000);
-        }
-        if (!settled) finishWith(fallbackLocation);
-      },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
-    );
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          if (hardTimeoutId) window.clearTimeout(hardTimeoutId);
+          const { latitude, longitude, accuracy } = position.coords;
+          finishWith({ latitude, longitude }, accuracy, true);
+        },
+        (error) => {
+          console.warn("getCurrentPosition error:", error.code, error.message);
+          if (error.code === 1) {
+            setLocationPermission("denied");
+            setShowLocationGuide(true);
+          }
+          if (!settled) finishWith(fallbackLocation);
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+      );
+
+      watchId = navigator.geolocation.watchPosition(
+        (position) => {
+          if (hardTimeoutId) window.clearTimeout(hardTimeoutId);
+          const { latitude, longitude, accuracy } = position.coords;
+          if (accuracy && accuracy > MAX_UI_ACCURACY_METERS) return;
+          currentAccuracyRef.current = typeof accuracy === "number" ? accuracy : null;
+          hasReceivedRealLocationRef.current = true;
+          setLocationPermission("granted");
+          setShowLocationGuide(false);
+          finishWith({ latitude, longitude }, accuracy, true);
+        },
+        (error) => {
+          console.warn("watchPosition error:", error.code, error.message);
+          if (error.code === 1) {
+            setLocationPermission("denied");
+            setShowLocationGuide(true);
+          }
+          if (!settled) finishWith(fallbackLocation);
+        },
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+      );
+    };
+
+    retryLocationRef.current = () => {
+      if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+      if (hardTimeoutId) window.clearTimeout(hardTimeoutId);
+      settled = false;
+      setIsLocationLoading(true);
+      startTracking();
+    };
+
+    startTracking();
 
     return () => {
-      window.clearTimeout(hardTimeout);
-      navigator.geolocation.clearWatch(watchId);
+      if (hardTimeoutId) window.clearTimeout(hardTimeoutId);
+      if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+      retryLocationRef.current = null;
     };
   }, []);
 
@@ -1053,6 +1086,60 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
       {toastMessage && (
         <div className="pointer-events-none fixed left-1/2 top-20 z-50 w-[85%] max-w-sm -translate-x-1/2 rounded-full bg-black/65 px-4 py-2.5 text-center text-sm text-white">
           {toastMessage}
+        </div>
+      )}
+
+      {showLocationGuide && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-6">
+          <div className="w-full max-w-sm rounded-2xl bg-white shadow-2xl">
+            <div className="px-6 pt-6 pb-4">
+              <div className="mb-3 flex items-center gap-2">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-blue-600">
+                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                  <circle cx="12" cy="10" r="3" />
+                </svg>
+                <h3 className="text-base font-bold text-gray-900">위치 권한이 필요합니다</h3>
+              </div>
+              <p className="text-sm text-gray-600 leading-relaxed">
+                원챗은 주변 사용자를 찾기 위해 위치 정보가 필요합니다. 위치 권한을 허용해주세요.
+              </p>
+              {locationPermission === "denied" && (
+                <div className="mt-3 rounded-xl bg-blue-50 px-4 py-3">
+                  <p className="text-xs font-semibold text-blue-800 mb-1">브라우저 설정에서 권한을 변경해주세요:</p>
+                  <ol className="text-xs text-blue-700 space-y-0.5 list-decimal pl-4">
+                    <li>주소창 왼쪽의 자물쇠(🔒) 아이콘을 탭</li>
+                    <li>「권한」또는「사이트 설정」을 탭</li>
+                    <li>「위치」를 「허용」으로 변경</li>
+                    <li>페이지를 새로고침</li>
+                  </ol>
+                </div>
+              )}
+            </div>
+            <div className="flex border-t border-gray-200">
+              <button
+                type="button"
+                onClick={() => setShowLocationGuide(false)}
+                className="flex-1 py-3.5 text-sm text-gray-500 font-medium"
+              >
+                나중에
+              </button>
+              <div className="w-px bg-gray-200" />
+              <button
+                type="button"
+                onClick={() => {
+                  setShowLocationGuide(false);
+                  if (locationPermission === "denied") {
+                    window.location.reload();
+                  } else {
+                    retryLocationRef.current?.();
+                  }
+                }}
+                className="flex-1 py-3.5 text-sm text-blue-600 font-bold"
+              >
+                {locationPermission === "denied" ? "새로고침" : "위치 허용하기"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
