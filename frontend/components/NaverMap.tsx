@@ -944,7 +944,7 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
             className={`absolute inset-x-0 rounded-t-3xl bg-white transition-all duration-300 ease-out ${
               sheetExpanded ? "top-0 rounded-none" : "bottom-0"
             }`}
-            style={sheetExpanded ? undefined : { maxHeight: "45%" }}
+            style={sheetExpanded ? undefined : { maxHeight: "50%" }}
             onClick={(e) => e.stopPropagation()}
             onTouchStart={(e) => {
               dragStartYRef.current = e.touches[0].clientY;
@@ -977,8 +977,8 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
                 닫기
               </button>
             </div>
-            <div className={`overflow-y-auto px-5 pb-5 ${sheetExpanded ? "flex-1" : "max-h-[calc(45vh-60px)]"}`}
-              style={sheetExpanded ? { height: "calc(100vh - 60px)" } : undefined}
+            <div className={`overflow-y-auto px-5 ${sheetExpanded ? "flex-1" : "max-h-[calc(50vh-60px)]"}`}
+              style={sheetExpanded ? { height: "calc(100vh - 60px)", paddingBottom: "100px" } : { paddingBottom: "100px" }}
             >
               <div className="space-y-2">
                 {overlapUsers.length === 0 ? (
