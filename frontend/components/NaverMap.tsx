@@ -427,7 +427,6 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
   const [locationGranted, setLocationGranted] = useState(false);
   const [showNotificationGuide, setShowNotificationGuide] = useState(false);
   const [notificationPermission, setNotificationPermission] = useState<"granted" | "denied" | "prompt" | "unknown">("unknown");
-  const locationDeniedCountRef = useRef(0);
 
   useEffect(() => {
     const checkPerm = async () => {
@@ -486,7 +485,6 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
         setLocationPermission("granted");
         setShowLocationGuide(false);
         setLocationGranted(true);
-        locationDeniedCountRef.current = 0;
         const bridge = (window as any).OneChatBridge;
         if (bridge?.hasNotificationPermission && !bridge.hasNotificationPermission()) {
           setNotificationPermission("prompt");
@@ -494,7 +492,6 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
         }
       } else {
         setLocationPermission("denied");
-        locationDeniedCountRef.current += 1;
       }
     };
     window.addEventListener("onechat-location-result", handleLocationResult);
@@ -518,7 +515,6 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
             setLocationPermission("granted");
             setShowLocationGuide(false);
             setLocationGranted(true);
-            locationDeniedCountRef.current = 0;
           }
           const bridge = (window as any).OneChatBridge;
           if (bridge?.hasNotificationPermission && bridge.hasNotificationPermission()) {
@@ -1295,29 +1291,18 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
                       setLocationPermission("denied");
                     }
                   } else if (isNativeApp) {
-                    if (locationPermission === "denied" && locationDeniedCountRef.current >= 2) {
-                      const bridge = (window as any).OneChatBridge;
-                      if (bridge?.openAppSettings) {
-                        bridge.openAppSettings();
-                      }
+                    const bridge = (window as any).OneChatBridge;
+                    if (bridge?.requestLocationPermission) {
+                      bridge.requestLocationPermission();
                     } else {
                       navigator.geolocation.getCurrentPosition(
                         () => {
                           setLocationPermission("granted");
                           setShowLocationGuide(false);
                           setLocationGranted(true);
-                          locationDeniedCountRef.current = 0;
-                          const bridge = (window as any).OneChatBridge;
-                          if (bridge?.hasNotificationPermission && !bridge.hasNotificationPermission()) {
-                            setNotificationPermission("prompt");
-                            setTimeout(() => setShowNotificationGuide(true), 800);
-                          }
                         },
-                        (err) => {
-                          if (err.code === 1) {
-                            locationDeniedCountRef.current += 1;
-                            setLocationPermission("denied");
-                          }
+                        () => {
+                          setLocationPermission("denied");
                         },
                         { enableHighAccuracy: true, timeout: 15000 }
                       );
@@ -1332,11 +1317,9 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
                 }}
                 className="flex-1 py-3.5 text-sm text-blue-600 font-bold"
               >
-                {isNative && locationPermission === "denied" && locationDeniedCountRef.current >= 2
-                  ? "설정 열기"
-                  : locationPermission === "denied" && !isNative
-                    ? "새로고침"
-                    : "허용하기"}
+                {locationPermission === "denied" && !isNative
+                  ? "새로고침"
+                  : "허용하기"}
               </button>
             </div>
           </div>
