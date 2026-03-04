@@ -153,6 +153,9 @@ frontend/                  - Next.js app (port 5000)
 - Prisma 제거됨 — `postgres` 라이브러리로 직접 SQL 실행
 - Profile images: Base64 data URLs로 DB에 저장
 - Android APK: Google OAuth는 Chrome intent + UA stripping으로 WebView 호환
+- APK JavaScript Bridge: `window.OneChatBridge` — `openAppSettings()`, `hasLocationPermission()`, `requestLocationPermission()`
+- APK 위치 권한 흐름: "허용하기" → getCurrentPosition() → Android 시스템 팝업 → 성공/실패; 영구 거부 시 "설정 열기" → 앱 설정으로 이동; 설정에서 돌아오면 visibilitychange로 자동 재확인
+- APK 이벤트: `onechat-location-granted` — Java에서 권한 허용 시 WebView로 dispatch
 - 아바타: 프로필 이미지 없을 시 이니셜 + 시드 기반 컬러 폴백 표시
 - 관리자 답변: 신고/문의 답변 500자 제한, 답변 완료 후에도 기존 답변 내용 유지
 - APK 재빌드: 네이티브 코드 변경 시에만 필요

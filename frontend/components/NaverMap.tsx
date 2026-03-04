@@ -425,8 +425,8 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
   const isNative = isNativeApp || isCapNative;
 
   const [locationGranted, setLocationGranted] = useState(false);
+  const [nativePermDeniedPermanently, setNativePermDeniedPermanently] = useState(false);
 
-  // check permission state, show pre-permission dialog if needed
   useEffect(() => {
     const checkPerm = async () => {
       if (isCapNative) {
@@ -440,6 +440,18 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
             setShowLocationGuide(true);
           }
         } catch {
+          setLocationPermission("prompt");
+          setShowLocationGuide(true);
+        }
+        return;
+      }
+
+      if (isNativeApp) {
+        const bridge = (window as any).OneChatBridge;
+        if (bridge && bridge.hasLocationPermission && bridge.hasLocationPermission()) {
+          setLocationPermission("granted");
+          setLocationGranted(true);
+        } else {
           setLocationPermission("prompt");
           setShowLocationGuide(true);
         }
@@ -467,15 +479,37 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
         } catch {}
       }
 
-      if (isNativeApp) {
-        setLocationPermission("prompt");
-        setShowLocationGuide(true);
-      } else {
-        setShowLocationGuide(true);
-      }
+      setShowLocationGuide(true);
     };
     checkPerm();
   }, [isCapNative, isNativeApp]);
+
+  useEffect(() => {
+    if (!isNativeApp) return;
+
+    const handleGranted = () => {
+      setLocationPermission("granted");
+      setShowLocationGuide(false);
+      setLocationGranted(true);
+      setNativePermDeniedPermanently(false);
+    };
+    window.addEventListener("onechat-location-granted", handleGranted);
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible" && isNativeApp) {
+        const bridge = (window as any).OneChatBridge;
+        if (bridge && bridge.hasLocationPermission && bridge.hasLocationPermission()) {
+          handleGranted();
+        }
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener("onechat-location-granted", handleGranted);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [isNativeApp]);
 
   const retryLocationRef = useRef<(() => void) | null>(null);
 
@@ -1191,13 +1225,13 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
                   </ol>
                 </div>
               )}
-              {locationPermission === "denied" && isNative && (
+              {(locationPermission === "denied" || nativePermDeniedPermanently) && isNative && (
                 <div className="mt-3 rounded-xl bg-blue-50 px-4 py-3">
                   <p className="text-xs font-semibold text-blue-800 mb-1">앱 설정에서 권한을 변경해주세요:</p>
                   <ol className="text-xs text-blue-700 space-y-0.5 list-decimal pl-4">
-                    <li>휴대폰 설정 → 앱 → OneChat</li>
+                    <li>아래 「설정 열기」 버튼을 탭</li>
                     <li>「권한」→「위치」를 「허용」으로 변경</li>
-                    <li>아래 「다시 요청」버튼을 탭</li>
+                    <li>앱으로 돌아오면 자동으로 적용됩니다</li>
                   </ol>
                 </div>
               )}
@@ -1233,7 +1267,30 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
                     } catch {
                       setLocationPermission("denied");
                     }
-                  } else if (locationPermission === "denied" && !isNativeApp) {
+                  } else if (isNativeApp) {
+                    const bridge = (window as any).OneChatBridge;
+                    if (nativePermDeniedPermanently || locationPermission === "denied") {
+                      if (bridge?.openAppSettings) {
+                        bridge.openAppSettings();
+                      }
+                    } else {
+                      navigator.geolocation.getCurrentPosition(
+                        (pos) => {
+                          setLocationPermission("granted");
+                          setShowLocationGuide(false);
+                          setLocationGranted(true);
+                          setNativePermDeniedPermanently(false);
+                        },
+                        (err) => {
+                          if (err.code === 1) {
+                            setLocationPermission("denied");
+                            setNativePermDeniedPermanently(true);
+                          }
+                        },
+                        { enableHighAccuracy: true, timeout: 10000 }
+                      );
+                    }
+                  } else if (locationPermission === "denied") {
                     setShowLocationGuide(false);
                     window.location.reload();
                   } else {
@@ -1243,7 +1300,11 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
                 }}
                 className="flex-1 py-3.5 text-sm text-blue-600 font-bold"
               >
-                {locationPermission === "denied" && !isNative ? "새로고침" : "허용하기"}
+                {isNative && (nativePermDeniedPermanently || locationPermission === "denied")
+                  ? "설정 열기"
+                  : locationPermission === "denied" && !isNative
+                    ? "새로고침"
+                    : "허용하기"}
               </button>
             </div>
           </div>

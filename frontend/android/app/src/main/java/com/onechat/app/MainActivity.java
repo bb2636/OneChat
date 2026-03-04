@@ -4,8 +4,10 @@ import android.content.Intent;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.provider.Settings;
 import android.util.Log;
 import android.webkit.GeolocationPermissions;
+import android.webkit.JavascriptInterface;
 import android.webkit.PermissionRequest;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
@@ -28,6 +30,7 @@ public class MainActivity extends BridgeActivity {
 
     private static final String TAG = "OneChat";
     private static final int PERMISSION_REQUEST_CODE = 1001;
+    private static final int LOCATION_PERMISSION_REQUEST_CODE = 1002;
 
     private GeolocationPermissions.Callback pendingGeolocationCallback;
     private String pendingGeolocationOrigin;
@@ -48,10 +51,14 @@ public class MainActivity extends BridgeActivity {
             return;
         }
 
+        webView.addJavascriptInterface(new OneChatBridge(), "OneChatBridge");
+
         WebSettings settings = webView.getSettings();
         String ua = settings.getUserAgentString();
-        ua = ua.replace("; wv)", ")").replace(" Version/4.0", "");
-        settings.setUserAgentString(ua + " OneChat-Android");
+        if (!ua.contains("OneChat-Android")) {
+            ua = ua.replace("; wv)", ")").replace(" Version/4.0", "");
+            settings.setUserAgentString(ua + " OneChat-Android");
+        }
         settings.setGeolocationEnabled(true);
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
@@ -67,7 +74,12 @@ public class MainActivity extends BridgeActivity {
                 } else {
                     pendingGeolocationCallback = callback;
                     pendingGeolocationOrigin = origin;
-                    requestLocationPermission();
+                    ActivityCompat.requestPermissions(MainActivity.this,
+                        new String[]{
+                            Manifest.permission.ACCESS_FINE_LOCATION,
+                            Manifest.permission.ACCESS_COARSE_LOCATION
+                        },
+                        LOCATION_PERMISSION_REQUEST_CODE);
                 }
             }
 
@@ -109,18 +121,35 @@ public class MainActivity extends BridgeActivity {
         });
     }
 
+    private class OneChatBridge {
+        @JavascriptInterface
+        public void openAppSettings() {
+            Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+            intent.setData(Uri.parse("package:" + getPackageName()));
+            startActivity(intent);
+        }
+
+        @JavascriptInterface
+        public boolean hasLocationPermission() {
+            return MainActivity.this.hasLocationPermission();
+        }
+
+        @JavascriptInterface
+        public void requestLocationPermission() {
+            runOnUiThread(() -> {
+                ActivityCompat.requestPermissions(MainActivity.this,
+                    new String[]{
+                        Manifest.permission.ACCESS_FINE_LOCATION,
+                        Manifest.permission.ACCESS_COARSE_LOCATION
+                    },
+                    LOCATION_PERMISSION_REQUEST_CODE);
+            });
+        }
+    }
+
     private boolean hasLocationPermission() {
         return ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
             || ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED;
-    }
-
-    private void requestLocationPermission() {
-        ActivityCompat.requestPermissions(this,
-            new String[]{
-                Manifest.permission.ACCESS_FINE_LOCATION,
-                Manifest.permission.ACCESS_COARSE_LOCATION
-            },
-            PERMISSION_REQUEST_CODE);
     }
 
     private void requestAllPermissions() {
@@ -150,12 +179,24 @@ public class MainActivity extends BridgeActivity {
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
 
-        if (requestCode == PERMISSION_REQUEST_CODE) {
+        if (requestCode == LOCATION_PERMISSION_REQUEST_CODE || requestCode == PERMISSION_REQUEST_CODE) {
             if (pendingGeolocationCallback != null && pendingGeolocationOrigin != null) {
                 boolean locationGranted = hasLocationPermission();
                 pendingGeolocationCallback.invoke(pendingGeolocationOrigin, locationGranted, false);
                 pendingGeolocationCallback = null;
                 pendingGeolocationOrigin = null;
+            }
+
+            if (hasLocationPermission()) {
+                WebView webView = getBridge().getWebView();
+                if (webView != null) {
+                    runOnUiThread(() -> {
+                        webView.evaluateJavascript(
+                            "window.dispatchEvent(new Event('onechat-location-granted'));",
+                            null
+                        );
+                    });
+                }
             }
         }
     }
