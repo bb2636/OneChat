@@ -21,6 +21,7 @@ import android.content.pm.PackageManager;
 import android.Manifest;
 
 import com.getcapacitor.BridgeActivity;
+import com.getcapacitor.BridgeWebChromeClient;
 import com.getcapacitor.BridgeWebViewClient;
 
 import java.util.ArrayList;
@@ -31,28 +32,84 @@ public class MainActivity extends BridgeActivity {
     private static final String TAG = "OneChat";
     private static final int LOCATION_PERMISSION_REQUEST_CODE = 1002;
     private static final int NOTIFICATION_PERMISSION_REQUEST_CODE = 1003;
-    private static final int CAMERA_PERMISSION_REQUEST_CODE = 1004;
 
     private GeolocationPermissions.Callback pendingGeolocationCallback;
     private String pendingGeolocationOrigin;
 
     @Override
-    public void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
+    protected void load() {
+        super.load();
+
+        Log.d(TAG, "load() called, bridge created, setting up WebView");
 
         WebView webView = getBridge().getWebView();
-        if (webView == null) return;
+        if (webView == null) {
+            Log.e(TAG, "WebView is null after bridge creation!");
+            return;
+        }
+
+        Log.d(TAG, "WebView found, injecting OneChatBridge");
 
         webView.addJavascriptInterface(new OneChatBridge(), "OneChatBridge");
 
         WebSettings settings = webView.getSettings();
         String ua = settings.getUserAgentString();
+        Log.d(TAG, "Original UA: " + ua);
         ua = ua.replace("; wv)", ")").replace(" Version/4.0", "");
         settings.setUserAgentString(ua + " OneChat-Android");
         settings.setGeolocationEnabled(true);
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
         settings.setMediaPlaybackRequiresUserGesture(false);
+        Log.d(TAG, "New UA: " + settings.getUserAgentString());
+
+        webView.setWebChromeClient(new BridgeWebChromeClient(getBridge()) {
+            @Override
+            public void onGeolocationPermissionsShowPrompt(String origin, GeolocationPermissions.Callback callback) {
+                Log.d(TAG, "onGeolocationPermissionsShowPrompt: " + origin);
+                if (hasLocationPermission()) {
+                    Log.d(TAG, "Location already granted");
+                    callback.invoke(origin, true, false);
+                } else {
+                    Log.d(TAG, "Requesting location permission from system");
+                    pendingGeolocationCallback = callback;
+                    pendingGeolocationOrigin = origin;
+                    ActivityCompat.requestPermissions(MainActivity.this,
+                        new String[]{
+                            Manifest.permission.ACCESS_FINE_LOCATION,
+                            Manifest.permission.ACCESS_COARSE_LOCATION
+                        },
+                        LOCATION_PERMISSION_REQUEST_CODE);
+                }
+            }
+
+            @Override
+            public void onGeolocationPermissionsHidePrompt() {
+                Log.d(TAG, "onGeolocationPermissionsHidePrompt");
+            }
+
+            @Override
+            public void onPermissionRequest(PermissionRequest request) {
+                String[] resources = request.getResources();
+                List<String> granted = new ArrayList<>();
+
+                for (String resource : resources) {
+                    if (PermissionRequest.RESOURCE_VIDEO_CAPTURE.equals(resource)) {
+                        if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+                            granted.add(resource);
+                        }
+                    } else if (PermissionRequest.RESOURCE_AUDIO_CAPTURE.equals(resource)) {
+                        granted.add(resource);
+                    }
+                }
+
+                if (!granted.isEmpty()) {
+                    request.grant(granted.toArray(new String[0]));
+                } else {
+                    request.deny();
+                }
+            }
+        });
 
         getBridge().setWebViewClient(new BridgeWebViewClient(getBridge()) {
             @Override
@@ -68,56 +125,7 @@ public class MainActivity extends BridgeActivity {
             }
         });
 
-        webView.postDelayed(() -> {
-            Log.d(TAG, "Setting custom WebChromeClient (postDelayed)");
-            webView.setWebChromeClient(new WebChromeClient() {
-                @Override
-                public void onGeolocationPermissionsShowPrompt(String origin, GeolocationPermissions.Callback callback) {
-                    Log.d(TAG, "onGeolocationPermissionsShowPrompt: " + origin);
-                    if (hasLocationPermission()) {
-                        Log.d(TAG, "Location already granted, invoking callback");
-                        callback.invoke(origin, true, false);
-                    } else {
-                        Log.d(TAG, "Requesting location permission from system");
-                        pendingGeolocationCallback = callback;
-                        pendingGeolocationOrigin = origin;
-                        ActivityCompat.requestPermissions(MainActivity.this,
-                            new String[]{
-                                Manifest.permission.ACCESS_FINE_LOCATION,
-                                Manifest.permission.ACCESS_COARSE_LOCATION
-                            },
-                            LOCATION_PERMISSION_REQUEST_CODE);
-                    }
-                }
-
-                @Override
-                public void onGeolocationPermissionsHidePrompt() {
-                    Log.d(TAG, "onGeolocationPermissionsHidePrompt");
-                }
-
-                @Override
-                public void onPermissionRequest(PermissionRequest request) {
-                    String[] resources = request.getResources();
-                    List<String> granted = new ArrayList<>();
-
-                    for (String resource : resources) {
-                        if (PermissionRequest.RESOURCE_VIDEO_CAPTURE.equals(resource)) {
-                            if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
-                                granted.add(resource);
-                            }
-                        } else if (PermissionRequest.RESOURCE_AUDIO_CAPTURE.equals(resource)) {
-                            granted.add(resource);
-                        }
-                    }
-
-                    if (!granted.isEmpty()) {
-                        request.grant(granted.toArray(new String[0]));
-                    } else {
-                        request.deny();
-                    }
-                }
-            });
-        }, 500);
+        Log.d(TAG, "WebView setup complete");
     }
 
     private class OneChatBridge {
