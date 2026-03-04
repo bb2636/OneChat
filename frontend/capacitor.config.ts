@@ -9,13 +9,17 @@ const config: CapacitorConfig = {
     cleartext: true
   },
   android: {
-    allowMixedContent: true
+    allowMixedContent: true,
+    webContentsDebuggingEnabled: true
   },
   plugins: {
     SplashScreen: {
       launchShowDuration: 2000,
       backgroundColor: '#6366f1',
       showSpinner: false
+    },
+    Geolocation: {
+      permissions: ['location']
     }
   }
 };
