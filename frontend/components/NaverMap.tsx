@@ -422,35 +422,60 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
 
   const isNative = Capacitor.isNativePlatform();
 
-  // check permission state via Permissions API
+  const [locationGranted, setLocationGranted] = useState(false);
+
+  // check permission state, show pre-permission dialog if needed
   useEffect(() => {
-    if (isNative) {
-      Geolocation.checkPermissions().then((status) => {
-        const state = status.location === "granted" ? "granted" : status.location === "denied" ? "denied" : "prompt";
-        setLocationPermission(state);
-      }).catch(() => {});
-      return;
-    }
-    if (!navigator.permissions) return;
-    let cancelled = false;
-    navigator.permissions.query({ name: "geolocation" as PermissionName }).then((status) => {
-      if (cancelled) return;
-      setLocationPermission(status.state as "granted" | "denied" | "prompt");
-      status.addEventListener("change", () => {
-        setLocationPermission(status.state as "granted" | "denied" | "prompt");
-        if (status.state === "granted") {
-          setShowLocationGuide(false);
-          retryLocationRef.current?.();
+    const checkPerm = async () => {
+      if (isNative) {
+        try {
+          const status = await Geolocation.checkPermissions();
+          if (status.location === "granted") {
+            setLocationPermission("granted");
+            setLocationGranted(true);
+          } else {
+            setLocationPermission("prompt");
+            setShowLocationGuide(true);
+          }
+        } catch {
+          setLocationPermission("prompt");
+          setShowLocationGuide(true);
         }
-      });
-    }).catch(() => {});
-    return () => { cancelled = true; };
+      } else {
+        if (!navigator.permissions) {
+          setShowLocationGuide(true);
+          return;
+        }
+        try {
+          const status = await navigator.permissions.query({ name: "geolocation" as PermissionName });
+          setLocationPermission(status.state as "granted" | "denied" | "prompt");
+          if (status.state === "granted") {
+            setLocationGranted(true);
+          } else {
+            setShowLocationGuide(true);
+          }
+          status.addEventListener("change", () => {
+            const newState = status.state as "granted" | "denied" | "prompt";
+            setLocationPermission(newState);
+            if (newState === "granted") {
+              setShowLocationGuide(false);
+              setLocationGranted(true);
+            }
+          });
+        } catch {
+          setShowLocationGuide(true);
+        }
+      }
+    };
+    checkPerm();
   }, [isNative]);
 
   const retryLocationRef = useRef<(() => void) | null>(null);
 
-  // watchPosition for live location tracking
+  // watchPosition — only starts after permission is granted
   useEffect(() => {
+    if (!locationGranted) return;
+
     const fallbackLocation = { latitude: 37.5665, longitude: 126.978 };
     let settled = false;
     let watchId: number | null = null;
@@ -474,18 +499,6 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
 
     const startNativeTracking = async () => {
       try {
-        let perm = await Geolocation.checkPermissions();
-        if (perm.location !== "granted") {
-          perm = await Geolocation.requestPermissions();
-        }
-        if (perm.location === "denied") {
-          setLocationPermission("denied");
-          setShowLocationGuide(true);
-          finishWith(fallbackLocation);
-          return;
-        }
-        setLocationPermission("granted");
-
         const pos = await Geolocation.getCurrentPosition({ enableHighAccuracy: true, timeout: 10000 });
         finishWith(
           { latitude: pos.coords.latitude, longitude: pos.coords.longitude },
@@ -501,15 +514,12 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
             if (accuracy !== null && accuracy !== undefined && accuracy > MAX_UI_ACCURACY_METERS) return;
             currentAccuracyRef.current = typeof accuracy === "number" ? accuracy : null;
             hasReceivedRealLocationRef.current = true;
-            setLocationPermission("granted");
-            setShowLocationGuide(false);
             finishWith({ latitude, longitude }, accuracy ?? undefined, true);
           }
         );
       } catch (e) {
         console.warn("Native geolocation error:", e);
         finishWith(fallbackLocation);
-        setShowLocationGuide(true);
       }
     };
 
@@ -536,6 +546,7 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
           if (error.code === 1) {
             setLocationPermission("denied");
             setShowLocationGuide(true);
+            setLocationGranted(false);
           }
           if (!settled) finishWith(fallbackLocation);
         },
@@ -549,16 +560,10 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
           if (accuracy && accuracy > MAX_UI_ACCURACY_METERS) return;
           currentAccuracyRef.current = typeof accuracy === "number" ? accuracy : null;
           hasReceivedRealLocationRef.current = true;
-          setLocationPermission("granted");
-          setShowLocationGuide(false);
           finishWith({ latitude, longitude }, accuracy, true);
         },
         (error) => {
           console.warn("watchPosition error:", error.code, error.message);
-          if (error.code === 1) {
-            setLocationPermission("denied");
-            setShowLocationGuide(true);
-          }
           if (!settled) finishWith(fallbackLocation);
         },
         { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
@@ -590,7 +595,7 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
       if (nativeWatchId !== null) Geolocation.clearWatch({ id: nativeWatchId });
       retryLocationRef.current = null;
     };
-  }, [isNative]);
+  }, [isNative, locationGranted]);
 
   // throttled DB sync every 10s or more
   useEffect(() => {
@@ -1156,15 +1161,17 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-6">
           <div className="w-full max-w-sm rounded-2xl bg-white shadow-2xl">
             <div className="px-6 pt-6 pb-4">
-              <div className="mb-3 flex items-center gap-2">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-blue-600">
-                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-                  <circle cx="12" cy="10" r="3" />
-                </svg>
-                <h3 className="text-base font-bold text-gray-900">위치 권한이 필요합니다</h3>
+              <div className="mb-4 flex justify-center">
+                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-blue-100">
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-blue-600">
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                    <circle cx="12" cy="10" r="3" />
+                  </svg>
+                </div>
               </div>
-              <p className="text-sm text-gray-600 leading-relaxed">
-                원챗은 주변 사용자를 찾기 위해 위치 정보가 필요합니다. 위치 권한을 허용해주세요.
+              <h3 className="text-center text-base font-bold text-gray-900 mb-2">위치 권한이 필요합니다</h3>
+              <p className="text-center text-sm text-gray-600 leading-relaxed">
+                원챗은 주변 사용자를 찾고 지도에 내 위치를 표시하기 위해 위치 정보가 필요합니다.
               </p>
               {locationPermission === "denied" && !isNative && (
                 <div className="mt-3 rounded-xl bg-blue-50 px-4 py-3">
@@ -1191,7 +1198,13 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
             <div className="flex border-t border-gray-200">
               <button
                 type="button"
-                onClick={() => setShowLocationGuide(false)}
+                onClick={() => {
+                  setShowLocationGuide(false);
+                  if (!locationGranted) {
+                    setUserLocation({ latitude: 37.5665, longitude: 126.978 });
+                    setIsLocationLoading(false);
+                  }
+                }}
                 className="flex-1 py-3.5 text-sm text-gray-500 font-medium"
               >
                 나중에
@@ -1200,29 +1213,30 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
               <button
                 type="button"
                 onClick={async () => {
-                  setShowLocationGuide(false);
-                  if (locationPermission === "denied" && !isNative) {
-                    window.location.reload();
-                  } else if (isNative) {
+                  if (isNative) {
                     try {
                       const perm = await Geolocation.requestPermissions();
                       if (perm.location === "granted") {
                         setLocationPermission("granted");
-                        retryLocationRef.current?.();
+                        setShowLocationGuide(false);
+                        setLocationGranted(true);
                       } else {
                         setLocationPermission("denied");
-                        setShowLocationGuide(true);
                       }
                     } catch {
-                      retryLocationRef.current?.();
+                      setLocationPermission("denied");
                     }
+                  } else if (locationPermission === "denied") {
+                    setShowLocationGuide(false);
+                    window.location.reload();
                   } else {
-                    retryLocationRef.current?.();
+                    setShowLocationGuide(false);
+                    setLocationGranted(true);
                   }
                 }}
                 className="flex-1 py-3.5 text-sm text-blue-600 font-bold"
               >
-                {locationPermission === "denied" && !isNative ? "새로고침" : "다시 요청"}
+                {locationPermission === "denied" ? (isNative ? "다시 요청" : "새로고침") : "허용하기"}
               </button>
             </div>
           </div>
