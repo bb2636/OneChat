@@ -10,14 +10,17 @@ import {
   ChevronUp,
   FileText,
   LogOut,
+  Moon,
   MoreHorizontal,
   Search,
+  Sun,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { ChatListItem } from "@/components/ChatListItem";
 import { BottomNavigation } from "@/components/BottomNavigation";
 import { Skeleton } from "@/components/ui";
 import { cn } from "@/lib/cn";
+import { useTheme } from "@/components/ThemeProvider";
 import type { Chat } from "@/types";
 
 interface MainPageProps {
@@ -93,6 +96,7 @@ type MyPageScreen =
 export function MainPage({ initialChats }: MainPageProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { theme, toggleTheme } = useTheme();
   const [activeTab, setActiveTab] = useState<"map" | "chat" | "friends" | "mypage">(
     "chat"
   );
@@ -1240,6 +1244,28 @@ export function MainPage({ initialChats }: MainPageProps) {
                   문의 하기
                 </span>
                 <ChevronRight className="h-4 w-4 text-gray-500" />
+              </button>
+            </div>
+
+            <div className="mt-3 rounded-2xl border border-gray-100 bg-white p-3 shadow-sm">
+              <p className="mb-2 text-xs text-gray-500">설정</p>
+              <button
+                type="button"
+                onClick={toggleTheme}
+                className="flex h-10 w-full items-center justify-between text-sm text-gray-900"
+              >
+                <span className="inline-flex items-center gap-2">
+                  {theme === "dark" ? (
+                    <Moon className="h-4 w-4" />
+                  ) : (
+                    <Sun className="h-4 w-4" />
+                  )}
+                  다크 모드
+                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-500">{theme === "dark" ? "켜짐" : "꺼짐"}</span>
+                  <ChevronRight className="h-4 w-4 text-gray-500" />
+                </div>
               </button>
             </div>
 

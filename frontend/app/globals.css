@@ -13,9 +13,41 @@
   --muted: 210 40% 96%;
   --muted-foreground: 215.4 16.3% 46.9%;
   --border: 214.3 31.8% 91.4%;
+  --secondary: 210 40% 96%;
+  --secondary-foreground: 222.2 47.4% 11.2%;
+  --accent: 210 40% 96%;
+  --accent-foreground: 222.2 47.4% 11.2%;
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 210 40% 98%;
+  --ring: 222.2 84% 56.5%;
+  --input: 214.3 31.8% 91.4%;
+  --chat-pane: 210 20% 99%;
+  --chat-bubbleUser: 222.2 84% 56.5%;
+  --chat-bubbleAssistant: 210 40% 96%;
   --radius-lg: 16px;
   --radius-md: 12px;
   --radius-sm: 8px;
+}
+
+.dark {
+  --background: 0 0% 0%;
+  --foreground: 0 0% 100%;
+  --primary: 0 0% 100%;
+  --primary-foreground: 0 0% 0%;
+  --muted: 0 0% 15%;
+  --muted-foreground: 0 0% 70%;
+  --border: 0 0% 20%;
+  --secondary: 0 0% 15%;
+  --secondary-foreground: 0 0% 100%;
+  --accent: 0 0% 15%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 0 0% 100%;
+  --ring: 0 0% 100%;
+  --input: 0 0% 20%;
+  --chat-pane: 0 0% 5%;
+  --chat-bubbleUser: 0 0% 100%;
+  --chat-bubbleAssistant: 0 0% 20%;
 }
 
 *,

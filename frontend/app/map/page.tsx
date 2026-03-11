@@ -10,6 +10,14 @@ export default function MapPage() {
   const [userId, setUserId] = useState<string | undefined>(undefined);
   const [activeTab, setActiveTab] = useState<TabType>("map");
 
+  // 지도 페이지는 다크모드 제외
+  useEffect(() => {
+    document.documentElement.classList.remove("dark");
+    return () => {
+      // 페이지를 떠날 때는 원래 테마로 복원하지 않음 (다른 페이지에서 처리)
+    };
+  }, []);
+
   useEffect(() => {
     // 현재 로그인한 유저 ID 가져오기
     // TODO: 실제 세션/쿠키에서 가져오도록 수정 필요
@@ -66,7 +74,7 @@ export default function MapPage() {
   };
 
   return (
-    <div className="relative h-screen w-full max-w-md mx-auto overflow-hidden bg-white">
+    <div className="relative h-screen w-full max-w-md mx-auto overflow-hidden bg-white dark:bg-white">
       <NaverMap className="h-full w-full" userId={userId} />
       <BottomNavigation activeTab={activeTab} onTabChange={handleTabChange} unreadChatCount={0} />
     </div>
