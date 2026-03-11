@@ -191,13 +191,13 @@ function LoginForm() {
           </div>
 
           {/* 로그인 버튼 */}
-          <Button
+          <button
             type="submit"
             disabled={isLoading}
-            className="w-full h-12 font-semibold rounded-md transition-colors bg-white hover:bg-gray-200 text-black"
+            className="w-full h-12 font-semibold rounded-md transition-colors bg-white hover:bg-gray-200 text-black disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {isLoading ? "로그인 중..." : "로그인"}
-          </Button>
+          </button>
 
           {/* 링크 */}
           <div className="flex justify-center gap-2 text-sm">
