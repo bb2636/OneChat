@@ -210,7 +210,7 @@ export default function SignupStep4Page() {
                 onKeyDown={(e) => handleKeyDown(index, e)}
                 autoComplete={index === 0 ? "one-time-code" : "off"}
                 pattern="[0-9]*"
-                className="w-12 h-14 text-center text-2xl font-semibold border-2 border-border rounded-lg dark:focus:border-white focus:outline-none bg-background text-foreground"
+                className="w-12 h-14 text-center text-2xl font-semibold border-2 border-border rounded-lg dark:focus:border-white focus:outline-none bg-background text-foreground focus:bg-background dark:focus:bg-background"
               />
             ))}
           </div>

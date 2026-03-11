@@ -1500,7 +1500,7 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
                   value={roomName}
                   onChange={(e) => setRoomName(e.target.value)}
                   placeholder="채팅방 이름을 입력해주세요. (필수)"
-                  className="h-8 flex-1 bg-transparent text-sm outline-none text-foreground placeholder:text-muted-foreground"
+                  className="h-8 flex-1 bg-transparent text-sm outline-none text-foreground placeholder:text-muted-foreground focus:bg-transparent dark:focus:bg-transparent"
                   maxLength={30}
                 />
                 <span className="text-xs text-muted-foreground">{roomName.length}/30</span>
@@ -1513,7 +1513,7 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
                 value={roomDescription}
                 onChange={(e) => setRoomDescription(e.target.value)}
                 placeholder="채팅방 소개에 대해 설명해주세요"
-                className="h-24 w-full resize-none bg-transparent text-sm outline-none text-foreground placeholder:text-muted-foreground"
+                className="h-24 w-full resize-none bg-transparent text-sm outline-none text-foreground placeholder:text-muted-foreground focus:bg-transparent dark:focus:bg-transparent"
                 maxLength={300}
               />
               <div className="text-right text-xs text-muted-foreground">{roomDescription.length}/300</div>

@@ -33,7 +33,7 @@ export function Input({
           className={cn(
             "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground",
             "placeholder:text-muted-foreground",
-            "focus-visible:outline-none dark:focus-visible:border-white",
+            "focus-visible:outline-none dark:focus-visible:border-white focus-visible:bg-background dark:focus-visible:bg-background",
             "disabled:cursor-not-allowed disabled:opacity-50",
             "transition-colors",
             leftIcon ? "pl-9" : undefined,

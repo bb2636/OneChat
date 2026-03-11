@@ -111,7 +111,7 @@ export default function ForgotPasswordStep2Page() {
               value={phoneNumber}
               onChange={handlePhoneChange}
               placeholder="휴대폰 번호를 입력해주세요."
-              className="w-full h-12 rounded-lg border border-border bg-background px-4 text-foreground text-sm placeholder:text-sm placeholder:text-muted-foreground focus:outline-none dark:focus:border-white transition-colors"
+              className="w-full h-12 rounded-lg border border-border bg-background px-4 text-foreground text-sm placeholder:text-sm placeholder:text-muted-foreground focus:outline-none dark:focus:border-white focus:bg-background dark:focus:bg-background transition-colors"
               maxLength={13} // 010-0000-0000
             />
           </div>
@@ -127,7 +127,7 @@ export default function ForgotPasswordStep2Page() {
           className={cn(
             "w-full font-medium h-12 rounded-lg transition-colors",
             isPhoneValid
-              ? "bg-blue-500 hover:bg-blue-600 text-white"
+              ? "bg-white hover:bg-gray-100 text-black"
               : "bg-gray-300 text-gray-500 cursor-not-allowed"
           )}
         >

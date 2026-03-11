@@ -230,7 +230,7 @@ export default function ForgotPasswordStep3Page() {
                 inputMode="numeric"
                 autoComplete={index === 0 ? "one-time-code" : "off"}
                 pattern="[0-9]*"
-                className="w-12 h-12 text-center text-xl font-bold rounded-lg border border-border bg-background text-foreground focus:outline-none dark:focus:border-white transition-colors"
+                className="w-12 h-12 text-center text-xl font-bold rounded-lg border border-border bg-background text-foreground focus:outline-none dark:focus:border-white focus:bg-background dark:focus:bg-background transition-colors"
               />
             ))}
           </div>
@@ -273,7 +273,7 @@ export default function ForgotPasswordStep3Page() {
           className={cn(
             "w-full font-medium h-12 rounded-lg transition-colors",
             isCodeComplete && isTimerActive
-              ? "bg-blue-500 hover:bg-blue-600 text-white"
+              ? "bg-white hover:bg-gray-100 text-black"
               : "bg-gray-300 text-gray-500 cursor-not-allowed"
           )}
         >

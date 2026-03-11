@@ -982,7 +982,7 @@ export function MainPage({ initialChats }: MainPageProps) {
                     <input
                       value={reportReason}
                       onChange={(e) => setReportReason(e.target.value)}
-                      className="h-11 w-full rounded-xl border border-border bg-background px-3 pr-12 text-sm outline-none text-foreground placeholder:text-muted-foreground dark:focus:border-white transition-colors"
+                      className="h-11 w-full rounded-xl border border-border bg-background px-3 pr-12 text-sm outline-none text-foreground placeholder:text-muted-foreground dark:focus:border-white focus:bg-background dark:focus:bg-background transition-colors"
                       placeholder="신고 제목을 입력해주세요."
                       maxLength={30}
                     />
@@ -998,7 +998,7 @@ export function MainPage({ initialChats }: MainPageProps) {
                     <textarea
                       value={reportDescription}
                       onChange={(e) => setReportDescription(e.target.value)}
-                      className="h-32 w-full resize-none rounded-xl border border-border bg-background px-3 py-2 pb-6 text-sm outline-none text-foreground placeholder:text-muted-foreground dark:focus:border-white transition-colors"
+                      className="h-32 w-full resize-none rounded-xl border border-border bg-background px-3 py-2 pb-6 text-sm outline-none text-foreground placeholder:text-muted-foreground dark:focus:border-white focus:bg-background dark:focus:bg-background transition-colors"
                       placeholder="신고 사유를 구체적으로 작성해주세요."
                       maxLength={300}
                     />
@@ -1014,7 +1014,7 @@ export function MainPage({ initialChats }: MainPageProps) {
                   type="button"
                   onClick={submitReport}
                   disabled={isSubmittingReport}
-                  className="h-11 w-full rounded-xl bg-blue-600 text-sm font-semibold text-white disabled:bg-blue-300"
+                  className="h-11 w-full rounded-xl bg-white text-sm font-semibold text-black disabled:bg-gray-300 disabled:text-gray-500"
                 >
                   신고하기
                 </button>
@@ -1137,7 +1137,7 @@ export function MainPage({ initialChats }: MainPageProps) {
                     <input
                       value={inquirySubject}
                       onChange={(e) => setInquirySubject(e.target.value.slice(0, 30))}
-                      className="h-10 w-full rounded-xl border border-border bg-background px-3 pr-12 text-sm outline-none text-foreground placeholder:text-muted-foreground focus:border-white dark:focus:border-white transition-colors"
+                      className="h-10 w-full rounded-xl border border-border bg-background px-3 pr-12 text-sm outline-none text-foreground placeholder:text-muted-foreground focus:border-white dark:focus:border-white focus:bg-background dark:focus:bg-background transition-colors"
                       placeholder="제목을 입력해주세요."
                       maxLength={30}
                     />
@@ -1151,7 +1151,7 @@ export function MainPage({ initialChats }: MainPageProps) {
                     <textarea
                       value={inquiryContent}
                       onChange={(e) => setInquiryContent(e.target.value.slice(0, 300))}
-                      className="h-32 w-full resize-none rounded-xl border border-border bg-background px-3 py-2 pb-6 text-sm outline-none text-foreground placeholder:text-muted-foreground dark:focus:border-white transition-colors"
+                      className="h-32 w-full resize-none rounded-xl border border-border bg-background px-3 py-2 pb-6 text-sm outline-none text-foreground placeholder:text-muted-foreground dark:focus:border-white focus:bg-background dark:focus:bg-background transition-colors"
                       placeholder="문의하실 내용을 입력해주세요."
                       maxLength={300}
                     />
@@ -1188,10 +1188,10 @@ export function MainPage({ initialChats }: MainPageProps) {
                   onClick={submitInquiry}
                   disabled={isSubmittingInquiry || isInquiryInvalid}
                   className={cn(
-                    "h-11 w-full rounded-xl text-sm font-semibold text-white",
+                    "h-11 w-full rounded-xl text-sm font-semibold",
                     isSubmittingInquiry || isInquiryInvalid
-                      ? "cursor-not-allowed bg-gray-300"
-                      : "bg-blue-600"
+                      ? "cursor-not-allowed bg-gray-300 text-gray-500"
+                      : "bg-white text-black hover:bg-gray-100"
                   )}
                 >
                   문의하기

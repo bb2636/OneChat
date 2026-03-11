@@ -107,7 +107,7 @@ export default function SignupStep3Page() {
             className={cn(
               "w-full font-medium py-3 rounded-lg",
               isPhoneValid
-                ? "bg-blue-500 hover:bg-blue-600 text-white"
+                ? "bg-white hover:bg-gray-100 text-black"
                 : "bg-gray-300 text-gray-500 cursor-not-allowed"
             )}
           >

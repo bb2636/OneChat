@@ -185,7 +185,7 @@ export default function MyPageEditPage() {
           value={nickname}
           onChange={(e) => setNickname(e.target.value)}
           disabled={!isEditing}
-          className={`mb-3 h-11 w-full rounded-xl border border-border px-3 text-sm outline-none dark:focus:border-white ${
+          className={`mb-3 h-11 w-full rounded-xl border border-border px-3 text-sm outline-none dark:focus:border-white focus:bg-background dark:focus:bg-background ${
             isEditing ? "bg-background text-foreground" : "bg-muted text-muted-foreground"
           }`}
         />
@@ -197,7 +197,7 @@ export default function MyPageEditPage() {
           onChange={(e) => setPassword(e.target.value)}
           disabled={!isEditing}
           placeholder={isEditing ? "새 비밀번호를 입력하세요" : "••••••••••••"}
-          className={`h-11 w-full rounded-xl border border-border px-3 text-sm outline-none dark:focus:border-white ${
+          className={`h-11 w-full rounded-xl border border-border px-3 text-sm outline-none dark:focus:border-white focus:bg-background dark:focus:bg-background ${
             isEditing ? "bg-background text-foreground placeholder:text-muted-foreground" : "bg-muted text-muted-foreground"
           }`}
         />
@@ -214,7 +214,7 @@ export default function MyPageEditPage() {
           type="button"
           onClick={handleSave}
           disabled={isSaving}
-          className="h-11 w-full rounded-xl bg-blue-600 text-sm font-semibold text-white disabled:bg-blue-300"
+          className="h-11 w-full rounded-xl bg-white text-sm font-semibold text-black disabled:bg-gray-300 disabled:text-gray-500"
         >
           {isEditing ? "수정 완료" : "프로필 수정하기"}
         </button>
