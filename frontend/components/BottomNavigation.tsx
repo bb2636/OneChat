@@ -26,7 +26,7 @@ export function BottomNavigation({
 
   return (
     <nav className="pointer-events-none fixed bottom-4 left-1/2 z-30 w-[calc(100%-28px)] max-w-[360px] -translate-x-1/2 safe-area-bottom">
-      <div className="pointer-events-auto flex h-14 items-center justify-around rounded-full border border-gray-100 bg-white px-2 shadow-[0_6px_18px_rgba(0,0,0,0.12)]">
+      <div className="pointer-events-auto flex h-14 items-center justify-around rounded-full border border-border bg-background px-2 shadow-[0_6px_18px_rgba(0,0,0,0.12)]">
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id;
           return (
@@ -35,7 +35,7 @@ export function BottomNavigation({
               onClick={() => onTabChange(tab.id)}
               className={cn(
                 "relative flex h-full flex-1 flex-col items-center justify-center rounded-full text-[11px] transition-colors",
-                isActive ? "text-blue-600" : "text-gray-500 hover:text-gray-700"
+                isActive ? "text-blue-600" : "text-muted-foreground hover:text-foreground"
               )}
             >
               <div className="relative">

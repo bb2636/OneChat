@@ -636,7 +636,7 @@ export function MainPage({ initialChats }: MainPageProps) {
         if (!chatsWithUnread || chatsWithUnread.length === 0) {
           return (
             <div className="flex items-center justify-center h-[calc(100vh-200px)]">
-              <p className="text-gray-400 text-center">
+              <p className="text-muted-foreground text-center">
                 새로운 메시지가 없습니다.
               </p>
             </div>
@@ -644,7 +644,7 @@ export function MainPage({ initialChats }: MainPageProps) {
         }
 
         return (
-          <div className="bg-white">
+          <div className="bg-background">
             {chatsWithUnread.map((chat) => (
               <ChatListItem
                 key={chat.id}
@@ -679,8 +679,8 @@ export function MainPage({ initialChats }: MainPageProps) {
           return (
             <div className="px-3">
               <div className="flex h-[calc(100vh-265px)] flex-col items-center justify-center rounded-2xl bg-transparent">
-                <p className="mb-1 text-xs text-gray-400">주변을 둘러보며</p>
-                <p className="mb-4 text-xs text-gray-400">친구를 추가해보세요.</p>
+                <p className="mb-1 text-xs text-muted-foreground">주변을 둘러보며</p>
+                <p className="mb-4 text-xs text-muted-foreground">친구를 추가해보세요.</p>
                 <button
                   type="button"
                   onClick={() => router.push("/map")}
@@ -695,7 +695,7 @@ export function MainPage({ initialChats }: MainPageProps) {
 
         return (
           <div className="px-3">
-            <div className="rounded-2xl bg-white/90">
+            <div className="rounded-2xl bg-background/90">
             {isFriendsSectionOpen &&
               friends.map((friend) => (
               <div key={friend.id} className="relative overflow-hidden">
@@ -728,8 +728,8 @@ export function MainPage({ initialChats }: MainPageProps) {
                     }
                   }}
                   className={cn(
-                    "relative z-10 flex w-full items-center justify-between bg-white px-3 py-2.5 text-left",
-                    isEditMode ? "hover:bg-gray-50" : ""
+                    "relative z-10 flex w-full items-center justify-between bg-background px-3 py-2.5 text-left",
+                    isEditMode ? "hover:bg-muted" : ""
                   )}
                   style={{
                     transform: `translateX(${
@@ -752,9 +752,9 @@ export function MainPage({ initialChats }: MainPageProps) {
                         className="h-9 w-9 rounded-full object-cover"
                       />
                     ) : (
-                      <div className="h-9 w-9 rounded-full bg-gray-200" />
+                      <div className="h-9 w-9 rounded-full bg-muted" />
                     )}
-                    <span className="text-sm font-medium text-gray-900">
+                    <span className="text-sm font-medium text-foreground">
                       {friend.name || friend.nickname || "이름 없음"}
                     </span>
                   </div>
@@ -765,7 +765,7 @@ export function MainPage({ initialChats }: MainPageProps) {
                         "h-[18px] w-[18px] rounded-full border text-center text-[10px] leading-[16px]",
                         selectedFriendIds.has(friend.id)
                           ? "border-blue-600 bg-blue-600 text-white"
-                          : "border-gray-300 text-transparent"
+                          : "border-border text-transparent"
                       )}
                     >
                       ✓
@@ -783,7 +783,7 @@ export function MainPage({ initialChats }: MainPageProps) {
           return (
             <div className="px-3 pt-2">
               <div className="mb-2 flex items-center justify-between">
-                <p className="text-sm font-semibold text-gray-900">신고 내역</p>
+                <p className="text-sm font-semibold text-foreground">신고 내역</p>
                 <button
                   type="button"
                   className="text-sm font-semibold text-blue-600"
@@ -792,10 +792,10 @@ export function MainPage({ initialChats }: MainPageProps) {
                   신고하기
                 </button>
               </div>
-              <p className="mb-3 text-xs text-gray-500">신고내역 {reports.length}개</p>
+              <p className="mb-3 text-xs text-muted-foreground">신고내역 {reports.length}개</p>
               <div className="space-y-2">
                 {reports.length === 0 ? (
-                  <div className="flex h-[calc(100vh-260px)] items-center justify-center text-sm text-gray-400">
+                  <div className="flex h-[calc(100vh-260px)] items-center justify-center text-sm text-muted-foreground">
                     신고된 내역이 없어요.
                   </div>
                 ) : (
@@ -814,7 +814,7 @@ export function MainPage({ initialChats }: MainPageProps) {
                           "inline-flex rounded border px-2 py-0.5 text-[10px]",
                           item.display_status === "신고완료"
                             ? "border-blue-600 bg-blue-600 text-white"
-                            : "border-gray-300 bg-white text-gray-500"
+                            : "border-border bg-background text-muted-foreground"
                         )}
                       >
                         {item.display_status}
@@ -822,7 +822,7 @@ export function MainPage({ initialChats }: MainPageProps) {
                       <p className="mt-2 text-sm font-semibold text-gray-900">
                         {item.reported_name || item.reported_nickname || "사용자"} · {item.type}
                       </p>
-                      <p className="mt-1 line-clamp-2 text-xs text-gray-500">{item.reason}</p>
+                      <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{item.reason}</p>
                     </button>
                   ))
                 )}
@@ -851,22 +851,22 @@ export function MainPage({ initialChats }: MainPageProps) {
                 {selectedReport.display_status}
               </span>
 
-              <h3 className="mt-3 text-[24px] font-semibold leading-snug text-gray-900">
+              <h3 className="mt-3 text-[24px] font-semibold leading-snug text-foreground">
                 {selectedReport.type}
               </h3>
-              <p className="mt-3 text-sm font-semibold text-gray-800">{targetName}</p>
-              <p className="text-xs text-gray-400">{formatKDateTime(selectedReport.created_at)}</p>
-              <p className="mt-4 whitespace-pre-wrap break-all text-sm leading-6 text-gray-600">
+              <p className="mt-3 text-sm font-semibold text-foreground">{targetName}</p>
+              <p className="text-xs text-muted-foreground">{formatKDateTime(selectedReport.created_at)}</p>
+              <p className="mt-4 whitespace-pre-wrap break-all text-sm leading-6 text-muted-foreground">
                 {selectedReport.reason}
                 {selectedReport.description ? `\n\n${selectedReport.description}` : ""}
               </p>
 
-              <div className="my-5 border-t border-gray-200" />
+              <div className="my-5 border-t border-border" />
 
               {isDone ? (
                 <>
-                  <p className="text-sm font-semibold text-gray-800">원챗 고객지원팀</p>
-                  <p className="text-xs text-gray-400">
+                  <p className="text-sm font-semibold text-foreground">원챗 고객지원팀</p>
+                  <p className="text-xs text-muted-foreground">
                     {formatKDateTime(selectedReport.handled_at || selectedReport.created_at)}
                   </p>
                   <p className="mt-4 whitespace-pre-wrap break-all text-sm leading-6 text-gray-700">
@@ -875,7 +875,7 @@ export function MainPage({ initialChats }: MainPageProps) {
                       "신고해주신 내용을 확인했고 검토를 진행했습니다. 관련 정책에 따라 필요한 조치를 처리했습니다."
                     }`}
                   </p>
-                  <div className="my-5 border-t border-gray-200" />
+                  <div className="my-5 border-t border-border" />
                 </>
               ) : (
                 <div className="flex h-[36vh] items-center justify-center">
@@ -894,8 +894,8 @@ export function MainPage({ initialChats }: MainPageProps) {
           return (
             <div className="px-0 pt-0">
               <div className="mb-3 bg-[#eef0f2] px-4 py-3">
-                <p className="text-xs font-semibold text-gray-600">안내</p>
-                <p className="mt-1 text-xs text-gray-500">허위 신고 시 제재를 받을 수 있습니다.</p>
+                <p className="text-xs font-semibold text-foreground">안내</p>
+                <p className="mt-1 text-xs text-muted-foreground">허위 신고 시 제재를 받을 수 있습니다.</p>
               </div>
 
               <div className="space-y-4 px-3">
@@ -929,8 +929,8 @@ export function MainPage({ initialChats }: MainPageProps) {
                                 setIsReportTargetModalOpen(false);
                               }}
                               className={cn(
-                                "flex h-16 w-full items-center justify-center border-b border-gray-100 text-lg font-semibold text-gray-900 last:border-b-0",
-                                reportTargetId === friend.id ? "bg-blue-50 text-blue-600" : "bg-white"
+                                "flex h-16 w-full items-center justify-center border-b border-border text-lg font-semibold text-foreground last:border-b-0",
+                                reportTargetId === friend.id ? "bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400" : "bg-background"
                               )}
                             >
                               {friend.label}
@@ -943,7 +943,7 @@ export function MainPage({ initialChats }: MainPageProps) {
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-xs text-gray-600">신고 유형</label>
+                  <label className="mb-2 block text-xs text-foreground">신고 유형</label>
                   <div className="space-y-2">
                     {REPORT_TYPE_OPTIONS.map((item) => {
                       const checked = reportType === item;
@@ -952,12 +952,12 @@ export function MainPage({ initialChats }: MainPageProps) {
                           key={item}
                           type="button"
                           onClick={() => setReportType(item)}
-                          className="flex w-full items-center gap-2 text-left text-sm text-gray-700"
+                          className="flex w-full items-center gap-2 text-left text-sm text-foreground"
                         >
                           <span
                             className={cn(
                               "inline-block h-4 w-4 rounded-full border",
-                              checked ? "border-blue-600 ring-4 ring-blue-50 bg-blue-600" : "border-gray-300"
+                              checked ? "border-blue-600 ring-4 ring-blue-50 bg-blue-600 dark:ring-blue-900/20" : "border-border"
                             )}
                           />
                           <span>{item}</span>
@@ -1017,12 +1017,12 @@ export function MainPage({ initialChats }: MainPageProps) {
         if (myPageScreen === "inquiry-list") {
           return (
             <div className="px-3 pt-2">
-              <p className="mb-3 text-xs text-gray-500">
+              <p className="mb-3 text-xs text-muted-foreground">
                 문의 <span className="text-blue-600">{inquiries.length}</span>개
               </p>
               <div className="space-y-2">
                 {inquiries.length === 0 ? (
-                  <div className="flex h-[calc(100vh-260px)] items-center justify-center text-sm text-gray-400">
+                  <div className="flex h-[calc(100vh-260px)] items-center justify-center text-sm text-muted-foreground">
                     등록된 문의가 없어요.
                   </div>
                 ) : (
@@ -1034,20 +1034,20 @@ export function MainPage({ initialChats }: MainPageProps) {
                         setSelectedInquiry(item);
                         setMyPageScreen("inquiry-detail");
                       }}
-                      className="w-full rounded-xl border border-gray-200 bg-white px-3 py-3 text-left"
+                      className="w-full rounded-xl border border-border bg-background px-3 py-3 text-left"
                     >
                       <span
                         className={cn(
                           "inline-flex rounded border px-2 py-0.5 text-[10px]",
                           item.display_status === "답변완료"
                             ? "border-blue-600 bg-blue-600 text-white"
-                            : "border-gray-300 bg-white text-gray-500"
+                            : "border-border bg-background text-muted-foreground"
                         )}
                       >
                         {item.display_status}
                       </span>
-                      <p className="mt-2 text-sm font-semibold text-gray-900">{item.subject}</p>
-                      <p className="mt-1 line-clamp-2 text-xs text-gray-500">{item.content}</p>
+                      <p className="mt-2 text-sm font-semibold text-foreground">{item.subject}</p>
+                      <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{item.content}</p>
                     </button>
                   ))
                 )}
@@ -1070,38 +1070,38 @@ export function MainPage({ initialChats }: MainPageProps) {
                   "inline-flex rounded border px-2 py-0.5 text-[10px]",
                   isDone
                     ? "border-blue-600 bg-blue-600 text-white"
-                    : "border-gray-300 bg-white text-gray-500"
+                    : "border-border bg-background text-muted-foreground"
                 )}
               >
                 {selectedInquiry.display_status}
               </span>
 
-              <h3 className="mt-3 text-[32px] font-semibold leading-tight text-gray-900">
+              <h3 className="mt-3 text-[32px] font-semibold leading-tight text-foreground">
                 {selectedInquiry.subject}
               </h3>
-              <p className="mt-3 text-sm font-semibold text-gray-800">{profileName}</p>
-              <p className="text-xs text-gray-400">{formatKDateTime(selectedInquiry.created_at)}</p>
-              <p className="mt-4 whitespace-pre-wrap break-all text-sm leading-6 text-gray-600">
+              <p className="mt-3 text-sm font-semibold text-foreground">{profileName}</p>
+              <p className="text-xs text-muted-foreground">{formatKDateTime(selectedInquiry.created_at)}</p>
+              <p className="mt-4 whitespace-pre-wrap break-all text-sm leading-6 text-foreground">
                 {selectedInquiry.content}
               </p>
 
-              <div className="my-5 border-t border-gray-200" />
+              <div className="my-5 border-t border-border" />
 
               {isDone ? (
                 <>
-                  <p className="text-sm font-semibold text-gray-800">{adminName}</p>
-                  <p className="text-xs text-gray-400">
+                  <p className="text-sm font-semibold text-foreground">{adminName}</p>
+                  <p className="text-xs text-muted-foreground">
                     {formatKDateTime(selectedInquiry.admin_reply_created_at || selectedInquiry.created_at)}
                   </p>
-                  <p className="mt-4 whitespace-pre-wrap break-all text-sm leading-6 text-gray-700">
+                  <p className="mt-4 whitespace-pre-wrap break-all text-sm leading-6 text-foreground">
                     {selectedInquiry.admin_reply_content ||
                       "문의해주신 내용을 확인했고 처리 결과를 안내드립니다."}
                   </p>
-                  <div className="my-5 border-t border-gray-200" />
+                  <div className="my-5 border-t border-border" />
                 </>
               ) : (
                 <div className="flex h-[36vh] items-center justify-center">
-                  <p className="text-center text-sm leading-6 text-gray-400">
+                  <p className="text-center text-sm leading-6 text-muted-foreground">
                     문의해주신 내용을 확인 중에 있습니다.
                     <br />
                     관리자가 확인 후 1~2일 내에 답변드릴 예정입니다.
@@ -1123,16 +1123,16 @@ export function MainPage({ initialChats }: MainPageProps) {
             <div className="px-3 pt-2">
               <div className="space-y-3">
                 <div>
-                  <label className="mb-1 block text-xs text-gray-500">문의제목</label>
+                  <label className="mb-1 block text-xs text-foreground">문의제목</label>
                   <div className="relative">
                     <input
                       value={inquirySubject}
                       onChange={(e) => setInquirySubject(e.target.value.slice(0, 30))}
-                      className="h-10 w-full rounded-xl border border-gray-200 bg-white px-3 pr-12 text-sm outline-none"
+                      className="h-10 w-full rounded-xl border border-border bg-background px-3 pr-12 text-sm outline-none text-foreground"
                       placeholder="제목을 입력해주세요."
                       maxLength={30}
                     />
-                    <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-gray-400">
+                    <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-muted-foreground">
                       {inquirySubject.length}/30
                     </span>
                   </div>
@@ -1142,19 +1142,19 @@ export function MainPage({ initialChats }: MainPageProps) {
                     <textarea
                       value={inquiryContent}
                       onChange={(e) => setInquiryContent(e.target.value.slice(0, 300))}
-                      className="h-32 w-full resize-none rounded-xl border border-gray-200 bg-white px-3 py-2 pb-6 text-sm outline-none"
+                      className="h-32 w-full resize-none rounded-xl border border-border bg-background px-3 py-2 pb-6 text-sm outline-none text-foreground"
                       placeholder="문의하실 내용을 입력해주세요."
                       maxLength={300}
                     />
-                    <span className="pointer-events-none absolute bottom-2 right-3 text-[11px] text-gray-400">
+                    <span className="pointer-events-none absolute bottom-2 right-3 text-[11px] text-muted-foreground">
                       {inquiryContent.length}/300
                     </span>
                   </div>
                 </div>
 
-                <div className="rounded-xl bg-[#eceef1] px-3 py-3">
-                  <p className="mb-2 text-xs font-semibold text-gray-700">안내 사항</p>
-                  <ul className="list-disc space-y-2.5 pl-4 text-[11px] leading-6 text-gray-600 marker:text-gray-500">
+                <div className="rounded-xl bg-muted px-3 py-3">
+                  <p className="mb-2 text-xs font-semibold text-foreground">안내 사항</p>
+                  <ul className="list-disc space-y-2.5 pl-4 text-[11px] leading-6 text-foreground marker:text-muted-foreground">
                     <li className="whitespace-pre-line">
                       원활한 문의 처리를 위해 아래 내용을 함께 작성해 주세요.
                       {"\n"}문의 유형을 정확히 선택하시면 답변이 더 빨라집니다.
@@ -1194,9 +1194,9 @@ export function MainPage({ initialChats }: MainPageProps) {
 
         return (
           <div className="px-3 pt-2">
-            <p className="mb-3 text-base font-semibold text-gray-900">마이페이지</p>
+            <p className="mb-3 text-base font-semibold text-foreground">마이페이지</p>
 
-            <div className="rounded-2xl border border-gray-100 bg-white p-3 shadow-sm">
+            <div className="rounded-2xl border border-border bg-background p-3 shadow-sm">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   {currentUserProfile?.avatar_url ? (
@@ -1206,55 +1206,55 @@ export function MainPage({ initialChats }: MainPageProps) {
                       className="h-11 w-11 rounded-full object-cover"
                     />
                   ) : (
-                    <div className="h-11 w-11 rounded-full bg-gray-200" />
+                    <div className="h-11 w-11 rounded-full bg-muted" />
                   )}
                   <div>
-                    <p className="text-sm font-medium text-gray-900">안녕하세요</p>
+                    <p className="text-sm font-medium text-foreground">안녕하세요</p>
                     <p className="text-sm font-bold text-blue-600">{profileName} 님</p>
                   </div>
                 </div>
                 <button
                   type="button"
                   onClick={() => router.push("/mypage/edit")}
-                  className="rounded-full border border-gray-200 px-3 py-1 text-[11px] text-gray-600"
+                  className="rounded-full border border-border px-3 py-1 text-[11px] text-muted-foreground"
                 >
                   프로필 수정
                 </button>
               </div>
             </div>
 
-            <div className="mt-3 rounded-2xl border border-gray-100 bg-white p-3 shadow-sm">
-              <p className="mb-2 text-xs text-gray-500">고객지원</p>
+            <div className="mt-3 rounded-2xl border border-border bg-background p-3 shadow-sm">
+              <p className="mb-2 text-xs text-muted-foreground">고객지원</p>
               <button
                 type="button"
                 onClick={() => setMyPageScreen("report-list")}
-                className="flex h-10 w-full items-center justify-between text-sm text-gray-900"
+                className="flex h-10 w-full items-center justify-between text-sm text-foreground"
               >
                 <span className="inline-flex items-center gap-2">
                   <Bell className="h-4 w-4" />
                   신고하기
                 </span>
-                <ChevronRight className="h-4 w-4 text-gray-500" />
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
               </button>
               <button
                 type="button"
                 onClick={() => setMyPageScreen("inquiry-list")}
-                className="flex h-10 w-full items-center justify-between text-sm text-gray-900"
+                className="flex h-10 w-full items-center justify-between text-sm text-foreground"
               >
                 <span className="inline-flex items-center gap-2">
                   <FileText className="h-4 w-4" />
                   문의 하기
                 </span>
-                <ChevronRight className="h-4 w-4 text-gray-500" />
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
               </button>
             </div>
 
-            <div className="mt-3 rounded-2xl border border-gray-100 bg-white p-3 shadow-sm">
-              <p className="mb-2 text-xs text-gray-500">설정</p>
+            <div className="mt-3 rounded-2xl border border-border bg-background p-3 shadow-sm">
+              <p className="mb-2 text-xs text-muted-foreground">설정</p>
               <button
                 type="button"
                 onClick={toggleTheme}
-                className="flex h-10 w-full items-center justify-between text-sm text-gray-900"
+                className="flex h-10 w-full items-center justify-between text-sm text-foreground"
               >
                 <span className="inline-flex items-center gap-2">
                   {theme === "dark" ? (
@@ -1265,23 +1265,23 @@ export function MainPage({ initialChats }: MainPageProps) {
                   다크 모드
                 </span>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-500">{theme === "dark" ? "켜짐" : "꺼짐"}</span>
-                  <ChevronRight className="h-4 w-4 text-gray-500" />
+                  <span className="text-xs text-muted-foreground">{theme === "dark" ? "켜짐" : "꺼짐"}</span>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
                 </div>
               </button>
             </div>
 
-            <div className="mt-3 rounded-2xl border border-gray-100 bg-white p-3 shadow-sm">
-              <p className="mb-2 text-xs text-gray-500">계정</p>
+            <div className="mt-3 rounded-2xl border border-border bg-background p-3 shadow-sm">
+              <p className="mb-2 text-xs text-muted-foreground">계정</p>
               <button
                 type="button"
                 onClick={() => setIsLogoutModalOpen(true)}
-                className="flex h-10 w-full items-center justify-between text-sm text-gray-900"
+                className="flex h-10 w-full items-center justify-between text-sm text-foreground"
               >
                 <span className="inline-flex items-center gap-2">
                   <LogOut className="h-4 w-4" /> 로그아웃
                 </span>
-                <ChevronRight className="h-4 w-4 text-gray-500" />
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
               </button>
             </div>
           </div>
@@ -1324,15 +1324,15 @@ export function MainPage({ initialChats }: MainPageProps) {
   };
 
   return (
-    <div className="relative flex h-screen max-w-md flex-col bg-white mx-auto">
+    <div className="relative flex h-screen max-w-md flex-col bg-background mx-auto">
       {/* 헤더 */}
-      <header className="sticky top-0 z-20 bg-white">
+      <header className="sticky top-0 z-20 bg-background">
         {activeTab === "friends" && isEditMode ? (
           <div className="flex items-center justify-between px-4 pt-3 pb-2">
-            <button type="button" onClick={closeEditMode} className="text-sm text-gray-700">
+            <button type="button" onClick={closeEditMode} className="text-sm text-foreground">
               완료
             </button>
-            <p className="text-sm font-semibold text-gray-900">편집</p>
+            <p className="text-sm font-semibold text-foreground">편집</p>
             <button
               type="button"
               disabled={selectedFriendIds.size === 0 || isDeletingFriends}
@@ -1359,11 +1359,11 @@ export function MainPage({ initialChats }: MainPageProps) {
                 else setMyPageScreen("root");
                 setIsReportTargetModalOpen(false);
               }}
-              className="rounded-full p-1 text-gray-700"
+              className="rounded-full p-1 text-foreground"
             >
               <ChevronLeft className="h-5 w-5" />
             </button>
-            <p className="text-sm font-semibold text-gray-900">
+            <p className="text-sm font-semibold text-foreground">
               {myPageScreen === "report-list" && "신고 내역"}
               {myPageScreen === "report-detail" && "신고 내역"}
               {myPageScreen === "report-create" && "신고하기"}
@@ -1385,7 +1385,7 @@ export function MainPage({ initialChats }: MainPageProps) {
           </div>
         ) : (
           <div className="flex items-center justify-between px-4 pt-3 pb-2">
-            <h1 className="text-[27px] font-bold leading-none text-gray-900">
+            <h1 className="text-[27px] font-bold leading-none text-foreground">
               {activeTab === "friends" ? "친구" : activeTab === "mypage" ? "" : "채팅"}
             </h1>
 
@@ -1394,24 +1394,24 @@ export function MainPage({ initialChats }: MainPageProps) {
                 <button
                   type="button"
                   onClick={() => router.push("/friends/search")}
-                  className="rounded-full border border-gray-100 bg-white p-2 shadow-sm transition-colors hover:bg-gray-50"
+                  className="rounded-full border border-border bg-background p-2 shadow-sm transition-colors hover:bg-muted"
                 >
-                  <Search className="h-5 w-5 text-gray-700" />
+                  <Search className="h-5 w-5 text-foreground" />
                 </button>
                 <button
                   type="button"
                   onClick={() => setIsFriendsMenuOpen((prev) => !prev)}
-                  className="rounded-full border border-gray-100 bg-white p-2 shadow-sm transition-colors hover:bg-gray-50"
+                  className="rounded-full border border-border bg-background p-2 shadow-sm transition-colors hover:bg-muted"
                 >
-                  <MoreHorizontal className="h-5 w-5 text-gray-700" />
+                  <MoreHorizontal className="h-5 w-5 text-foreground" />
                 </button>
 
                 {isFriendsMenuOpen && (
-                  <div className="absolute right-0 top-12 w-[106px] rounded-md border border-gray-100 bg-white py-1 shadow-lg">
+                  <div className="absolute right-0 top-12 w-[106px] rounded-md border border-border bg-background py-1 shadow-lg">
                     <button
                       type="button"
                       onClick={openEditMode}
-                      className="w-full px-3 py-1.5 text-left text-xs text-gray-700 hover:bg-gray-50"
+                      className="w-full px-3 py-1.5 text-left text-xs text-foreground hover:bg-muted"
                     >
                       편집
                     </button>
@@ -1421,8 +1421,8 @@ export function MainPage({ initialChats }: MainPageProps) {
             ) : activeTab === "mypage" ? (
               <div className="w-11" />
             ) : (
-              <button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
-                <Search className="w-5 h-5 text-gray-700" />
+              <button className="p-2 rounded-full hover:bg-muted transition-colors">
+                <Search className="w-5 h-5 text-foreground" />
               </button>
             )}
           </div>
@@ -1430,11 +1430,11 @@ export function MainPage({ initialChats }: MainPageProps) {
 
         {activeTab === "friends" && (
           <div className="flex items-center justify-between px-4 pb-2 pt-1">
-            <p className="text-xs text-gray-500">친구 {friends.length}</p>
+            <p className="text-xs text-muted-foreground">친구 {friends.length}</p>
             <button
               type="button"
               onClick={() => setIsFriendsSectionOpen((prev) => !prev)}
-              className="text-gray-400"
+              className="text-muted-foreground"
             >
               <ChevronUp
                 className={cn("h-4 w-4 transition-transform", !isFriendsSectionOpen && "rotate-180")}
@@ -1464,10 +1464,10 @@ export function MainPage({ initialChats }: MainPageProps) {
 
       {(isDeleteConfirmOpen || !!singleDeleteTarget) && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/35 px-6">
-          <div className="w-full max-w-[335px] rounded-xl bg-white">
-            <div className="border-b px-5 py-5 text-center">
-              <h3 className="text-[22px] font-semibold text-gray-900">친구 삭제</h3>
-              <p className="mt-2 text-[11px] leading-5 text-gray-500">
+          <div className="w-full max-w-[335px] rounded-xl bg-background">
+            <div className="border-b border-border px-5 py-5 text-center">
+              <h3 className="text-[22px] font-semibold text-foreground">친구 삭제</h3>
+              <p className="mt-2 text-[11px] leading-5 text-muted-foreground">
                 {singleDeleteTarget
                   ? `${singleDeleteTarget.name || singleDeleteTarget.nickname || "선택한 친구"}를 삭제합니다.`
                   : "선택한 친구를 삭제합니다."}
@@ -1483,7 +1483,7 @@ export function MainPage({ initialChats }: MainPageProps) {
                 type="button"
                 disabled={isDeletingFriends}
                 onClick={singleDeleteTarget ? handleDeleteSingleFriend : handleDeleteFriends}
-                className="h-11 text-sm text-red-500 disabled:text-gray-300"
+                className="h-11 text-sm text-red-500 disabled:text-muted-foreground"
               >
                 삭제
               </button>
@@ -1500,23 +1500,23 @@ export function MainPage({ initialChats }: MainPageProps) {
 
       {isLogoutModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-6">
-          <div className="w-full max-w-[340px] rounded-2xl bg-white">
-            <div className="border-b px-5 py-5 text-center">
-              <p className="text-lg font-semibold text-gray-900">로그아웃</p>
-              <p className="mt-2 text-xs text-gray-500">로그아웃 하시겠어요?</p>
+          <div className="w-full max-w-[340px] rounded-2xl bg-background">
+            <div className="border-b border-border px-5 py-5 text-center">
+              <p className="text-lg font-semibold text-foreground">로그아웃</p>
+              <p className="mt-2 text-xs text-muted-foreground">로그아웃 하시겠어요?</p>
             </div>
             <div className="grid grid-cols-2">
               <button
                 type="button"
                 onClick={() => setIsLogoutModalOpen(false)}
-                className="h-11 border-r text-sm text-gray-500"
+                className="h-11 border-r border-border text-sm text-muted-foreground"
               >
                 취소
               </button>
               <button
                 type="button"
                 onClick={handleLogout}
-                className="h-11 text-sm font-semibold text-gray-900"
+                className="h-11 text-sm font-semibold text-foreground"
               >
                 로그아웃
               </button>
@@ -1527,11 +1527,11 @@ export function MainPage({ initialChats }: MainPageProps) {
 
       {isLeaveModalOpen && leaveChatId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-6">
-          <div className="w-full max-w-[340px] rounded-2xl bg-white">
-            <div className="border-b px-5 py-5 text-center">
-              <h3 className="text-[22px] font-semibold text-gray-900">{leaveChatTitle}</h3>
-              <p className="mt-2 text-sm text-gray-600">채팅방을 나가시겠어요?</p>
-              <p className="mt-1 text-xs text-gray-500">대화내용이 모두 삭제되며 복원이 불가능 합니다.</p>
+          <div className="w-full max-w-[340px] rounded-2xl bg-background">
+            <div className="border-b border-border px-5 py-5 text-center">
+              <h3 className="text-[22px] font-semibold text-foreground">{leaveChatTitle}</h3>
+              <p className="mt-2 text-sm text-foreground">채팅방을 나가시겠어요?</p>
+              <p className="mt-1 text-xs text-muted-foreground">대화내용이 모두 삭제되며 복원이 불가능 합니다.</p>
             </div>
             <div className="grid grid-cols-2">
               <button
@@ -1541,7 +1541,7 @@ export function MainPage({ initialChats }: MainPageProps) {
                   setLeaveChatId(null);
                   setLeaveChatTitle("");
                 }}
-                className="h-11 border-r text-sm font-semibold text-blue-600"
+                className="h-11 border-r border-border text-sm font-semibold text-blue-600"
               >
                 취소
               </button>
@@ -1569,7 +1569,7 @@ export function MainPage({ initialChats }: MainPageProps) {
                   }
                 }}
                 disabled={isLeavingChat}
-                className="h-11 text-sm font-semibold text-red-500 disabled:text-gray-300"
+                className="h-11 text-sm font-semibold text-red-500 disabled:text-muted-foreground"
               >
                 나가기
               </button>
