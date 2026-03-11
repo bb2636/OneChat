@@ -228,7 +228,7 @@ export function ChatListItem({ chat, onClick, onLeave, isLeaveModalOpen, onReset
         <div className="flex-shrink-0">
           <Badge
             variant="default"
-            className="bg-blue-500 text-white rounded-full w-6 h-6 flex items-center justify-center p-0 text-xs font-semibold"
+            className="bg-gray-700 dark:bg-gray-600 text-white rounded-full w-6 h-6 flex items-center justify-center p-0 text-xs font-semibold"
           >
             {unreadCount > 99 ? "99+" : unreadCount}
           </Badge>

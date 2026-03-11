@@ -805,7 +805,7 @@ export function ChatRoomClient({ chatId, chatTitle, initialMessages, chatCreated
 
               <p className="mb-3 text-center text-xl font-semibold text-foreground">{chatTitle}</p>
 
-              <div className="rounded-2xl border border-border bg-background p-3">
+              <div className="rounded-2xl bg-background p-3">
                 <p className="mb-3 text-xs text-muted-foreground">참여자 {members.length}</p>
 
                 <button
