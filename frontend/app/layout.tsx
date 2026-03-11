@@ -1,15 +1,6 @@
 import "./globals.css";
 import type { ReactNode } from "react";
-import type { Viewport } from "next";
 import { Providers } from "./providers";
-
-export const viewport: Viewport = {
-  width: "device-width",
-  initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
-  viewportFit: "cover",
-};
 
 export const metadata = {
   title: "OneChat",

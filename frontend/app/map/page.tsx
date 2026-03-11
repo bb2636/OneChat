@@ -11,6 +11,11 @@ export default function MapPage() {
   const [activeTab, setActiveTab] = useState<TabType>("map");
 
   useEffect(() => {
+    document.documentElement.classList.remove("dark");
+    return () => {};
+  }, []);
+
+  useEffect(() => {
     const fetchCurrentUser = async () => {
       try {
         const storedUserId = localStorage.getItem("userId");
