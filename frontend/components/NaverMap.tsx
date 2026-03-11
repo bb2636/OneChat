@@ -1014,7 +1014,7 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
         }),
       });
 
-      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      const data = (await res.json().catch(() => ({}))) as { error?: string; chat?: { id: string } };
       if (!res.ok) {
         if (res.status === 409) {
           setToastMessage(data.error || "함께하는 채팅방이 존재합니다.");
@@ -1024,9 +1024,15 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
         throw new Error(data.error || "채팅방 생성에 실패했습니다.");
       }
 
-      setToastMessage("채팅방이 생성되었습니다.");
-      closeCreateRoomModal();
-      router.push("/home");
+      // 채팅방 생성 성공 시 해당 채팅방으로 이동
+      if (data.chat?.id) {
+        closeCreateRoomModal();
+        router.push(`/chat/${data.chat.id}`);
+      } else {
+        setToastMessage("채팅방이 생성되었습니다.");
+        closeCreateRoomModal();
+        router.push("/home");
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : "채팅방 생성 중 오류가 발생했습니다.";
       alert(message);
@@ -1443,23 +1449,23 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
       )}
 
       {isCreateRoomOpen && roomTargetUser && (
-        <div className="fixed inset-0 z-50 bg-white">
+        <div className="fixed inset-0 z-50 bg-background">
           <div className="mx-auto flex h-full w-full max-w-md flex-col px-6 pt-6 pb-4">
             <div className="mb-4 flex items-center justify-between">
               <button
                 type="button"
                 onClick={closeCreateRoomModal}
-                className="rounded-full p-2 text-gray-700 hover:bg-gray-100"
+                className="rounded-full p-2 text-foreground hover:bg-muted"
                 aria-label="닫기"
               >
                 ←
               </button>
-              <h2 className="text-base font-semibold text-gray-900">채팅방 만들기</h2>
+              <h2 className="text-base font-semibold text-foreground">채팅방 만들기</h2>
               <button
                 type="button"
                 onClick={handleCreateLocationRoom}
                 disabled={isCreatingRoom}
-                className="text-sm font-semibold text-blue-600 disabled:text-gray-400"
+                className="text-sm font-semibold text-blue-600 disabled:text-muted-foreground"
               >
                 완료
               </button>
@@ -1469,12 +1475,12 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
               <button
                 type="button"
                 onClick={handlePickThumbnail}
-                className="relative h-28 w-28 overflow-hidden rounded-xl bg-gray-200"
+                className="relative h-28 w-28 overflow-hidden rounded-xl bg-muted"
               >
                 {thumbnailPreviewUrl && (
                   <img src={thumbnailPreviewUrl} alt="썸네일" className="h-full w-full object-cover" />
                 )}
-                <span className="absolute bottom-2 right-2 rounded-full bg-white/90 px-2 py-1 text-xs">🖼️</span>
+                <span className="absolute bottom-2 right-2 rounded-full bg-background/90 px-2 py-1 text-xs">🖼️</span>
               </button>
               <input
                 ref={thumbnailInputRef}
@@ -1485,42 +1491,42 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
               />
             </div>
 
-            <div className="mb-2 text-xs text-gray-500">채팅방 정보</div>
+            <div className="mb-2 text-xs text-muted-foreground">채팅방 정보</div>
 
-            <label className="mb-1 text-sm font-medium text-gray-700">채팅방 이름</label>
-            <div className="mb-3 rounded-xl border border-gray-200 px-3 py-2">
+            <label className="mb-1 text-sm font-medium text-foreground">채팅방 이름</label>
+            <div className="mb-3 rounded-xl border border-border px-3 py-2">
               <div className="flex items-center gap-2">
                 <input
                   value={roomName}
                   onChange={(e) => setRoomName(e.target.value)}
                   placeholder="채팅방 이름을 입력해주세요. (필수)"
-                  className="h-8 flex-1 bg-transparent text-sm outline-none"
+                  className="h-8 flex-1 bg-transparent text-sm outline-none text-foreground placeholder:text-muted-foreground"
                   maxLength={30}
                 />
-                <span className="text-xs text-gray-400">{roomName.length}/30</span>
+                <span className="text-xs text-muted-foreground">{roomName.length}/30</span>
               </div>
             </div>
 
-            <label className="mb-1 text-sm font-medium text-gray-700">채팅방 설명</label>
-            <div className="mb-3 rounded-xl border border-gray-200 px-3 py-2">
+            <label className="mb-1 text-sm font-medium text-foreground">채팅방 설명</label>
+            <div className="mb-3 rounded-xl border border-border px-3 py-2">
               <textarea
                 value={roomDescription}
                 onChange={(e) => setRoomDescription(e.target.value)}
                 placeholder="채팅방 소개에 대해 설명해주세요"
-                className="h-24 w-full resize-none bg-transparent text-sm outline-none"
+                className="h-24 w-full resize-none bg-transparent text-sm outline-none text-foreground placeholder:text-muted-foreground"
                 maxLength={300}
               />
-              <div className="text-right text-xs text-gray-400">{roomDescription.length}/300</div>
+              <div className="text-right text-xs text-muted-foreground">{roomDescription.length}/300</div>
             </div>
 
-            <div className="mb-2 text-xs text-gray-500">참여 제한</div>
+            <div className="mb-2 text-xs text-muted-foreground">참여 제한</div>
             <div className="mb-2 flex items-center justify-between">
-              <span className="text-sm font-medium text-gray-700">인원 제한</span>
-              <span className="text-sm font-semibold text-gray-900">{String(memberLimit).padStart(2, "0")}</span>
+              <span className="text-sm font-medium text-foreground">인원 제한</span>
+              <span className="text-sm font-semibold text-foreground">{String(memberLimit).padStart(2, "0")}</span>
             </div>
 
             <div
-              className="h-36 overflow-y-auto rounded-xl border border-gray-200 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+              className="h-36 overflow-y-auto rounded-xl border border-border [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
               onScroll={(e) => {
                 const target = e.currentTarget;
                 const scrollTop = target.scrollTop;
@@ -1547,7 +1553,7 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
                   type="button"
                   onClick={() => setMemberLimit(num)}
                   className={`block h-10 w-full text-center text-lg ${
-                    memberLimit === num ? "bg-gray-100 font-semibold text-blue-600" : "text-gray-400"
+                    memberLimit === num ? "bg-muted font-semibold text-blue-600" : "text-muted-foreground"
                   }`}
                 >
                   {String(num).padStart(2, "0")}

@@ -4,16 +4,25 @@ import { useEffect, useState } from "react";
 import { NaverMap } from "@/components/NaverMap";
 import { useRouter } from "next/navigation";
 import { BottomNavigation, type TabType } from "@/components/BottomNavigation";
+import { useTheme } from "@/components/ThemeProvider";
 
 export default function MapPage() {
   const router = useRouter();
+  const { theme } = useTheme();
   const [userId, setUserId] = useState<string | undefined>(undefined);
   const [activeTab, setActiveTab] = useState<TabType>("map");
 
+  // 지도 페이지는 항상 라이트 모드 유지
   useEffect(() => {
     document.documentElement.classList.remove("dark");
-    return () => {};
-  }, []);
+    
+    // 페이지를 떠날 때 다크모드 복원
+    return () => {
+      if (theme === "dark") {
+        document.documentElement.classList.add("dark");
+      }
+    };
+  }, [theme]);
 
   useEffect(() => {
     const fetchCurrentUser = async () => {

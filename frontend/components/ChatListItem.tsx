@@ -141,7 +141,7 @@ export function ChatListItem({ chat, onClick, onLeave, isLeaveModalOpen, onReset
   }, []);
 
   return (
-    <div ref={containerRef} className="relative overflow-hidden border-b border-gray-100">
+    <div ref={containerRef} className="relative overflow-hidden border-b border-border">
       {swipeOffset > 0 && (
         <button
           type="button"
@@ -171,7 +171,7 @@ export function ChatListItem({ chat, onClick, onLeave, isLeaveModalOpen, onReset
           touchAction: isSwiping || swipeOffset > 0 ? "none" : "pan-y"
         }}
         className={cn(
-          "flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-gray-50 bg-white",
+          "flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-muted bg-background",
           !isSwiping && "transition-transform duration-200 ease-out"
         )}
       >
@@ -187,8 +187,8 @@ export function ChatListItem({ chat, onClick, onLeave, isLeaveModalOpen, onReset
             />
           ) : (
             <div className="relative w-12 h-12">
-              <div className="absolute top-0 left-0 w-8 h-8 rounded-full bg-gray-300 border-2 border-white" />
-              <div className="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-gray-400 border-2 border-white" />
+              <div className="absolute top-0 left-0 w-8 h-8 rounded-full bg-muted border-2 border-background" />
+              <div className="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-muted border-2 border-background" />
             </div>
           )
         ) : (
@@ -206,19 +206,19 @@ export function ChatListItem({ chat, onClick, onLeave, isLeaveModalOpen, onReset
       {/* 채팅 정보 영역 */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between mb-1">
-          <h3 className="font-medium text-gray-900 truncate">
+          <h3 className="font-medium text-foreground truncate">
             {chat.title}
             {isGroupChat && chat.participant_count && (
-              <span className="text-gray-500 font-normal ml-1">
+              <span className="text-muted-foreground font-normal ml-1">
                 ({chat.participant_count})
               </span>
             )}
           </h3>
-          <span className="text-xs text-gray-500 flex-shrink-0 ml-2">
+          <span className="text-xs text-muted-foreground flex-shrink-0 ml-2">
             {displayTime}
           </span>
         </div>
-        <p className="text-sm text-gray-600 truncate">
+        <p className="text-sm text-muted-foreground truncate">
           {chat.last_message || "메시지가 없습니다"}
         </p>
       </div>

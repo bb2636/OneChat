@@ -103,6 +103,15 @@ export function MainPage({ initialChats }: MainPageProps) {
     "chat"
   );
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  // 지도 페이지에서 돌아올 때 다크모드 복원
+  useEffect(() => {
+    if (theme === "dark") {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+  }, [theme]);
   const [chatReadCounts, setChatReadCounts] = useState<ChatReadCountMap>({});
   const [isFriendsMenuOpen, setIsFriendsMenuOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);

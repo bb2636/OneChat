@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, Image as ImageIcon, Menu, SendHorizonal, UserPlus } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { useTheme } from "@/components/ThemeProvider";
 
 interface ChatRoomClientProps {
   chatId: string;
@@ -67,7 +68,17 @@ function isOutgoing(role: string) {
 export function ChatRoomClient({ chatId, chatTitle, initialMessages, chatCreatedAt, initialReadStatuses = [] }: ChatRoomClientProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { theme } = useTheme();
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  // 다크모드 복원 (지도 페이지에서 돌아올 때)
+  useEffect(() => {
+    if (theme === "dark") {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+  }, [theme]);
   const [isInfoOpen, setIsInfoOpen] = useState(false);
   const [isActionLoading, setIsActionLoading] = useState(false);
   const [selectedInviteUserId, setSelectedInviteUserId] = useState("");
@@ -506,20 +517,20 @@ export function ChatRoomClient({ chatId, chatTitle, initialMessages, chatCreated
   };
 
   return (
-    <div className="flex flex-col bg-[#f4f5f7]" style={{ height: "100dvh" }}>
-      <header className="sticky top-0 z-10 flex-shrink-0 flex items-center justify-between border-b border-gray-200 bg-[#f4f5f7] px-4 py-3">
+    <div className="flex flex-col bg-background" style={{ height: "100dvh" }}>
+      <header className="sticky top-0 z-10 flex-shrink-0 flex items-center justify-between border-b border-border bg-background px-4 py-3">
         <button
           type="button"
           onClick={() => router.back()}
-          className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-gray-800 shadow-sm"
+          className="flex h-9 w-9 items-center justify-center rounded-full bg-background text-foreground shadow-sm border border-border"
         >
           <ChevronLeft className="h-5 w-5" />
         </button>
-        <p className="max-w-[60%] truncate text-base font-semibold text-gray-900">{chatTitle}</p>
+        <p className="max-w-[60%] truncate text-base font-semibold text-foreground">{chatTitle}</p>
         <button
           type="button"
           onClick={openRoomInfo}
-          className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-gray-700 shadow-sm"
+          className="flex h-9 w-9 items-center justify-center rounded-full bg-background text-foreground shadow-sm border border-border"
         >
           <Menu className="h-5 w-5" />
         </button>
@@ -533,7 +544,7 @@ export function ChatRoomClient({ chatId, chatTitle, initialMessages, chatCreated
               if (item.type === "date") {
                 return (
                   <div key={`date-${idx}`} className="flex justify-center py-2">
-                    <div className="rounded-full bg-gray-200 px-3 py-1.5 text-xs text-gray-600">
+                    <div className="rounded-full bg-muted px-3 py-1.5 text-xs text-muted-foreground">
                       {item.content}
                     </div>
                   </div>
@@ -542,7 +553,7 @@ export function ChatRoomClient({ chatId, chatTitle, initialMessages, chatCreated
               if (item.type === "join") {
                 return (
                   <div key={`join-${idx}`} className="flex justify-center py-1">
-                    <div className="rounded-full bg-gray-200 px-3 py-1.5 text-xs text-gray-600">
+                    <div className="rounded-full bg-muted px-3 py-1.5 text-xs text-muted-foreground">
                       {item.memberName}님이 입장하셨습니다.
                     </div>
                   </div>
@@ -551,7 +562,7 @@ export function ChatRoomClient({ chatId, chatTitle, initialMessages, chatCreated
               if (item.type === "notice") {
                 return (
                   <div key={`notice-${idx}`} className="flex justify-center py-2">
-                    <div className="max-w-[85%] rounded-2xl bg-gray-200 px-4 py-3 text-xs leading-5 text-gray-600">
+                    <div className="max-w-[85%] rounded-2xl bg-muted px-4 py-3 text-xs leading-5 text-muted-foreground">
                       {item.content}
                     </div>
                   </div>
@@ -564,7 +575,7 @@ export function ChatRoomClient({ chatId, chatTitle, initialMessages, chatCreated
 
         {/* Chat messages */}
         {displayMessages.length === 0 && initialDisplayItems.length === 0 ? (
-          <div className="flex h-[55vh] items-center justify-center text-sm text-gray-400">
+          <div className="flex h-[55vh] items-center justify-center text-sm text-muted-foreground">
             아직 채팅 내역이 없습니다.
           </div>
         ) : (
@@ -573,7 +584,7 @@ export function ChatRoomClient({ chatId, chatTitle, initialMessages, chatCreated
             if (message.role === "system" || message.role.startsWith("system:")) {
               return (
                 <div key={message.id} className="flex justify-center py-1">
-                  <div className="rounded-full bg-gray-200 px-3 py-1.5 text-xs text-gray-600">
+                  <div className="rounded-full bg-muted px-3 py-1.5 text-xs text-muted-foreground">
                     {message.content}
                   </div>
                 </div>
@@ -622,9 +633,9 @@ export function ChatRoomClient({ chatId, chatTitle, initialMessages, chatCreated
                 <div key={message.id} className="flex justify-end py-1">
                   <div className="flex max-w-[78%] items-end gap-2">
                     {/* 읽음 표시와 시간 - 왼쪽에 표시 */}
-                    <div className="flex flex-col items-end gap-1 text-[11px] text-gray-500">
+                    <div className="flex flex-col items-end gap-1 text-[11px] text-muted-foreground">
                       {unreadCount > 0 && (
-                        <span className="text-gray-400">{unreadCount}</span>
+                        <span className="text-muted-foreground">{unreadCount}</span>
                       )}
                       <span>{formatKTime(message.created_at)}</span>
                     </div>
@@ -645,7 +656,7 @@ export function ChatRoomClient({ chatId, chatTitle, initialMessages, chatCreated
                         </div>
                       )}
                       {message.content && (
-                        <div className="rounded-2xl rounded-tr-md bg-blue-600 px-3 py-2 text-sm text-white">
+                        <div className="rounded-2xl rounded-tr-md bg-primary px-3 py-2 text-sm text-primary-foreground">
                           <p className="whitespace-pre-wrap break-words">{message.content}</p>
                         </div>
                       )}
@@ -660,11 +671,11 @@ export function ChatRoomClient({ chatId, chatTitle, initialMessages, chatCreated
                   <div className="flex max-w-[78%] gap-2">
                     {showSenderInfo && (
                       <div className="flex-shrink-0">
-                        <div className="h-8 w-8 rounded-full bg-gray-300 overflow-hidden">
+                        <div className="h-8 w-8 rounded-full bg-muted overflow-hidden">
                           {senderAvatar ? (
                             <img src={senderAvatar} alt={senderName} className="h-full w-full object-cover" />
                           ) : (
-                            <div className="h-full w-full bg-gray-300" />
+                            <div className="h-full w-full bg-muted" />
                           )}
                         </div>
                       </div>
@@ -672,11 +683,11 @@ export function ChatRoomClient({ chatId, chatTitle, initialMessages, chatCreated
                     {!showSenderInfo && <div className="w-8" />}
                     <div className="flex-1">
                       {showSenderInfo && (
-                        <div className="mb-1 text-xs font-medium text-gray-700">{senderName}</div>
+                        <div className="mb-1 text-xs font-medium text-foreground">{senderName}</div>
                       )}
                       <div className="space-y-1">
                         {message.image_url && (
-                          <div className="rounded-2xl rounded-tl-md bg-white px-3 py-2">
+                          <div className="rounded-2xl rounded-tl-md bg-muted px-3 py-2">
                             <img
                               src={message.image_url}
                               alt="chat-image"
@@ -690,13 +701,13 @@ export function ChatRoomClient({ chatId, chatTitle, initialMessages, chatCreated
                           </div>
                         )}
                         {message.content && (
-                          <div className="rounded-2xl rounded-tl-md bg-white px-3 py-2 text-sm text-gray-900">
+                          <div className="rounded-2xl rounded-tl-md bg-muted px-3 py-2 text-sm text-foreground">
                             <p className="whitespace-pre-wrap break-words">{message.content}</p>
                           </div>
                         )}
                       </div>
                       {/* 시간 - 오른쪽에 표시 */}
-                      <div className="mt-1 flex items-center justify-end gap-1 text-[11px] text-gray-500">
+                      <div className="mt-1 flex items-center justify-end gap-1 text-[11px] text-muted-foreground">
                         <span>{formatKTime(message.created_at)}</span>
                       </div>
                     </div>
@@ -708,13 +719,13 @@ export function ChatRoomClient({ chatId, chatTitle, initialMessages, chatCreated
         )}
       </main>
 
-      <footer className="flex-shrink-0 border-t border-gray-200 bg-white px-3 py-3" style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom))" }}>
+      <footer className="flex-shrink-0 border-t border-border bg-background px-3 py-3" style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom))" }}>
         <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={() => imageInputRef.current?.click()}
             disabled={isUploadingImage}
-            className="flex h-10 w-10 items-center justify-center rounded-lg bg-white text-gray-700 shadow-sm disabled:opacity-50"
+            className="flex h-10 w-10 items-center justify-center rounded-lg bg-background text-foreground shadow-sm border border-border disabled:opacity-50"
           >
             <ImageIcon className="h-5 w-5" />
           </button>
@@ -726,7 +737,7 @@ export function ChatRoomClient({ chatId, chatTitle, initialMessages, chatCreated
             onChange={handleImageSelect}
           />
 
-          <div className="flex h-11 flex-1 items-center rounded-full bg-[#f1f2f4] px-4">
+          <div className="flex h-11 flex-1 items-center rounded-full bg-muted px-4">
             <input
               value={messageInput}
               onChange={(e) => setMessageInput(e.target.value)}
@@ -737,7 +748,7 @@ export function ChatRoomClient({ chatId, chatTitle, initialMessages, chatCreated
                 }
               }}
               placeholder="메시지를 입력해주세요."
-              className="w-full bg-transparent text-sm text-gray-700 placeholder:text-gray-400 outline-none"
+              className="w-full bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none"
             />
           </div>
 
@@ -764,7 +775,7 @@ export function ChatRoomClient({ chatId, chatTitle, initialMessages, chatCreated
           onClick={() => setIsInfoOpen(false)}
         >
           <div
-            className="absolute right-0 top-0 h-full w-full max-w-[280px] bg-[#f7f7f8] shadow-2xl"
+            className="absolute right-0 top-0 h-full w-full max-w-[280px] bg-background shadow-2xl"
             // 패널 내부 클릭은 닫기 동작이 발생하지 않도록 이벤트 전파 중단
             onClick={(e) => e.stopPropagation()}
           >
@@ -778,7 +789,7 @@ export function ChatRoomClient({ chatId, chatTitle, initialMessages, chatCreated
                     <div
                       key={member.id}
                       className={cn(
-                        "absolute h-11 w-11 overflow-hidden rounded-full border-2 border-white bg-gray-200",
+                        "absolute h-11 w-11 overflow-hidden rounded-full border-2 border-background bg-muted",
                         idx === 0 && "left-4 top-0",
                         idx === 1 && "left-0 top-5",
                         idx === 2 && "left-8 top-5"
@@ -792,10 +803,10 @@ export function ChatRoomClient({ chatId, chatTitle, initialMessages, chatCreated
                 </div>
               </div>
 
-              <p className="mb-3 text-center text-xl font-semibold text-gray-900">{chatTitle}</p>
+              <p className="mb-3 text-center text-xl font-semibold text-foreground">{chatTitle}</p>
 
-              <div className="rounded-2xl border border-gray-200 bg-white p-3">
-                <p className="mb-3 text-xs text-gray-500">참여자 {members.length}</p>
+              <div className="rounded-2xl border border-border bg-background p-3">
+                <p className="mb-3 text-xs text-muted-foreground">참여자 {members.length}</p>
 
                 <button
                   type="button"
@@ -803,20 +814,20 @@ export function ChatRoomClient({ chatId, chatTitle, initialMessages, chatCreated
                     setIsInviteModalOpen(true);
                     refetchMembers();
                   }}
-                  className="mb-3 flex items-center gap-2 rounded-lg bg-white px-3 py-2.5 text-sm text-gray-700"
+                  className="mb-3 flex items-center gap-2 rounded-lg bg-background px-3 py-2.5 text-sm text-foreground border border-border"
                 >
-                  <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-[#eef2ff] text-blue-600">
+                  <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-[#eef2ff] dark:bg-blue-900/20 text-blue-600 dark:text-blue-400">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                       <line x1="12" y1="5" x2="12" y2="19" />
                       <line x1="5" y1="12" x2="19" y2="12" />
                     </svg>
                   </div>
-                  <span className="text-sm text-gray-700">초대하기</span>
+                  <span className="text-sm text-foreground">초대하기</span>
                 </button>
 
               <div className="max-h-64 space-y-2 overflow-y-auto">
                 {isMembersLoading ? (
-                  <div className="py-8 text-center text-sm text-gray-400">불러오는 중...</div>
+                  <div className="py-8 text-center text-sm text-muted-foreground">불러오는 중...</div>
                 ) : (
                   members.map((member) => {
                     const isMe = member.id === currentUserId;
@@ -825,14 +836,14 @@ export function ChatRoomClient({ chatId, chatTitle, initialMessages, chatCreated
                     return (
                       <div key={member.id} className="flex items-center justify-between rounded-xl px-3 py-1">
                         <div className="flex items-center gap-2">
-                          <div className="h-9 w-9 overflow-hidden rounded-full bg-gray-200">
+                          <div className="h-9 w-9 overflow-hidden rounded-full bg-muted">
                             {member.avatar_url ? (
                               <img src={member.avatar_url} alt={displayName} className="h-full w-full object-cover" />
                             ) : null}
                           </div>
-                          <span className="text-sm text-gray-800">{displayName}</span>
+                          <span className="text-sm text-foreground">{displayName}</span>
                           {isMe && (
-                            <span className="rounded bg-blue-100 px-1 py-0.5 text-[10px] font-semibold text-blue-600">
+                            <span className="rounded bg-blue-100 dark:bg-blue-900/20 px-1 py-0.5 text-[10px] font-semibold text-blue-600 dark:text-blue-400">
                               Me
                             </span>
                           )}
@@ -844,7 +855,7 @@ export function ChatRoomClient({ chatId, chatTitle, initialMessages, chatCreated
                               <button
                                 type="button"
                                 onClick={() => handleAddFriend(member.id)}
-                                className="flex h-7 w-7 items-center justify-center rounded bg-gray-100 text-gray-600"
+                                className="flex h-7 w-7 items-center justify-center rounded bg-muted text-foreground"
                               >
                                 <UserPlus className="h-4 w-4" />
                               </button>
@@ -873,7 +884,7 @@ export function ChatRoomClient({ chatId, chatTitle, initialMessages, chatCreated
                   onClick={() => {
                     setIsLeaveModalOpen(true);
                   }}
-                  className="flex items-center gap-2 rounded-full bg-white px-4 py-2.5 text-sm text-gray-700 shadow-lg"
+                  className="flex items-center gap-2 rounded-full bg-background px-4 py-2.5 text-sm text-foreground shadow-lg border border-border"
                 >
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
@@ -920,11 +931,11 @@ export function ChatRoomClient({ chatId, chatTitle, initialMessages, chatCreated
 
       {isLeaveModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-6">
-          <div className="w-full max-w-[340px] rounded-2xl bg-white">
-            <div className="border-b px-5 py-5 text-center">
-              <h3 className="text-[22px] font-semibold text-gray-900">{chatTitle}</h3>
-              <p className="mt-2 text-sm text-gray-600">채팅방을 나가시겠어요?</p>
-              <p className="mt-1 text-xs text-gray-500">대화내용이 모두 삭제되며 복원이 불가능 합니다.</p>
+          <div className="w-full max-w-[340px] rounded-2xl bg-background">
+            <div className="border-b border-border px-5 py-5 text-center">
+              <h3 className="text-[22px] font-semibold text-foreground">{chatTitle}</h3>
+              <p className="mt-2 text-sm text-foreground">채팅방을 나가시겠어요?</p>
+              <p className="mt-1 text-xs text-muted-foreground">대화내용이 모두 삭제되며 복원이 불가능 합니다.</p>
             </div>
             <div className="grid grid-cols-2">
               <button
@@ -932,7 +943,7 @@ export function ChatRoomClient({ chatId, chatTitle, initialMessages, chatCreated
                 onClick={() => {
                   setIsLeaveModalOpen(false);
                 }}
-                className="h-11 border-r text-sm font-semibold text-blue-600"
+                className="h-11 border-r border-border text-sm font-semibold text-blue-600"
               >
                 취소
               </button>
@@ -961,7 +972,7 @@ export function ChatRoomClient({ chatId, chatTitle, initialMessages, chatCreated
                   }
                 }}
                 disabled={isActionLoading}
-                className="h-11 text-sm font-semibold text-red-500 disabled:text-gray-300"
+                className="h-11 text-sm font-semibold text-red-500 disabled:text-muted-foreground"
               >
                 나가기
               </button>
@@ -972,10 +983,10 @@ export function ChatRoomClient({ chatId, chatTitle, initialMessages, chatCreated
 
       {kickTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-6">
-          <div className="w-full max-w-[340px] rounded-2xl bg-white">
-            <div className="border-b px-5 py-5 text-center">
-              <p className="text-[30px] font-semibold text-gray-900">친구 삭제</p>
-              <p className="mt-2 text-[11px] leading-5 text-gray-500">
+          <div className="w-full max-w-[340px] rounded-2xl bg-background">
+            <div className="border-b border-border px-5 py-5 text-center">
+              <p className="text-[30px] font-semibold text-foreground">친구 삭제</p>
+              <p className="mt-2 text-[11px] leading-5 text-muted-foreground">
                 선택한 친구를 친구 목록에서 삭제합니다.
                 <br />
                 채팅방에서는 나가지 않으며, 다시 친구 추가할 수 있습니다.
@@ -985,7 +996,7 @@ export function ChatRoomClient({ chatId, chatTitle, initialMessages, chatCreated
               <button
                 type="button"
                 onClick={() => setKickTarget(null)}
-                className="h-11 border-r text-sm text-blue-600"
+                className="h-11 border-r border-border text-sm text-blue-600"
               >
                 취소
               </button>
@@ -993,7 +1004,7 @@ export function ChatRoomClient({ chatId, chatTitle, initialMessages, chatCreated
                 type="button"
                 onClick={handleKickMember}
                 disabled={isActionLoading}
-                className="h-11 text-sm text-red-500 disabled:text-gray-300"
+                className="h-11 text-sm text-red-500 disabled:text-muted-foreground"
               >
                 삭제
               </button>
@@ -1010,10 +1021,10 @@ export function ChatRoomClient({ chatId, chatTitle, initialMessages, chatCreated
 
       {/* 친구 초대 모달 */}
       {isInviteModalOpen && (
-        <div className="fixed inset-0 z-50 bg-white">
+        <div className="fixed inset-0 z-50 bg-background">
           <div className="flex h-full flex-col">
             {/* Header */}
-            <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
+            <div className="flex items-center justify-between border-b border-border px-4 py-3">
               <button
                 type="button"
                 onClick={() => {
@@ -1021,14 +1032,14 @@ export function ChatRoomClient({ chatId, chatTitle, initialMessages, chatCreated
                   setSelectedFriendIds(new Set());
                   setInviteSearchQuery("");
                 }}
-                className="flex h-9 w-9 items-center justify-center text-gray-700"
+                className="flex h-9 w-9 items-center justify-center text-foreground"
               >
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="18" y1="6" x2="6" y2="18" />
                   <line x1="6" y1="6" x2="18" y2="18" />
                 </svg>
               </button>
-              <h2 className="text-base font-semibold text-gray-900">대화친구 초대</h2>
+              <h2 className="text-base font-semibold text-foreground">대화친구 초대</h2>
               <button
                 type="button"
                 onClick={handleInvite}
@@ -1037,7 +1048,7 @@ export function ChatRoomClient({ chatId, chatTitle, initialMessages, chatCreated
                   "text-sm font-semibold",
                   selectedFriendIds.size > 0 && !isActionLoading
                     ? "text-blue-600"
-                    : "text-gray-400"
+                    : "text-muted-foreground"
                 )}
               >
                 확인
@@ -1045,9 +1056,9 @@ export function ChatRoomClient({ chatId, chatTitle, initialMessages, chatCreated
             </div>
 
             {/* Search */}
-            <div className="border-b border-gray-200 px-4 py-3">
-              <div className="flex items-center gap-2 rounded-lg bg-gray-100 px-3 py-2">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-400">
+            <div className="border-b border-border px-4 py-3">
+              <div className="flex items-center gap-2 rounded-lg bg-muted px-3 py-2">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground">
                   <circle cx="11" cy="11" r="8" />
                   <path d="m21 21-4.35-4.35" />
                 </svg>
@@ -1056,16 +1067,16 @@ export function ChatRoomClient({ chatId, chatTitle, initialMessages, chatCreated
                   value={inviteSearchQuery}
                   onChange={(e) => setInviteSearchQuery(e.target.value)}
                   placeholder="검색"
-                  className="flex-1 bg-transparent text-sm text-gray-900 outline-none placeholder:text-gray-400"
+                  className="flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
                 />
               </div>
             </div>
 
             {/* Friends List */}
             <div className="flex-1 overflow-y-auto px-4 py-2">
-              <p className="mb-2 text-xs font-medium text-gray-500">친구</p>
+              <p className="mb-2 text-xs font-medium text-muted-foreground">친구</p>
               {filteredInviteCandidates.length === 0 ? (
-                <div className="py-8 text-center text-sm text-gray-400">
+                <div className="py-8 text-center text-sm text-muted-foreground">
                   {inviteSearchQuery ? "검색 결과가 없습니다." : "초대할 친구가 없습니다."}
                 </div>
               ) : (
@@ -1077,16 +1088,16 @@ export function ChatRoomClient({ chatId, chatTitle, initialMessages, chatCreated
                       <div
                         key={friend.id}
                         onClick={() => toggleFriendSelection(friend.id)}
-                        className="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2.5 hover:bg-gray-50"
+                        className="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2.5 hover:bg-muted"
                       >
-                        <div className="h-10 w-10 flex-shrink-0 overflow-hidden rounded-full bg-gray-200" />
-                        <span className="flex-1 text-sm text-gray-900">{displayName}</span>
+                        <div className="h-10 w-10 flex-shrink-0 overflow-hidden rounded-full bg-muted" />
+                        <span className="flex-1 text-sm text-foreground">{displayName}</span>
                         <div
                           className={cn(
                             "flex h-6 w-6 items-center justify-center rounded-full border-2",
                             isSelected
                               ? "border-blue-600 bg-blue-600"
-                              : "border-gray-300 bg-white"
+                              : "border-border bg-background"
                           )}
                         >
                           {isSelected && (
