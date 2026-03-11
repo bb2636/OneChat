@@ -7,7 +7,7 @@ export default function ForgotPasswordCompletePage() {
   const router = useRouter();
 
   return (
-    <div className="min-h-screen bg-white flex flex-col">
+    <div className="min-h-screen bg-background flex flex-col">
       {/* 메인 컨텐츠 */}
       <div className="flex-1 flex flex-col items-center justify-center px-4">
         <div className="text-center space-y-4 max-w-sm">
@@ -17,10 +17,10 @@ export default function ForgotPasswordCompletePage() {
           </div>
           
           {/* 메시지 */}
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">
+          <h2 className="text-2xl font-bold text-foreground mb-2">
             비밀번호가 재설정되었습니다.
           </h2>
-          <p className="text-base text-gray-700">
+          <p className="text-base text-foreground">
             새 비밀번호로 로그인 할 수 있습니다.
           </p>
         </div>

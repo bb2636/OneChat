@@ -216,9 +216,9 @@ export default function SignupPage() {
               placeholder="이메일을 입력해주세요."
               autoComplete="email"
               className={cn(
-                "w-full h-12 rounded-lg border px-4 text-foreground text-sm placeholder:text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors",
+                "w-full h-12 rounded-lg border px-4 text-foreground text-sm placeholder:text-sm placeholder:text-muted-foreground focus:outline-none dark:focus:border-white transition-colors",
                 usernameError
-                  ? "border-red-500 focus:ring-red-500"
+                  ? "border-red-500 focus:border-red-500"
                   : "border-border bg-background"
               )}
             />
@@ -244,9 +244,9 @@ export default function SignupPage() {
                 onChange={handlePasswordChange}
                 placeholder="비밀번호를 입력해주세요."
                 className={cn(
-                  "w-full h-12 rounded-lg border px-4 pr-12 text-foreground text-sm placeholder:text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors",
+                  "w-full h-12 rounded-lg border px-4 pr-12 text-foreground text-sm placeholder:text-sm placeholder:text-muted-foreground focus:outline-none dark:focus:border-white transition-colors",
                   passwordError
-                    ? "border-red-500 focus:ring-red-500"
+                    ? "border-red-500 focus:border-red-500"
                     : "border-border bg-background"
                 )}
               />
@@ -273,9 +273,9 @@ export default function SignupPage() {
                 onChange={handleConfirmPasswordChange}
                 placeholder="비밀번호를 한번 더 입력해주세요."
                 className={cn(
-                  "w-full h-12 rounded-lg border px-4 pr-12 text-foreground text-sm placeholder:text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors",
+                  "w-full h-12 rounded-lg border px-4 pr-12 text-foreground text-sm placeholder:text-sm placeholder:text-muted-foreground focus:outline-none dark:focus:border-white transition-colors",
                   confirmPasswordError
-                    ? "border-red-500 focus:ring-red-500"
+                    ? "border-red-500 focus:border-red-500"
                     : "border-border bg-background"
                 )}
               />

@@ -31,14 +31,14 @@ export function Input({
         )}
         <input
           className={cn(
-            "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm",
+            "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground",
             "placeholder:text-muted-foreground",
-            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+            "focus-visible:outline-none dark:focus-visible:border-white",
             "disabled:cursor-not-allowed disabled:opacity-50",
             "transition-colors",
             leftIcon ? "pl-9" : undefined,
             rightIcon ? "pr-9" : undefined,
-            error ? "border-destructive focus-visible:ring-destructive" : undefined,
+            error ? "border-destructive focus-visible:border-red-500" : undefined,
             className
           )}
           {...props}

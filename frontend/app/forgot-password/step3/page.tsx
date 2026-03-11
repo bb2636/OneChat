@@ -193,23 +193,23 @@ export default function ForgotPasswordStep3Page() {
   const isTimerActive = timeLeft > 0;
 
   return (
-    <div className="min-h-screen bg-white flex flex-col px-4 py-8">
+    <div className="min-h-screen bg-background flex flex-col px-4 py-8">
       {/* 헤더 */}
       <header className="flex items-center gap-4 mb-8">
-        <button onClick={() => router.back()} className="text-gray-900 text-3xl font-normal">
+        <button onClick={() => router.back()} className="text-foreground text-3xl font-normal">
           &lt;
         </button>
-        <h1 className="text-lg font-normal text-gray-900 flex-1 text-center">비밀번호 찾기</h1>
-        <div className="text-sm text-gray-500 pt-0.5">3/4</div>
+        <h1 className="text-lg font-normal text-foreground flex-1 text-center">비밀번호 찾기</h1>
+        <div className="text-sm text-muted-foreground pt-0.5">3/4</div>
       </header>
 
       {/* 메인 컨텐츠 */}
       <div className="flex-1 max-w-sm mx-auto w-full pb-24">
-        <p className="text-gray-900 text-lg font-semibold mb-8">
+        <p className="text-foreground text-lg font-semibold mb-8">
           인증번호를 입력해주세요
         </p>
         {phoneNumber && (
-          <p className="text-gray-700 text-sm mb-6">
+          <p className="text-muted-foreground text-sm mb-6">
             {formatPhone(phoneNumber)}로 인증번호를 전송했습니다.
           </p>
         )}
@@ -230,13 +230,13 @@ export default function ForgotPasswordStep3Page() {
                 inputMode="numeric"
                 autoComplete={index === 0 ? "one-time-code" : "off"}
                 pattern="[0-9]*"
-                className="w-12 h-12 text-center text-xl font-bold rounded-lg border border-gray-300 bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+                className="w-12 h-12 text-center text-xl font-bold rounded-lg border border-border bg-background text-foreground focus:outline-none dark:focus:border-white transition-colors"
               />
             ))}
           </div>
 
           {/* 타이머 및 재전송 */}
-          <div className="flex items-center justify-between text-sm text-gray-600">
+          <div className="flex items-center justify-between text-sm text-muted-foreground">
             <span className={cn(timeLeft <= 60 ? "text-red-500 font-medium" : "")}>
               남은 시간 {formatTime(timeLeft)}
               {debugCode && (
@@ -250,7 +250,7 @@ export default function ForgotPasswordStep3Page() {
               className={cn(
                 "font-medium underline",
                 isLoading || !isTimerActive
-                  ? "text-gray-400 cursor-not-allowed"
+                  ? "text-muted-foreground cursor-not-allowed"
                   : "text-blue-500 hover:text-blue-600"
               )}
             >
@@ -258,14 +258,14 @@ export default function ForgotPasswordStep3Page() {
             </button>
           </div>
 
-          <p className="text-sm text-gray-500 mt-4">
+          <p className="text-sm text-muted-foreground mt-4">
             인증번호 문자가 오지 않나요? 인증번호 재전송을 눌러 다시 시도해주세요.
           </p>
         </form>
       </div>
 
       {/* 인증하기 버튼 - 최하단 고정 */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white px-4 py-4 border-t border-gray-200">
+      <div className="fixed bottom-0 left-0 right-0 bg-background px-4 py-4 border-t border-border">
         <Button
           type="submit"
           disabled={!isCodeComplete || isLoading || !isTimerActive}

@@ -902,30 +902,30 @@ export function MainPage({ initialChats }: MainPageProps) {
         if (myPageScreen === "report-create") {
           return (
             <div className="px-0 pt-0">
-              <div className="mb-3 bg-[#eef0f2] px-4 py-3">
+              <div className="mb-3 bg-muted px-4 py-3">
                 <p className="text-xs font-semibold text-foreground">안내</p>
                 <p className="mt-1 text-xs text-muted-foreground">허위 신고 시 제재를 받을 수 있습니다.</p>
               </div>
 
               <div className="space-y-4 px-3">
                 <div className="relative" ref={reportTargetDropdownRef}>
-                  <label className="mb-1 block text-xs text-gray-600">신고대상 선택</label>
+                  <label className="mb-1 block text-xs text-foreground">신고대상 선택</label>
                   <button
                     type="button"
                     onClick={() => setIsReportTargetModalOpen((prev) => !prev)}
-                    className="flex h-11 w-full items-center justify-between rounded-xl border border-gray-200 bg-white px-3 text-sm text-gray-700"
+                    className="flex h-11 w-full items-center justify-between rounded-xl border border-border bg-background px-3 text-sm text-foreground"
                   >
                     <span>{selectedReportTargetLabel || "신고 대상을 선택해주세요."}</span>
-                    <ChevronDown className="h-4 w-4 text-gray-500" />
+                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
                   </button>
                   {isReportTargetModalOpen && (
-                    <div className="absolute left-0 right-0 top-[52px] z-30 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl">
+                    <div className="absolute left-0 right-0 top-[52px] z-30 overflow-hidden rounded-xl border border-border bg-background shadow-xl">
                       <div className="max-h-56 overflow-y-auto">
-                        <div className="border-b border-gray-100 px-4 py-3 text-center text-xl font-semibold text-gray-900">
+                        <div className="border-b border-border px-4 py-3 text-center text-xl font-semibold text-foreground">
                           직접 설정
                         </div>
                         {reportTargetOptions.length === 0 ? (
-                          <div className="px-4 py-4 text-center text-sm text-gray-400">
+                          <div className="px-4 py-4 text-center text-sm text-muted-foreground">
                             선택 가능한 친구가 없습니다.
                           </div>
                         ) : (
@@ -977,32 +977,32 @@ export function MainPage({ initialChats }: MainPageProps) {
                 </div>
 
                 <div>
-                  <label className="mb-1 block text-xs text-gray-600">신고 제목</label>
+                  <label className="mb-1 block text-xs text-foreground">신고 제목</label>
                   <div className="relative">
                     <input
                       value={reportReason}
                       onChange={(e) => setReportReason(e.target.value)}
-                      className="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 pr-12 text-sm outline-none"
+                      className="h-11 w-full rounded-xl border border-border bg-background px-3 pr-12 text-sm outline-none text-foreground placeholder:text-muted-foreground dark:focus:border-white transition-colors"
                       placeholder="신고 제목을 입력해주세요."
                       maxLength={30}
                     />
-                    <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-gray-400">
+                    <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-muted-foreground">
                       {reportReason.length}/30
                     </span>
                   </div>
                 </div>
 
                 <div>
-                  <label className="mb-1 block text-xs text-gray-600">신고 내용</label>
+                  <label className="mb-1 block text-xs text-foreground">신고 내용</label>
                   <div className="relative">
                     <textarea
                       value={reportDescription}
                       onChange={(e) => setReportDescription(e.target.value)}
-                      className="h-32 w-full resize-none rounded-xl border border-gray-200 bg-white px-3 py-2 pb-6 text-sm outline-none"
+                      className="h-32 w-full resize-none rounded-xl border border-border bg-background px-3 py-2 pb-6 text-sm outline-none text-foreground placeholder:text-muted-foreground dark:focus:border-white transition-colors"
                       placeholder="신고 사유를 구체적으로 작성해주세요."
                       maxLength={300}
                     />
-                    <span className="pointer-events-none absolute bottom-2 right-3 text-[11px] text-gray-400">
+                    <span className="pointer-events-none absolute bottom-2 right-3 text-[11px] text-muted-foreground">
                       {reportDescription.length}/300
                     </span>
                   </div>
@@ -1137,7 +1137,7 @@ export function MainPage({ initialChats }: MainPageProps) {
                     <input
                       value={inquirySubject}
                       onChange={(e) => setInquirySubject(e.target.value.slice(0, 30))}
-                      className="h-10 w-full rounded-xl border border-border bg-background px-3 pr-12 text-sm outline-none text-foreground"
+                      className="h-10 w-full rounded-xl border border-border bg-background px-3 pr-12 text-sm outline-none text-foreground placeholder:text-muted-foreground focus:border-white dark:focus:border-white transition-colors"
                       placeholder="제목을 입력해주세요."
                       maxLength={30}
                     />
@@ -1151,7 +1151,7 @@ export function MainPage({ initialChats }: MainPageProps) {
                     <textarea
                       value={inquiryContent}
                       onChange={(e) => setInquiryContent(e.target.value.slice(0, 300))}
-                      className="h-32 w-full resize-none rounded-xl border border-border bg-background px-3 py-2 pb-6 text-sm outline-none text-foreground"
+                      className="h-32 w-full resize-none rounded-xl border border-border bg-background px-3 py-2 pb-6 text-sm outline-none text-foreground placeholder:text-muted-foreground dark:focus:border-white transition-colors"
                       placeholder="문의하실 내용을 입력해주세요."
                       maxLength={300}
                     />

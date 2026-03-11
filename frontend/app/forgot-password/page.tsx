@@ -52,26 +52,26 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <div className="min-h-screen bg-white flex flex-col px-4 py-8">
+    <div className="min-h-screen bg-background flex flex-col px-4 py-8">
       {/* 헤더 */}
       <header className="flex items-center gap-4 mb-8">
-        <button onClick={() => router.back()} className="text-gray-900 text-3xl font-normal">
+        <button onClick={() => router.back()} className="text-foreground text-3xl font-normal">
           &lt;
         </button>
-        <h1 className="text-lg font-normal text-gray-900 flex-1 text-center">비밀번호 찾기</h1>
-        <div className="text-sm text-gray-500 pt-0.5">1/4</div>
+        <h1 className="text-lg font-normal text-foreground flex-1 text-center">비밀번호 찾기</h1>
+        <div className="text-sm text-muted-foreground pt-0.5">1/4</div>
       </header>
 
       {/* 메인 컨텐츠 */}
       <div className="flex-1 max-w-sm mx-auto w-full pb-24">
-        <p className="text-gray-900 text-lg font-semibold mb-8">
+        <p className="text-foreground text-lg font-semibold mb-8">
           가입하신 아이디를 입력해주세요
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* 아이디 입력 */}
           <div>
-            <label className="block text-sm font-medium text-gray-900 mb-1.5">
+            <label className="block text-sm font-medium text-foreground mb-1.5">
               아이디
             </label>
             <input
@@ -83,10 +83,10 @@ export default function ForgotPasswordPage() {
               }}
               placeholder="아이디를 입력해주세요."
               className={cn(
-                "w-full h-12 rounded-lg border px-4 text-gray-900 text-sm placeholder:text-sm placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors",
+                "w-full h-12 rounded-lg border px-4 text-foreground text-sm placeholder:text-sm placeholder:text-muted-foreground focus:outline-none dark:focus:border-white transition-colors",
                 usernameError
-                  ? "border-red-500 focus:ring-red-500"
-                  : "border-gray-300 bg-white"
+                  ? "border-red-500 focus:border-red-500"
+                  : "border-border bg-background"
               )}
             />
             {usernameError && (
@@ -97,7 +97,7 @@ export default function ForgotPasswordPage() {
       </div>
 
       {/* 다음 버튼 - 최하단 고정 */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white px-4 py-4 border-t border-gray-200">
+      <div className="fixed bottom-0 left-0 right-0 bg-background px-4 py-4 border-t border-border">
         <Button
           type="submit"
           disabled={!username.trim() || isLoading}

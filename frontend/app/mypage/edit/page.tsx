@@ -185,7 +185,7 @@ export default function MyPageEditPage() {
           value={nickname}
           onChange={(e) => setNickname(e.target.value)}
           disabled={!isEditing}
-          className={`mb-3 h-11 w-full rounded-xl border border-border px-3 text-sm outline-none focus:border-blue-500 ${
+          className={`mb-3 h-11 w-full rounded-xl border border-border px-3 text-sm outline-none dark:focus:border-white ${
             isEditing ? "bg-background text-foreground" : "bg-muted text-muted-foreground"
           }`}
         />
@@ -197,7 +197,7 @@ export default function MyPageEditPage() {
           onChange={(e) => setPassword(e.target.value)}
           disabled={!isEditing}
           placeholder={isEditing ? "새 비밀번호를 입력하세요" : "••••••••••••"}
-          className={`h-11 w-full rounded-xl border border-border px-3 text-sm outline-none focus:border-blue-500 ${
+          className={`h-11 w-full rounded-xl border border-border px-3 text-sm outline-none dark:focus:border-white ${
             isEditing ? "bg-background text-foreground placeholder:text-muted-foreground" : "bg-muted text-muted-foreground"
           }`}
         />
