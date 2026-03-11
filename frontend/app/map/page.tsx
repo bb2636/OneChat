@@ -4,11 +4,25 @@ import { useEffect, useState } from "react";
 import { NaverMap } from "@/components/NaverMap";
 import { useRouter } from "next/navigation";
 import { BottomNavigation, type TabType } from "@/components/BottomNavigation";
+import { useTheme } from "@/components/ThemeProvider";
 
 export default function MapPage() {
   const router = useRouter();
   const [userId, setUserId] = useState<string | undefined>(undefined);
   const [activeTab, setActiveTab] = useState<TabType>("map");
+  const { theme, setTheme } = useTheme();
+
+  useEffect(() => {
+    const prevTheme = theme;
+    if (theme === "dark") {
+      setTheme("light");
+    }
+    return () => {
+      if (prevTheme === "dark") {
+        setTheme(prevTheme);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const fetchCurrentUser = async () => {

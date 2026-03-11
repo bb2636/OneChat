@@ -14,6 +14,7 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url);
     const targetUserId = searchParams.get("userId") || auth.userId;
+    const isSelf = targetUserId === auth.userId;
 
     const rows = await sql`
       SELECT id, username, nickname, phone_number, avatar_url
@@ -26,7 +27,13 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "사용자를 찾을 수 없습니다." }, { status: 404 });
     }
 
-    return NextResponse.json({ user: rows[0] });
+    const user = { ...rows[0] };
+    if (!isSelf) {
+      delete user.phone_number;
+      delete user.username;
+    }
+
+    return NextResponse.json({ user });
   } catch (error) {
     console.error("Failed to get profile:", error);
     return NextResponse.json({ error: "프로필 조회에 실패했습니다." }, { status: 500 });

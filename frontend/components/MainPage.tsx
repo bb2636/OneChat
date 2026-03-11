@@ -10,22 +10,19 @@ import {
   ChevronUp,
   FileText,
   LogOut,
+  Moon,
   MoreHorizontal,
   Search,
+  Sun,
 } from "lucide-react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { ChatListItem } from "@/components/ChatListItem";
 import { BottomNavigation } from "@/components/BottomNavigation";
 import { Skeleton } from "@/components/ui";
 import { cn } from "@/lib/cn";
-import type { Chat } from "@/types";
-import { getColorFromSeed } from "@/components/ui/avatar";
+import { useTheme } from "@/components/ThemeProvider";
 import { usePushNotification } from "@/hooks/usePushNotification";
-
-function getInitial(name: string | null | undefined): string {
-  if (!name) return '?';
-  return name.charAt(0);
-}
+import type { Chat } from "@/types";
 
 interface MainPageProps {
   initialChats: Chat[];
@@ -99,12 +96,11 @@ type MyPageScreen =
 
 export function MainPage({ initialChats }: MainPageProps) {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
+  const { theme, toggleTheme } = useTheme();
   usePushNotification();
-  const initialTab = searchParams.get("tab");
   const [activeTab, setActiveTab] = useState<"map" | "chat" | "friends" | "mypage">(
-    initialTab === "friends" || initialTab === "mypage" ? initialTab : "chat"
+    "chat"
   );
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [chatReadCounts, setChatReadCounts] = useState<ChatReadCountMap>({});
@@ -122,7 +118,9 @@ export function MainPage({ initialChats }: MainPageProps) {
   const [isFriendsSectionOpen, setIsFriendsSectionOpen] = useState(true);
   const [myPageScreen, setMyPageScreen] = useState<MyPageScreen>("root");
   const [reportTargetId, setReportTargetId] = useState("");
-  const [reportType, setReportType] = useState("");
+  const [reportType, setReportType] = useState<(typeof REPORT_TYPE_OPTIONS)[number]>(
+    "개인정보 무단 수집·유포"
+  );
   const [reportReason, setReportReason] = useState("");
   const [reportDescription, setReportDescription] = useState("");
   const [inquirySubject, setInquirySubject] = useState("");
@@ -155,21 +153,19 @@ export function MainPage({ initialChats }: MainPageProps) {
       myPageScreen === "inquiry-create");
 
   // React Query로 데이터 관리 (캐싱 및 업데이트)
-  const { data: chats, isLoading: chatsLoading, isFetching: chatsFetching } = useQuery({
+  const { data: chats, isLoading: chatsLoading } = useQuery({
     queryKey: ["chats", currentUserId],
     queryFn: async () => {
       if (!currentUserId) return [];
-      const res = await fetch(`/api/chats`);
+      const res = await fetch(`/api/chats?userId=${currentUserId}`);
       if (!res.ok) throw new Error("Failed to fetch chats");
       return res.json() as Promise<Chat[]>;
     },
     initialData: initialChats,
     enabled: !!currentUserId,
-    staleTime: 2 * 60 * 1000,
+    staleTime: 2 * 60 * 1000, // 2분간 fresh 상태 유지
     gcTime: 10 * 60 * 1000,
-    refetchInterval: 30 * 1000,
-    placeholderData: (prev) => prev,
-    refetchOnWindowFocus: false,
+    refetchInterval: 30 * 1000, // 30초마다 백그라운드 업데이트
   });
 
   const chatReadStorageKey = useMemo(
@@ -224,21 +220,19 @@ export function MainPage({ initialChats }: MainPageProps) {
     queryKey: ["friends", currentUserId],
     enabled: !!currentUserId,
     queryFn: async () => {
-      const res = await fetch(`/api/friends`);
+      const res = await fetch(`/api/friends?userId=${currentUserId}`);
       if (!res.ok) throw new Error("Failed to fetch friends");
       return (await res.json()) as Friend[];
     },
     staleTime: 60 * 1000,
     gcTime: 10 * 60 * 1000,
-    placeholderData: (prev) => prev,
-    refetchOnWindowFocus: false,
   });
 
   const { data: reports = [], refetch: refetchReports } = useQuery({
     queryKey: ["user-reports", currentUserId],
     enabled: !!currentUserId,
     queryFn: async () => {
-      const res = await fetch(`/api/reports`);
+      const res = await fetch(`/api/reports?userId=${currentUserId}`);
       if (!res.ok) throw new Error("Failed to fetch reports");
       return (await res.json()) as UserReport[];
     },
@@ -250,7 +244,7 @@ export function MainPage({ initialChats }: MainPageProps) {
     queryKey: ["user-inquiries", currentUserId],
     enabled: !!currentUserId,
     queryFn: async () => {
-      const res = await fetch(`/api/inquiries`);
+      const res = await fetch(`/api/inquiries?userId=${currentUserId}`);
       if (!res.ok) throw new Error("Failed to fetch inquiries");
       return (await res.json()) as UserInquiry[];
     },
@@ -258,11 +252,11 @@ export function MainPage({ initialChats }: MainPageProps) {
     gcTime: 10 * 60 * 1000,
   });
 
-  const { data: currentUserProfile, refetch: refetchProfile } = useQuery({
+  const { data: currentUserProfile } = useQuery({
     queryKey: ["current-user-profile", currentUserId],
     enabled: !!currentUserId,
     queryFn: async () => {
-      const res = await fetch(`/api/users/profile`);
+      const res = await fetch(`/api/users/profile?userId=${currentUserId}`);
       if (!res.ok) throw new Error("Failed to fetch user profile");
       const data = (await res.json()) as { user?: CurrentUserProfile };
       return data.user || null;
@@ -270,16 +264,6 @@ export function MainPage({ initialChats }: MainPageProps) {
     staleTime: 60 * 1000,
     gcTime: 10 * 60 * 1000,
   });
-
-  useEffect(() => {
-    if (activeTab === "mypage") {
-      const updated = localStorage.getItem("profileUpdated");
-      if (updated) {
-        localStorage.removeItem("profileUpdated");
-        refetchProfile();
-      }
-    }
-  }, [activeTab, refetchProfile]);
 
   useEffect(() => {
     if (!toastMessage) return;
@@ -315,12 +299,17 @@ export function MainPage({ initialChats }: MainPageProps) {
 
   const chatsWithUnread = useMemo(() => {
     return (chats || []).map((chat) => {
+      const messageCount = Math.max(0, Number(chat.message_count || 0));
+      const savedReadCount = Math.max(0, Number(chatReadCounts[chat.id] || 0));
+      const serverUnread = Math.max(0, Number(chat.unread_count || 0));
+      const computedUnread = Math.max(0, messageCount - savedReadCount);
+
       return {
         ...chat,
-        unread_count: Math.max(0, Number(chat.unread_count || 0)),
+        unread_count: Math.max(serverUnread, computedUnread),
       };
     });
-  }, [chats]);
+  }, [chats, chatReadCounts]);
 
   const totalUnreadCount = useMemo(() => {
     return chatsWithUnread.reduce((sum, chat) => sum + Math.max(0, Number(chat.unread_count || 0)), 0);
@@ -399,7 +388,7 @@ export function MainPage({ initialChats }: MainPageProps) {
     const res = await fetch("/api/friends", {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ friendId }),
+      body: JSON.stringify({ userId: currentUserId, friendId }),
     });
 
     if (!res.ok && res.status !== 404) {
@@ -517,7 +506,7 @@ export function MainPage({ initialChats }: MainPageProps) {
 
   const resetReportForm = () => {
     setReportTargetId("");
-    setReportType("");
+    setReportType("개인정보 무단 수집·유포");
     setReportReason("");
     setReportDescription("");
     setIsReportTargetModalOpen(false);
@@ -530,8 +519,8 @@ export function MainPage({ initialChats }: MainPageProps) {
 
   const submitReport = async () => {
     if (!currentUserId) return;
-    if (!reportTargetId || !reportType || !reportReason.trim()) {
-      alert("신고 대상, 신고 유형, 신고 사유를 입력해주세요.");
+    if (!reportTargetId || !reportReason.trim()) {
+      alert("신고 대상과 신고 사유를 입력해주세요.");
       return;
     }
 
@@ -541,6 +530,7 @@ export function MainPage({ initialChats }: MainPageProps) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          reporterId: currentUserId,
           reportedId: reportTargetId,
           type: reportType,
           reason: reportReason.trim(),
@@ -574,6 +564,7 @@ export function MainPage({ initialChats }: MainPageProps) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          userId: currentUserId,
           category: "일반문의",
           subject: inquirySubject.trim(),
           content: inquiryContent.trim(),
@@ -632,7 +623,7 @@ export function MainPage({ initialChats }: MainPageProps) {
   const renderContent = () => {
     switch (activeTab) {
       case "chat":
-        if (chatsLoading && (!chats || chats.length === 0)) {
+        if (chatsLoading) {
           return (
             <div className="space-y-0">
               {[1, 2, 3, 4, 5].map((i) => (
@@ -759,17 +750,10 @@ export function MainPage({ initialChats }: MainPageProps) {
                         src={friend.avatar_url}
                         alt={friend.name || friend.nickname || "friend"}
                         className="h-9 w-9 rounded-full object-cover"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).style.display = 'none';
-                          (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
-                        }}
                       />
-                    ) : null}
-                    <div className={`h-9 w-9 rounded-full flex items-center justify-center text-white text-sm font-bold ${friend.avatar_url ? 'hidden' : ''}`}
-                      style={{ backgroundColor: getColorFromSeed(friend.id) }}
-                    >
-                      {getInitial(friend.name || friend.nickname)}
-                    </div>
+                    ) : (
+                      <div className="h-9 w-9 rounded-full bg-gray-200" />
+                    )}
                     <span className="text-sm font-medium text-gray-900">
                       {friend.name || friend.nickname || "이름 없음"}
                     </span>
@@ -972,14 +956,10 @@ export function MainPage({ initialChats }: MainPageProps) {
                         >
                           <span
                             className={cn(
-                              "relative inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2",
-                              checked ? "border-blue-600" : "border-gray-300"
+                              "inline-block h-4 w-4 rounded-full border",
+                              checked ? "border-blue-600 ring-4 ring-blue-50 bg-blue-600" : "border-gray-300"
                             )}
-                          >
-                            {checked && (
-                              <span className="absolute h-2.5 w-2.5 rounded-full bg-blue-600" />
-                            )}
-                          </span>
+                          />
                           <span>{item}</span>
                         </button>
                       );
@@ -1224,13 +1204,10 @@ export function MainPage({ initialChats }: MainPageProps) {
                       src={currentUserProfile.avatar_url}
                       alt="profile"
                       className="h-11 w-11 rounded-full object-cover"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).style.display = 'none';
-                        (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
-                      }}
                     />
-                  ) : null}
-                  <div className={`h-11 w-11 rounded-full bg-gray-200 ${currentUserProfile?.avatar_url ? 'hidden' : ''}`} />
+                  ) : (
+                    <div className="h-11 w-11 rounded-full bg-gray-200" />
+                  )}
                   <div>
                     <p className="text-sm font-medium text-gray-900">안녕하세요</p>
                     <p className="text-sm font-bold text-blue-600">{profileName} 님</p>
@@ -1269,6 +1246,28 @@ export function MainPage({ initialChats }: MainPageProps) {
                   문의 하기
                 </span>
                 <ChevronRight className="h-4 w-4 text-gray-500" />
+              </button>
+            </div>
+
+            <div className="mt-3 rounded-2xl border border-gray-100 bg-white p-3 shadow-sm">
+              <p className="mb-2 text-xs text-gray-500">설정</p>
+              <button
+                type="button"
+                onClick={toggleTheme}
+                className="flex h-10 w-full items-center justify-between text-sm text-gray-900"
+              >
+                <span className="inline-flex items-center gap-2">
+                  {theme === "dark" ? (
+                    <Moon className="h-4 w-4" />
+                  ) : (
+                    <Sun className="h-4 w-4" />
+                  )}
+                  다크 모드
+                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-500">{theme === "dark" ? "켜짐" : "꺼짐"}</span>
+                  <ChevronRight className="h-4 w-4 text-gray-500" />
+                </div>
               </button>
             </div>
 
@@ -1555,7 +1554,7 @@ export function MainPage({ initialChats }: MainPageProps) {
                     const res = await fetch(`/api/chats/${leaveChatId}/leave`, {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({}),
+                      body: JSON.stringify({ userId: currentUserId }),
                     });
                     const data = (await res.json().catch(() => ({}))) as { error?: string };
                     if (!res.ok) throw new Error(data.error || "채팅방 나가기에 실패했습니다.");
