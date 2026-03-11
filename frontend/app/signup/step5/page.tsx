@@ -141,29 +141,29 @@ export default function SignupStep5Page() {
   const allRequiredAgreed = terms.length > 0 && terms.every((t) => agreedTerms.has(t.id));
 
   return (
-    <div className="min-h-screen bg-white flex flex-col">
+    <div className="min-h-screen bg-background flex flex-col">
       {/* 헤더 */}
-      <header className="sticky top-0 z-20 bg-white flex items-center gap-4 px-4 py-3 border-b border-gray-100">
-        <button onClick={() => router.back()} className="text-gray-900 text-3xl font-normal">
+      <header className="sticky top-0 z-20 bg-background flex items-center gap-4 px-4 py-3 border-b border-border">
+        <button onClick={() => router.back()} className="text-foreground text-3xl font-normal">
           &lt;
         </button>
-        <h1 className="text-lg font-normal text-gray-900 flex-1 text-center">회원가입</h1>
-        <div className="text-sm text-gray-500">5/5</div>
+        <h1 className="text-lg font-normal text-foreground flex-1 text-center">회원가입</h1>
+        <div className="text-sm text-muted-foreground">5/5</div>
       </header>
 
       {/* 메인 컨텐츠 */}
       <div className="flex-1 max-w-sm mx-auto w-full px-4 pt-6">
-        <p className="text-gray-700 mb-8">
+        <p className="text-foreground mb-8">
           서비스 이용약관을 확인하고 동의해주세요
         </p>
 
         {isLoadingTerms ? (
-          <div className="text-center py-8">약관을 불러오는 중...</div>
+          <div className="text-center py-8 text-foreground">약관을 불러오는 중...</div>
         ) : (
           <form onSubmit={handleComplete} className="space-y-4">
             {/* 모두 동의 */}
             <div
-              className="flex items-center gap-3 p-4 bg-white rounded-lg cursor-pointer"
+              className="flex items-center gap-3 p-4 bg-background rounded-lg cursor-pointer border border-border"
               onClick={handleAgreeAll}
             >
               <div
@@ -171,7 +171,7 @@ export default function SignupStep5Page() {
                   "w-6 h-6 rounded border-2 flex items-center justify-center transition-colors",
                   allAgreed
                     ? "bg-blue-500 border-blue-500"
-                    : "bg-white border-gray-300"
+                    : "bg-background border-border"
                 )}
               >
                 {allAgreed && <Check className="w-4 h-4 text-white" />}
@@ -179,7 +179,7 @@ export default function SignupStep5Page() {
               <span
                 className={cn(
                   "font-medium",
-                  allAgreed ? "text-blue-500" : "text-gray-700"
+                  allAgreed ? "text-blue-500" : "text-foreground"
                 )}
               >
                 모두 동의합니다.
@@ -191,7 +191,7 @@ export default function SignupStep5Page() {
               {terms.map((term) => (
                 <div
                   key={term.id}
-                  className="flex items-center justify-between p-4 bg-white rounded-lg"
+                  className="flex items-center justify-between p-4 bg-background rounded-lg border border-border"
                 >
                   <div
                     className="flex items-center gap-3 flex-1 cursor-pointer"
@@ -202,14 +202,14 @@ export default function SignupStep5Page() {
                         "w-6 h-6 rounded border-2 flex items-center justify-center transition-colors",
                         agreedTerms.has(term.id)
                           ? "bg-blue-500 border-blue-500"
-                          : "bg-white border-gray-300"
+                          : "bg-background border-border"
                       )}
                     >
                       {agreedTerms.has(term.id) && (
                         <Check className="w-4 h-4 text-white" />
                       )}
                     </div>
-                    <span className="text-gray-900">
+                    <span className="text-foreground">
                       [필수] {term.title}
                     </span>
                   </div>
@@ -219,7 +219,7 @@ export default function SignupStep5Page() {
                       e.stopPropagation();
                       handleViewDetails(term);
                     }}
-                    className="text-sm text-gray-500 underline ml-2"
+                    className="text-sm text-muted-foreground underline ml-2"
                   >
                     전문보기
                   </button>
@@ -250,22 +250,22 @@ export default function SignupStep5Page() {
           onClick={() => setSelectedTerm(null)}
         >
           <div
-            className="w-full max-w-lg rounded-xl bg-white shadow-xl"
+            className="w-full max-w-lg rounded-xl bg-background shadow-xl border border-border"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between border-b px-5 py-4">
-              <h2 className="text-base font-semibold text-gray-900">{selectedTerm.title}</h2>
+            <div className="flex items-center justify-between border-b border-border px-5 py-4">
+              <h2 className="text-base font-semibold text-foreground">{selectedTerm.title}</h2>
               <button
                 type="button"
                 onClick={() => setSelectedTerm(null)}
-                className="rounded p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+                className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
                 aria-label="닫기"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
             <div className="max-h-[65vh] overflow-auto px-5 py-4">
-              <p className="whitespace-pre-wrap break-words text-sm leading-6 text-gray-700">
+              <p className="whitespace-pre-wrap break-words text-sm leading-6 text-foreground">
                 {selectedTerm.content}
               </p>
             </div>

@@ -137,26 +137,26 @@ export default function ForgotPasswordStep4Page() {
     !confirmPasswordError;
 
   return (
-    <div className="min-h-screen bg-white flex flex-col px-4 py-8">
+    <div className="min-h-screen bg-background flex flex-col px-4 py-8">
       {/* 헤더 */}
       <header className="flex items-center gap-4 mb-8">
-        <button onClick={() => router.back()} className="text-gray-900 text-3xl font-normal">
+        <button onClick={() => router.back()} className="text-foreground text-3xl font-normal">
           &lt;
         </button>
-        <h1 className="text-lg font-normal text-gray-900 flex-1 text-center">비밀번호 찾기</h1>
-        <div className="text-sm text-gray-500 pt-0.5">4/4</div>
+        <h1 className="text-lg font-normal text-foreground flex-1 text-center">비밀번호 찾기</h1>
+        <div className="text-sm text-muted-foreground pt-0.5">4/4</div>
       </header>
 
       {/* 메인 컨텐츠 */}
       <div className="flex-1 max-w-sm mx-auto w-full pb-24">
-        <p className="text-gray-900 text-lg font-semibold mb-8">
+        <p className="text-foreground text-lg font-semibold mb-8">
           변경하실 비밀번호를 입력해주세요
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* 비밀번호 입력 */}
           <div>
-            <label className="block text-sm font-medium text-gray-900 mb-1.5">
+            <label className="block text-sm font-medium text-foreground mb-1.5">
               새 비밀번호
             </label>
             <div className="relative">
@@ -166,16 +166,16 @@ export default function ForgotPasswordStep4Page() {
                 onChange={handlePasswordChange}
                 placeholder="비밀번호를 입력해주세요."
                 className={cn(
-                  "w-full h-12 rounded-lg border px-4 pr-12 text-gray-900 text-sm placeholder:text-sm placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors",
+                  "w-full h-12 rounded-lg border px-4 pr-12 text-foreground text-sm placeholder:text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors",
                   passwordError
                     ? "border-red-500 focus:ring-red-500"
-                    : "border-gray-300 bg-white"
+                    : "border-border bg-background"
                 )}
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
               >
                 {showPassword ? (
                   <EyeOff className="w-5 h-5" />
@@ -188,7 +188,7 @@ export default function ForgotPasswordStep4Page() {
 
           {/* 비밀번호 확인 */}
           <div className="!mt-3">
-            <label className="block text-sm font-medium text-gray-900 mb-1.5">
+            <label className="block text-sm font-medium text-foreground mb-1.5">
               비밀번호 확인
             </label>
             <div className="relative">
@@ -198,16 +198,16 @@ export default function ForgotPasswordStep4Page() {
                 onChange={handleConfirmPasswordChange}
                 placeholder="비밀번호를 한번 더 입력해주세요."
                 className={cn(
-                  "w-full h-12 rounded-lg border px-4 pr-12 text-gray-900 text-sm placeholder:text-sm placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors",
+                  "w-full h-12 rounded-lg border px-4 pr-12 text-foreground text-sm placeholder:text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors",
                   confirmPasswordError || passwordError
                     ? "border-red-500 focus:ring-red-500"
-                    : "border-gray-300 bg-white"
+                    : "border-border bg-background"
                 )}
               />
               <button
                 type="button"
                 onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
               >
                 {showConfirmPassword ? (
                   <EyeOff className="w-5 h-5" />
@@ -232,7 +232,7 @@ export default function ForgotPasswordStep4Page() {
       </div>
 
       {/* 재설정 버튼 - 최하단 고정 */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white px-4 py-4 border-t border-gray-200">
+      <div className="fixed bottom-0 left-0 right-0 bg-background px-4 py-4 border-t border-border">
         <Button
           type="submit"
           disabled={!isFormValid || isLoading}

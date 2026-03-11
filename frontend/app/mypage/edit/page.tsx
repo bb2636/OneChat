@@ -106,16 +106,16 @@ export default function MyPageEditPage() {
   };
 
   return (
-    <div className="mx-auto flex h-screen w-full max-w-md flex-col bg-white">
+    <div className="mx-auto flex h-screen w-full max-w-md flex-col bg-background">
       <header className="flex items-center justify-between px-4 pt-4">
         <button
           type="button"
           onClick={() => router.back()}
-          className="rounded-full border border-gray-200 bg-white p-2 shadow-sm"
+          className="rounded-full border border-border bg-background p-2 shadow-sm"
         >
-          <ChevronLeft className="h-4 w-4" />
+          <ChevronLeft className="h-4 w-4 text-foreground" />
         </button>
-        <p className="text-sm font-semibold text-gray-900">내 정보 수정</p>
+        <p className="text-sm font-semibold text-foreground">내 정보 수정</p>
         <div className="w-8" />
       </header>
 
@@ -133,14 +133,14 @@ export default function MyPageEditPage() {
                 }}
               />
             ) : null}
-            <div className={`h-[72px] w-[72px] rounded-full bg-gray-300 ${avatarUrl ? 'hidden' : ''}`} />
+            <div className={`h-[72px] w-[72px] rounded-full bg-muted ${avatarUrl ? 'hidden' : ''}`} />
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
               disabled={isUploadingAvatar}
-              className="absolute bottom-0 right-0 rounded-full bg-white p-1.5 shadow disabled:opacity-50"
+              className="absolute bottom-0 right-0 rounded-full bg-background p-1.5 shadow border border-border disabled:opacity-50"
             >
-              <Camera className="h-3 w-3" />
+              <Camera className="h-3 w-3 text-foreground" />
             </button>
             <input
               ref={fileInputRef}
@@ -165,40 +165,40 @@ export default function MyPageEditPage() {
               }}
             />
           </div>
-          <p className="mt-3 text-lg font-semibold text-gray-900">{nickname || "사용자"}님</p>
+          <p className="mt-3 text-lg font-semibold text-foreground">{nickname || "사용자"}님</p>
         </div>
 
-        <div className="mb-2 flex items-center justify-between text-xs">
+        <div className="mb-2 flex items-center justify-between text-xs text-foreground">
           <span>아이디</span>
           <span>{user?.username || "xblock"}</span>
         </div>
         <div className="mb-2 h-px" />
 
-        <div className="mb-2 flex items-center justify-between text-xs">
+        <div className="mb-2 flex items-center justify-between text-xs text-foreground">
           <span>휴대폰 번호</span>
           <span>{phoneFormatted(user?.phone_number)}</span>
         </div>
-        <div className="-mx-4 mb-4 h-[2px] bg-gray-300" />
+        <div className="-mx-4 mb-4 h-[2px] bg-border" />
 
-        <label className="mb-1 block text-xs text-gray-600">닉네임</label>
+        <label className="mb-1 block text-xs text-foreground">닉네임</label>
         <input
           value={nickname}
           onChange={(e) => setNickname(e.target.value)}
           disabled={!isEditing}
-          className={`mb-3 h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-blue-500 ${
-            isEditing ? "bg-white text-gray-900" : "bg-gray-200 text-gray-700"
+          className={`mb-3 h-11 w-full rounded-xl border border-border px-3 text-sm outline-none focus:border-blue-500 ${
+            isEditing ? "bg-background text-foreground" : "bg-muted text-muted-foreground"
           }`}
         />
 
-        <label className="mb-1 block text-xs text-gray-600">비밀번호</label>
+        <label className="mb-1 block text-xs text-foreground">비밀번호</label>
         <input
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           disabled={!isEditing}
           placeholder={isEditing ? "새 비밀번호를 입력하세요" : "••••••••••••"}
-          className={`h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-blue-500 ${
-            isEditing ? "bg-white text-gray-900" : "bg-gray-200 text-gray-700"
+          className={`h-11 w-full rounded-xl border border-border px-3 text-sm outline-none focus:border-blue-500 ${
+            isEditing ? "bg-background text-foreground placeholder:text-muted-foreground" : "bg-muted text-muted-foreground"
           }`}
         />
       </main>

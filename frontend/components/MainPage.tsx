@@ -816,7 +816,7 @@ export function MainPage({ initialChats }: MainPageProps) {
                         setSelectedReport(item);
                         setMyPageScreen("report-detail");
                       }}
-                      className="w-full rounded-xl border border-gray-200 bg-white px-3 py-3 text-left"
+                      className="w-full rounded-xl border border-border bg-background px-3 py-3 text-left"
                     >
                       <span
                         className={cn(
@@ -828,7 +828,7 @@ export function MainPage({ initialChats }: MainPageProps) {
                       >
                         {item.display_status}
                       </span>
-                      <p className="mt-2 text-sm font-semibold text-gray-900">
+                      <p className="mt-2 text-sm font-semibold text-foreground">
                         {item.reported_name || item.reported_nickname || "사용자"} · {item.type}
                       </p>
                       <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{item.reason}</p>
@@ -854,7 +854,7 @@ export function MainPage({ initialChats }: MainPageProps) {
                   "inline-flex rounded border px-2 py-0.5 text-[10px]",
                   isDone
                     ? "border-blue-600 bg-blue-600 text-white"
-                    : "border-gray-300 bg-white text-gray-500"
+                    : "border-border bg-background text-muted-foreground"
                 )}
               >
                 {selectedReport.display_status}
@@ -878,7 +878,7 @@ export function MainPage({ initialChats }: MainPageProps) {
                   <p className="text-xs text-muted-foreground">
                     {formatKDateTime(selectedReport.handled_at || selectedReport.created_at)}
                   </p>
-                  <p className="mt-4 whitespace-pre-wrap break-all text-sm leading-6 text-gray-700">
+                  <p className="mt-4 whitespace-pre-wrap break-all text-sm leading-6 text-muted-foreground">
                     {`안녕하세요. ${adminName}입니다.\n\n${
                       selectedReport.admin_note ||
                       "신고해주신 내용을 확인했고 검토를 진행했습니다. 관련 정책에 따라 필요한 조치를 처리했습니다."
@@ -888,7 +888,7 @@ export function MainPage({ initialChats }: MainPageProps) {
                 </>
               ) : (
                 <div className="flex h-[36vh] items-center justify-center">
-                  <p className="text-center text-sm leading-6 text-gray-400">
+                  <p className="text-center text-sm leading-6 text-muted-foreground">
                     신고해주신 내용을 확인 중에 있습니다.
                     <br />
                     조금만 기다려주세요.

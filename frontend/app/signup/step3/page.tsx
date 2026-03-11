@@ -72,19 +72,19 @@ export default function SignupStep3Page() {
   const isPhoneValid = phoneNumber.replace(/[^\d]/g, "").length === 11;
 
   return (
-    <div className="min-h-screen bg-white flex flex-col">
+    <div className="min-h-screen bg-background flex flex-col">
       {/* 헤더 */}
-      <header className="sticky top-0 z-20 bg-white flex items-center gap-4 px-4 py-3 border-b border-gray-100">
-        <button onClick={() => router.back()} className="text-gray-900 text-3xl font-normal">
+      <header className="sticky top-0 z-20 bg-background flex items-center gap-4 px-4 py-3 border-b border-border">
+        <button onClick={() => router.back()} className="text-foreground text-3xl font-normal">
           &lt;
         </button>
-        <h1 className="text-lg font-normal text-gray-900 flex-1 text-center">회원가입</h1>
-        <div className="text-sm text-gray-500">3/5</div>
+        <h1 className="text-lg font-normal text-foreground flex-1 text-center">회원가입</h1>
+        <div className="text-sm text-muted-foreground">3/5</div>
       </header>
 
       {/* 메인 컨텐츠 */}
       <div className="flex-1 max-w-sm mx-auto w-full px-4 pt-6">
-        <p className="text-gray-700 mb-8">
+        <p className="text-foreground mb-8">
           인증에 필요한 휴대폰 번호를 입력해주세요
         </p>
 
@@ -96,7 +96,7 @@ export default function SignupStep3Page() {
             value={phoneNumber}
             onChange={handlePhoneChange}
             placeholder="휴대폰 번호를 입력해주세요."
-            className="bg-white"
+            className="bg-background"
             maxLength={13}
           />
 

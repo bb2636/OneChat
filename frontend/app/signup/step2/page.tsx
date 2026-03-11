@@ -274,19 +274,19 @@ function SignupStep2Content() {
     !isCheckingNickname;
 
   return (
-    <div className="min-h-screen bg-white flex flex-col">
+    <div className="min-h-screen bg-background flex flex-col">
       {/* 헤더 */}
-      <header className="sticky top-0 z-20 bg-white flex items-center gap-4 px-4 py-3 border-b border-gray-100">
-        <button onClick={() => router.back()} className="text-gray-900 text-3xl font-normal">
+      <header className="sticky top-0 z-20 bg-background flex items-center gap-4 px-4 py-3 border-b border-border">
+        <button onClick={() => router.back()} className="text-foreground text-3xl font-normal">
           &lt;
         </button>
-        <h1 className="text-lg font-normal text-gray-900 flex-1 text-center">회원가입</h1>
-        <div className="text-sm text-gray-500">{isGoogleUser ? "1/4" : "2/5"}</div>
+        <h1 className="text-lg font-normal text-foreground flex-1 text-center">회원가입</h1>
+        <div className="text-sm text-muted-foreground">{isGoogleUser ? "1/4" : "2/5"}</div>
       </header>
 
       {/* 메인 컨텐츠 */}
       <div className="flex-1 max-w-sm mx-auto w-full px-4 pt-6">
-        <p className="text-gray-700 mb-8">계정 정보를 입력해주세요</p>
+        <p className="text-foreground mb-8">계정 정보를 입력해주세요</p>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* 프로필 이미지 */}
@@ -298,7 +298,7 @@ function SignupStep2Content() {
                   "relative w-32 h-32 rounded-full flex items-center justify-center cursor-pointer transition-colors overflow-hidden",
                   profileImage
                     ? "bg-blue-500"
-                    : "bg-gray-200 border-2 border-dashed border-gray-300"
+                    : "bg-muted border-2 border-dashed border-border"
                 )}
                 onClick={() => fileInputRef.current?.click()}
               >
@@ -309,7 +309,7 @@ function SignupStep2Content() {
                     className="w-full h-full object-cover rounded-full"
                   />
                 ) : (
-                  <Camera className="w-8 h-8 text-gray-400" />
+                  <Camera className="w-8 h-8 text-muted-foreground" />
                 )}
               </div>
               {profileImage && (
@@ -335,7 +335,7 @@ function SignupStep2Content() {
               value={nickname}
               onChange={handleNicknameChange}
               placeholder="닉네임을 입력해주세요."
-              className="bg-white"
+              className="bg-background"
               error={nicknameError || undefined}
             />
             {nickname && !nicknameError && !isCheckingNickname && (
@@ -353,7 +353,7 @@ function SignupStep2Content() {
               value={name}
               onChange={handleNameChange}
               placeholder="이름을 입력해주세요."
-              className="bg-white"
+              className="bg-background"
               error={nameError || undefined}
             />
           </div>
@@ -380,10 +380,10 @@ function SignupStep2Content() {
 export default function SignupStep2Page() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-white flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-gray-600">로딩 중...</p>
+          <p className="text-foreground">로딩 중...</p>
         </div>
       </div>
     }>

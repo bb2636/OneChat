@@ -4,14 +4,17 @@ import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { Input, Button } from "@/components/ui";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Moon, Sun } from "lucide-react";
 import Link from "next/link";
 import { LOGO_PATHS } from "@/lib/constants";
 import { Toast } from "@/components/Toast";
+import { useTheme } from "@/components/ThemeProvider";
+import { cn } from "@/lib/cn";
 
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { theme, toggleTheme } = useTheme();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -114,7 +117,23 @@ function LoginForm() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-4 py-8" style={{ backgroundColor: '#6983FC' }}>
+    <div 
+      className="min-h-screen flex flex-col items-center justify-center px-4 py-8 relative transition-colors" 
+      style={{ backgroundColor: theme === "dark" ? '#000000' : '#6983FC' }}
+    >
+      {/* 다크모드 토글 버튼 - 왼쪽 위 구석 */}
+      <button
+        type="button"
+        onClick={toggleTheme}
+        className="absolute top-4 left-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/20 backdrop-blur-sm border border-white/30 hover:bg-white/30 transition-colors"
+        aria-label="다크모드 토글"
+      >
+        {theme === "dark" ? (
+          <Moon className="h-5 w-5 text-white" />
+        ) : (
+          <Sun className="h-5 w-5 text-white" />
+        )}
+      </button>
 
       {/* 로고 영역 */}
       <div className="mb-6 sm:mb-12">
@@ -182,8 +201,13 @@ function LoginForm() {
           <Button
             type="submit"
             disabled={isLoading}
-            className="w-full h-12 bg-white hover:bg-gray-100 font-semibold rounded-md transition-colors"
-            style={{ color: '#6983FC' }}
+            className={cn(
+              "w-full h-12 font-semibold rounded-md transition-colors",
+              theme === "dark"
+                ? "bg-white hover:bg-gray-200 text-black"
+                : "bg-white hover:bg-gray-100"
+            )}
+            style={theme === "dark" ? undefined : { color: '#6983FC' }}
           >
             {isLoading ? "로그인 중..." : "로그인"}
           </Button>
@@ -211,7 +235,12 @@ function LoginForm() {
               <div className="w-full border-t border-white"></div>
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-6 py-1 text-white font-medium" style={{ backgroundColor: '#6983FC' }}>또는</span>
+              <span 
+                className="px-6 py-1 text-white font-medium" 
+                style={{ backgroundColor: theme === "dark" ? '#000000' : '#6983FC' }}
+              >
+                또는
+              </span>
             </div>
           </div>
 
@@ -273,8 +302,8 @@ function LoginForm() {
 export default function LoginPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen flex flex-col items-center justify-center px-4 py-8" style={{ backgroundColor: '#6983FC' }}>
-        <div className="text-white">로딩 중...</div>
+      <div className="min-h-screen flex flex-col items-center justify-center px-4 py-8 bg-background">
+        <div className="text-foreground">로딩 중...</div>
       </div>
     }>
       <LoginForm />

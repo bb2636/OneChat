@@ -175,21 +175,21 @@ export default function SignupStep4Page() {
   const isCodeComplete = code.every((digit) => digit !== "");
 
   return (
-    <div className="min-h-screen bg-white flex flex-col">
+    <div className="min-h-screen bg-background flex flex-col">
       {/* 헤더 */}
-      <header className="sticky top-0 z-20 bg-white flex items-center gap-4 px-4 py-3 border-b border-gray-100">
-        <button onClick={() => router.back()} className="text-gray-900 text-3xl font-normal">
+      <header className="sticky top-0 z-20 bg-background flex items-center gap-4 px-4 py-3 border-b border-border">
+        <button onClick={() => router.back()} className="text-foreground text-3xl font-normal">
           &lt;
         </button>
-        <h1 className="text-lg font-normal text-gray-900 flex-1 text-center">회원가입</h1>
-        <div className="text-sm text-gray-500">4/5</div>
+        <h1 className="text-lg font-normal text-foreground flex-1 text-center">회원가입</h1>
+        <div className="text-sm text-muted-foreground">4/5</div>
       </header>
 
       {/* 메인 컨텐츠 */}
       <div className="flex-1 max-w-sm mx-auto w-full px-4 pt-6">
-        <p className="text-gray-700 mb-4">인증번호를 입력해주세요</p>
+        <p className="text-foreground mb-4">인증번호를 입력해주세요</p>
         {phoneNumber && (
-          <p className="text-sm text-gray-600 mb-8">
+          <p className="text-sm text-muted-foreground mb-8">
             {formatPhone(phoneNumber)}로 인증번호를 전송했습니다.
           </p>
         )}
@@ -210,13 +210,13 @@ export default function SignupStep4Page() {
                 onKeyDown={(e) => handleKeyDown(index, e)}
                 autoComplete={index === 0 ? "one-time-code" : "off"}
                 pattern="[0-9]*"
-                className="w-12 h-14 text-center text-2xl font-semibold border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none bg-white"
+                className="w-12 h-14 text-center text-2xl font-semibold border-2 border-border rounded-lg focus:border-blue-500 focus:outline-none bg-background text-foreground"
               />
             ))}
           </div>
 
           <div className="flex items-center justify-between mb-4">
-            <span className="text-sm text-gray-600">
+            <span className="text-sm text-muted-foreground">
               남은 시간 {formatTime(timeLeft)}
               {debugCode && (
                 <span className="ml-2 font-mono font-bold text-blue-600">[{debugCode}]</span>

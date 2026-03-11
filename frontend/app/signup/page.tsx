@@ -184,29 +184,29 @@ export default function SignupPage() {
     !confirmPasswordError;
 
   return (
-    <div className="min-h-screen bg-white flex flex-col">
+    <div className="min-h-screen bg-background flex flex-col">
       {/* 헤더 */}
-      <header className="sticky top-0 z-20 bg-white flex items-center gap-4 px-4 py-3 border-b border-gray-100">
-        <button onClick={() => router.back()} className="text-gray-900 text-3xl font-normal">
+      <header className="sticky top-0 z-20 bg-background flex items-center gap-4 px-4 py-3 border-b border-border">
+        <button onClick={() => router.back()} className="text-foreground text-3xl font-normal">
           &lt;
         </button>
-        <h1 className="text-lg font-normal text-gray-900 flex-1 text-center">회원가입</h1>
+        <h1 className="text-lg font-normal text-foreground flex-1 text-center">회원가입</h1>
       </header>
 
       {/* 메인 컨텐츠 */}
       <div className="flex-1 max-w-sm mx-auto w-full px-4 pt-6">
         <div className="flex items-start justify-between mb-8">
-          <p className="text-gray-900 text-lg font-semibold">
+          <p className="text-foreground text-lg font-semibold">
             가입하실 아이디와<br /> 
             비밀번호를 입력해주세요
           </p>
-          <div className="text-sm text-gray-500 pt-0.5">1/5</div>
+          <div className="text-sm text-muted-foreground pt-0.5">1/5</div>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6 pb-24">
           {/* 아이디 입력 */}
           <div>
-            <label className="block text-sm font-medium text-gray-900 mb-1.5">
+            <label className="block text-sm font-medium text-foreground mb-1.5">
               아이디
             </label>
             <input
@@ -216,10 +216,10 @@ export default function SignupPage() {
               placeholder="이메일을 입력해주세요."
               autoComplete="email"
               className={cn(
-                "w-full h-12 rounded-lg border px-4 text-gray-900 text-sm placeholder:text-sm placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors",
+                "w-full h-12 rounded-lg border px-4 text-foreground text-sm placeholder:text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors",
                 usernameError
                   ? "border-red-500 focus:ring-red-500"
-                  : "border-gray-300 bg-white"
+                  : "border-border bg-background"
               )}
             />
             {username && !usernameError && !isCheckingUsername && (
@@ -234,7 +234,7 @@ export default function SignupPage() {
 
           {/* 비밀번호 입력 */}
           <div>
-            <label className="block text-sm font-medium text-gray-900 mb-1.5">
+            <label className="block text-sm font-medium text-foreground mb-1.5">
               비밀번호
             </label>
             <div className="relative">
@@ -244,16 +244,16 @@ export default function SignupPage() {
                 onChange={handlePasswordChange}
                 placeholder="비밀번호를 입력해주세요."
                 className={cn(
-                  "w-full h-12 rounded-lg border px-4 pr-12 text-gray-900 text-sm placeholder:text-sm placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors",
+                  "w-full h-12 rounded-lg border px-4 pr-12 text-foreground text-sm placeholder:text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors",
                   passwordError
                     ? "border-red-500 focus:ring-red-500"
-                    : "border-gray-300 bg-white"
+                    : "border-border bg-background"
                 )}
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
               >
                 {showPassword ? (
                   <EyeOff className="w-5 h-5" />
@@ -273,16 +273,16 @@ export default function SignupPage() {
                 onChange={handleConfirmPasswordChange}
                 placeholder="비밀번호를 한번 더 입력해주세요."
                 className={cn(
-                  "w-full h-12 rounded-lg border px-4 pr-12 text-gray-900 text-sm placeholder:text-sm placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors",
+                  "w-full h-12 rounded-lg border px-4 pr-12 text-foreground text-sm placeholder:text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors",
                   confirmPasswordError
                     ? "border-red-500 focus:ring-red-500"
-                    : "border-gray-300 bg-white"
+                    : "border-border bg-background"
                 )}
               />
               <button
                 type="button"
                 onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
               >
                 {showConfirmPassword ? (
                   <EyeOff className="w-5 h-5" />
@@ -307,7 +307,7 @@ export default function SignupPage() {
         </form>
 
         {/* 다음 버튼 - 최하단 고정 */}
-        <div className="fixed bottom-0 left-0 right-0 bg-white px-4 py-4 border-t border-gray-200">
+        <div className="fixed bottom-0 left-0 right-0 bg-background px-4 py-4 border-t border-border">
           <Button
             type="submit"
             onClick={handleSubmit}
