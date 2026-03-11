@@ -1,9 +1,15 @@
 import { NextResponse } from "next/server";
 import { sql } from "@/lib/db";
+import { requireAdmin } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
+  const auth = await requireAdmin(request);
+  if ("error" in auth) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
+  }
+
   try {
     const { searchParams } = new URL(request.url);
     const since = (searchParams.get("since") || "").trim();
@@ -49,6 +55,11 @@ export async function GET(request: Request) {
 }
 
 export async function PUT(request: Request) {
+  const auth = await requireAdmin(request);
+  if ("error" in auth) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
+  }
+
   try {
     const body = (await request.json()) as {
       type?: string;

@@ -63,7 +63,6 @@ export default function ForgotPasswordStep2Page() {
         return;
       }
 
-      // 2단계 데이터 저장
       sessionStorage.setItem(
         "forgot_password_step2",
         JSON.stringify({
@@ -71,8 +70,10 @@ export default function ForgotPasswordStep2Page() {
           phoneNumber: phoneNumber.replace(/[^\d]/g, ""),
         })
       );
+      if (data.code) {
+        sessionStorage.setItem("forgot_debug_code", data.code);
+      }
 
-      // 다음 단계로 이동
       router.push("/forgot-password/step3");
     } catch (error) {
       console.error("Send code error:", error);

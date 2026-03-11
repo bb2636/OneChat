@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { sql } from "@/lib/db";
 import bcrypt from "bcryptjs";
+import { signToken, createTokenCookieHeader } from "@/lib/auth";
 
 export async function POST(request: Request) {
   try {
@@ -13,7 +14,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // 사용자 조회
     const users = await sql`
       SELECT id, username, password, nickname, email, name, avatar_url, role
       FROM users
@@ -30,7 +30,6 @@ export async function POST(request: Request) {
 
     const user = users[0];
 
-    // 관리자 권한 확인
     if (user.role !== "admin") {
       return NextResponse.json(
         { error: "관리자 권한이 없습니다." },
@@ -38,7 +37,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // 비밀번호 확인
     if (!user.password) {
       return NextResponse.json(
         { error: "비밀번호가 설정되지 않았습니다." },
@@ -55,8 +53,9 @@ export async function POST(request: Request) {
       );
     }
 
-    // 관리자 세션 생성 (실제로는 JWT 토큰이나 세션 쿠키 사용)
-    return NextResponse.json({
+    const token = signToken({ userId: user.id, role: "admin" });
+
+    const response = NextResponse.json({
       user: {
         id: user.id,
         username: user.username,
@@ -67,6 +66,10 @@ export async function POST(request: Request) {
         role: user.role,
       },
     });
+
+    response.headers.set("Set-Cookie", createTokenCookieHeader(token));
+
+    return response;
   } catch (error) {
     console.error("Admin login error:", error);
     return NextResponse.json(

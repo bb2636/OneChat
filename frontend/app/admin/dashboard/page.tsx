@@ -25,8 +25,10 @@ type AdminUser = {
   username: string | null;
   nickname: string | null;
   name: string | null;
+  email: string | null;
   avatar_url: string | null;
   phone_number: string | null;
+  role: string;
   created_at: string;
 };
 
@@ -59,7 +61,7 @@ type TermItem = {
 };
 
 const PAGE_SIZE = 10;
-const DASHBOARD_CACHE_KEY = "admin_dashboard_cache_v1";
+const DASHBOARD_CACHE_KEY = "admin_dashboard_cache_v2";
 const DETAIL_REPLY_MIN_HEIGHT = 260;
 const DETAIL_REPLY_MAX_HEIGHT = 380;
 
@@ -274,6 +276,16 @@ export default function AdminDashboardPage() {
     location_consent: "위치 정보 제공 동의",
   };
 
+  const adminFetch = async (url: string, options?: RequestInit) => {
+    const res = await fetch(url, options);
+    if (res.status === 401 || res.status === 403) {
+      localStorage.removeItem("admin_user");
+      router.replace("/admin/login");
+      throw new Error("AUTH_REDIRECT");
+    }
+    return res;
+  };
+
   useEffect(() => {
     const stored = localStorage.getItem("admin_user");
     if (!stored) {
@@ -306,11 +318,12 @@ export default function AdminDashboardPage() {
       setLoading(true);
     }
 
+    const excludeId = adminUser.id || "";
     const requestUrl = cached
-      ? `/api/admin/users?page=${usersPage}&q=${encodeURIComponent(search)}&since=${encodeURIComponent(cached.syncedAt)}`
-      : `/api/admin/users?page=${usersPage}&q=${encodeURIComponent(search)}`;
+      ? `/api/admin/users?page=${usersPage}&q=${encodeURIComponent(search)}&excludeId=${excludeId}&since=${encodeURIComponent(cached.syncedAt)}`
+      : `/api/admin/users?page=${usersPage}&q=${encodeURIComponent(search)}&excludeId=${excludeId}`;
 
-    fetch(requestUrl)
+    adminFetch(requestUrl)
       .then((r) => r.json())
       .then((data) => {
         const incoming = (data.items || []) as AdminUser[];
@@ -361,7 +374,7 @@ export default function AdminDashboardPage() {
       ? `/api/admin/reports?page=${reportsPage}&status=${reportStatus}&since=${encodeURIComponent(cached.syncedAt)}`
       : `/api/admin/reports?page=${reportsPage}&status=${reportStatus}`;
 
-    fetch(requestUrl)
+    adminFetch(requestUrl)
       .then((r) => r.json())
       .then((data) => {
         const incoming = (data.items || []) as ReportItem[];
@@ -408,7 +421,7 @@ export default function AdminDashboardPage() {
       ? `/api/admin/inquiries?page=${inquiriesPage}&status=${inquiryStatus}&since=${encodeURIComponent(cached.syncedAt)}`
       : `/api/admin/inquiries?page=${inquiriesPage}&status=${inquiryStatus}`;
 
-    fetch(requestUrl)
+    adminFetch(requestUrl)
       .then((r) => r.json())
       .then((data) => {
         const incoming = (data.items || []) as InquiryItem[];
@@ -446,50 +459,52 @@ export default function AdminDashboardPage() {
     if (!adminUser || activeMenu !== "terms") return;
     const cache = loadDashboardCache();
     const cached = cache.terms.all;
-    if (cached) {
-      setTerms(cached.items || []);
+    const cachedItems = Array.isArray(cached?.items) ? cached.items : [];
+    if (cachedItems.length > 0) {
+      setTerms(cachedItems);
     } else {
       setLoading(true);
     }
 
-    const requestUrl = cached
+    const requestUrl = cached?.syncedAt
       ? `/api/admin/terms?since=${encodeURIComponent(cached.syncedAt)}`
       : "/api/admin/terms";
 
     const loadTerms = async () => {
       try {
-        const res = await fetch(requestUrl);
+        const res = await adminFetch(requestUrl);
         const data = await res.json();
-        const incoming = (data || []).items ? (data.items as TermItem[]) : ((data || []) as TermItem[]);
-        const nextItems = cached && data.delta
+        const incoming: TermItem[] = Array.isArray(data) ? data : Array.isArray(data?.items) ? data.items : [];
+        const nextItems = cached?.syncedAt && data?.delta && cachedItems.length > 0
           ? Array.from(
-              new Map([...(cached.items || []), ...incoming].map((item) => [item.type, item] as const)).values()
+              new Map([...cachedItems, ...incoming].map((item) => [item.type, item] as const)).values()
             )
           : incoming;
 
-        setTerms(nextItems || []);
+        setTerms(nextItems);
         const fresh = loadDashboardCache();
         fresh.terms.all = {
-          items: nextItems || [],
+          items: nextItems,
           totalPages: 1,
-          syncedAt: data.syncedAt || new Date().toISOString(),
+          syncedAt: data?.syncedAt || new Date().toISOString(),
         };
         saveDashboardCache(fresh);
       } finally {
-        if (!cached) setLoading(false);
+        if (cachedItems.length === 0) setLoading(false);
       }
     };
     void loadTerms();
   }, [adminUser, activeMenu]);
 
   useEffect(() => {
-    const current = terms.find((term) => term.type === activeTermType);
+    const safeTerms = Array.isArray(terms) ? terms : [];
+    const current = safeTerms.find((term) => term.type === activeTermType);
     setTermTitle(current?.title || TERM_TITLE_MAP[activeTermType] || "");
     setTermContent(current?.content || "");
   }, [terms, activeTermType]);
 
   const currentTerm = useMemo(
-    () => terms.find((term) => term.type === activeTermType),
+    () => (Array.isArray(terms) ? terms : []).find((term) => term.type === activeTermType),
     [terms, activeTermType]
   );
 
@@ -503,7 +518,8 @@ export default function AdminDashboardPage() {
     )}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try { await fetch("/api/auth/logout", { method: "POST" }); } catch {}
     localStorage.removeItem("admin_user");
     router.push("/admin/login");
   };
@@ -551,7 +567,7 @@ export default function AdminDashboardPage() {
 
   const handleDeleteUser = async (id: string) => {
     if (!confirm("이 사용자를 삭제하시겠습니까?")) return;
-    const res = await fetch("/api/admin/users", {
+    const res = await adminFetch("/api/admin/users", {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id }),
@@ -578,7 +594,7 @@ export default function AdminDashboardPage() {
   };
 
   const handleSaveTerm = async () => {
-    const res = await fetch("/api/admin/terms", {
+    const res = await adminFetch("/api/admin/terms", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -594,14 +610,15 @@ export default function AdminDashboardPage() {
       return;
     }
 
-    const refresh = await fetch("/api/admin/terms");
+    const refresh = await adminFetch("/api/admin/terms");
     const data = await refresh.json();
-    setTerms(data || []);
+    const refreshedItems = Array.isArray(data) ? data : (data?.items || []);
+    setTerms(refreshedItems as TermItem[]);
     const cache = loadDashboardCache();
     cache.terms.all = {
-      items: (data || []) as TermItem[],
+      items: refreshedItems as TermItem[],
       totalPages: 1,
-      syncedAt: new Date().toISOString(),
+      syncedAt: data?.syncedAt || new Date().toISOString(),
     };
     saveDashboardCache(cache);
     alert("저장되었습니다.");
@@ -616,7 +633,7 @@ export default function AdminDashboardPage() {
     setIsSavingDetail(true);
     try {
       if (activeMenu === "inquiries") {
-        const res = await fetch("/api/admin/inquiries", {
+        const res = await adminFetch("/api/admin/inquiries", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -639,7 +656,7 @@ export default function AdminDashboardPage() {
         );
         setDetailToastMessage("문의 내역 답변 작성 완료");
       } else if (activeMenu === "reports") {
-        const res = await fetch("/api/admin/reports", {
+        const res = await adminFetch("/api/admin/reports", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -674,14 +691,15 @@ export default function AdminDashboardPage() {
   const handleRefreshTerms = async () => {
     setLoading(true);
     try {
-      const refresh = await fetch("/api/admin/terms");
+      const refresh = await adminFetch("/api/admin/terms");
       const data = await refresh.json();
-      setTerms(data || []);
+      const refreshedItems = Array.isArray(data) ? data : (data?.items || []);
+      setTerms(refreshedItems as TermItem[]);
       const cache = loadDashboardCache();
       cache.terms.all = {
-        items: (data || []) as TermItem[],
+        items: refreshedItems as TermItem[],
         totalPages: 1,
-        syncedAt: new Date().toISOString(),
+        syncedAt: data?.syncedAt || new Date().toISOString(),
       };
       saveDashboardCache(cache);
     } finally {
@@ -829,10 +847,10 @@ export default function AdminDashboardPage() {
           <div className="h-[calc(100vh-56px)] overflow-auto">
             {activeMenu === "users" && (
               <section>
-                <div className="mb-5  py-3">
-                  <h2 className="text-xl font-semibold text-black">유저 관리</h2>
+                <div className="px-6 pt-3">
+                  <h2 className="mb-4 text-[34px] font-semibold tracking-tight text-gray-900">유저 관리</h2>
                 </div>
-                <div className="mb-4 mt-5 flex justify-end">
+                <div className="mb-4 flex justify-end px-6">
                   <div className="relative w-[320px]">
                     <Search className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                     <input
@@ -1040,8 +1058,10 @@ export default function AdminDashboardPage() {
 
             {activeMenu === "terms" && (
               <section>
-                <h2 className="mb-4 text-xl font-semibold text-gray-800">약관 관리</h2>
-                <div className="mb-3 flex gap-0 border-b text-sm">
+                <div className="px-6 pt-3">
+                  <h2 className="mb-4 text-[34px] font-semibold tracking-tight text-gray-900">약관 관리</h2>
+                </div>
+                <div className="mb-3 flex gap-0 border-b px-6 text-sm">
                   {[
                     { key: "privacy_policy", label: "개인정보 처리방침" },
                     { key: "terms_of_service", label: "서비스 이용약관" },
@@ -1060,7 +1080,7 @@ export default function AdminDashboardPage() {
                     </button>
                   ))}
                 </div>
-                <div className="space-y-3">
+                <div className="space-y-3 px-6">
                   <div className="flex items-center justify-end">
                     <div className="flex items-center gap-2 text-xs text-gray-400">
                       <p>{formatUpdatedAt(currentTerm?.updated_at)} 업데이트 됨</p>
@@ -1092,11 +1112,15 @@ export default function AdminDashboardPage() {
         </main>
 
         {selectedItem && (
-          <div className="fixed inset-0 z-50 bg-black/45">
-            <div className="ml-auto h-full w-[430px] border-l border-gray-200 bg-white">
+          <div className="fixed inset-0 z-50 bg-black/45" onClick={() => setSelectedItem(null)}>
+            <div className="ml-auto h-full w-[430px] border-l border-gray-200 bg-white" onClick={(e) => e.stopPropagation()}>
               <div className="flex h-14 items-center justify-between border-b border-gray-200 px-4">
                 <h3 className="text-base font-semibold text-gray-800">
-                  {activeMenu === "reports" ? "신고내역 상세보기" : "문의내역 상세보기"}
+                  {activeMenu === "users"
+                    ? "유저 관리"
+                    : activeMenu === "reports"
+                      ? "신고내역 상세보기"
+                      : "문의내역 상세보기"}
                 </h3>
                 <button onClick={() => setSelectedItem(null)} className="text-gray-500 hover:text-gray-800">
                   <X className="h-4 w-4" />
@@ -1104,118 +1128,206 @@ export default function AdminDashboardPage() {
               </div>
 
               <div className="flex h-[calc(100%-56px)] flex-col">
-                <div className="flex-1 overflow-hidden">
-                  <div className="space-y-4 p-4 text-sm">
-                    <div>
-                      <p className="mb-2 text-[11px] text-gray-400">작성자</p>
-                      <div className="rounded-md bg-gray-100 px-3 py-2.5">
-                        <p className="text-sm font-medium text-gray-800">
-                          {String(
-                            (selectedItem.reporter_name as string | undefined) ||
-                              (selectedItem.user_name as string | undefined) ||
-                              "-"
-                          )}
-                        </p>
-                        <p className="mt-0.5 text-[11px] text-gray-500">
-                          {String(
-                            (selectedItem.reporter_username as string | undefined) ||
-                              (selectedItem.user_username as string | undefined) ||
-                              "-"
-                          )}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="space-y-3 border-t border-gray-200 pt-3">
-                      <div className="grid grid-cols-[64px_1fr] items-start gap-2">
-                        <p className="pt-0.5 text-[11px] text-gray-400">
-                          {activeMenu === "reports" ? "신고 제목" : "문의 제목"}
-                        </p>
-                        <p className="text-sm leading-5 text-gray-800">
-                          {String(
-                            (selectedItem.reason as string | undefined) ||
-                              (selectedItem.subject as string | undefined) ||
-                              "-"
-                          )}
-                        </p>
+                <div className="flex-1 overflow-y-auto">
+                  {activeMenu === "users" ? (
+                    <div className="flex h-full flex-col">
+                      <div className="flex items-center gap-3 bg-gray-50 px-5 py-4">
+                        {selectedItem.avatar_url ? (
+                          <img
+                            src={String(selectedItem.avatar_url)}
+                            alt="avatar"
+                            className="h-12 w-12 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gray-200 text-lg font-bold text-gray-400">
+                            {String(selectedItem.nickname || selectedItem.name || "?").charAt(0)}
+                          </div>
+                        )}
+                        <div>
+                          <p className="text-sm font-semibold text-gray-900">
+                            {String(selectedItem.nickname || selectedItem.name || "-")}
+                          </p>
+                          <p className="text-xs text-gray-500">{String(selectedItem.username || "-")}</p>
+                        </div>
                       </div>
 
-                      <div className="grid grid-cols-[64px_1fr] items-start gap-2">
-                        <p className="pt-0.5 text-[11px] text-gray-400">상태</p>
-                        <span
-                          className={`inline-flex w-fit rounded border px-2 py-0.5 text-[11px] ${
-                            String(selectedItem.status) === "resolved" ||
-                            String(selectedItem.status) === "answered"
-                              ? "border-emerald-300 bg-emerald-50 text-emerald-600"
-                              : "border-gray-300 bg-white text-gray-500"
-                          }`}
-                        >
-                          {activeMenu === "reports"
-                            ? REPORT_STATUS_LABEL_MAP[String(selectedItem.status)] || String(selectedItem.status)
-                            : INQUIRY_STATUS_LABEL_MAP[String(selectedItem.status)] || String(selectedItem.status)}
+                      <div className="border-b border-gray-200 px-5">
+                        <span className="inline-block border-b-2 border-gray-900 pb-2 pt-3 text-sm font-medium text-gray-900">
+                          기본 정보
                         </span>
                       </div>
 
-                      <div className="grid grid-cols-[64px_1fr] items-start gap-2">
-                        <p className="pt-0.5 text-[11px] text-gray-400">
-                          {activeMenu === "reports" ? "신고일" : "문의일"}
-                        </p>
-                        <p className="text-sm text-gray-700">
-                          {String(selectedItem.created_at || "").slice(0, 10).replaceAll("-", ".")}
-                        </p>
+                      <div className="flex-1 space-y-5 overflow-y-auto px-5 py-4">
+                        <div>
+                          <p className="mb-1.5 text-xs text-gray-500">가입일시</p>
+                          <div className="rounded-lg bg-gray-100 px-3.5 py-2.5">
+                            <p className="text-sm text-gray-800">
+                              {String(selectedItem.created_at || "").slice(0, 10).replaceAll("-", ".")}
+                            </p>
+                          </div>
+                        </div>
+                        <div>
+                          <p className="mb-1.5 text-xs text-gray-500">이름</p>
+                          <div className="rounded-lg bg-gray-100 px-3.5 py-2.5">
+                            <p className="text-sm text-gray-800">{String(selectedItem.name || "-")}</p>
+                          </div>
+                        </div>
+                        <div>
+                          <p className="mb-1.5 text-xs text-gray-500">아이디</p>
+                          <div className="rounded-lg bg-gray-100 px-3.5 py-2.5">
+                            <p className="text-sm text-gray-800">{String(selectedItem.username || "-")}</p>
+                          </div>
+                        </div>
+                        <div>
+                          <p className="mb-1.5 text-xs text-gray-500">닉네임</p>
+                          <div className="rounded-lg bg-gray-100 px-3.5 py-2.5">
+                            <p className="text-sm text-gray-800">{String(selectedItem.nickname || "-")}</p>
+                          </div>
+                        </div>
+                        <div>
+                          <p className="mb-1.5 text-xs text-gray-500">휴대폰 번호</p>
+                          <div className="rounded-lg bg-gray-100 px-3.5 py-2.5">
+                            <p className="text-sm text-gray-800">{formatPhoneNumber(selectedItem.phone_number as string | null)}</p>
+                          </div>
+                        </div>
                       </div>
 
-                      <div className="grid grid-cols-[64px_1fr] items-start gap-2">
-                        <p className="pt-0.5 text-[11px] text-gray-400">
-                          {activeMenu === "reports" ? "신고 내용" : "문의 내용"}
-                        </p>
-                        <p className="whitespace-pre-wrap text-sm leading-6 text-gray-700">
-                          {String(
-                            (selectedItem.description as string | undefined) ||
-                              (selectedItem.content as string | undefined) ||
-                              "-"
-                          )}
-                        </p>
+                      <div className="border-t border-gray-200 px-5 py-4">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (confirm("이 사용자를 삭제하시겠습니까?")) {
+                              handleDeleteUser(String(selectedItem.id));
+                              setSelectedItem(null);
+                            }
+                          }}
+                          className="ml-auto block text-sm font-medium text-red-500 hover:text-red-600"
+                        >
+                          삭제
+                        </button>
                       </div>
                     </div>
-                  </div>
+                  ) : (
+                    <>
+                      <div className="space-y-4 p-4 text-sm">
+                        <div>
+                          <p className="mb-2 text-[11px] text-gray-400">작성자</p>
+                          <div className="rounded-md bg-gray-100 px-3 py-2.5">
+                            <p className="text-sm font-medium text-gray-800">
+                              {String(
+                                (selectedItem.reporter_name as string | undefined) ||
+                                  (selectedItem.user_name as string | undefined) ||
+                                  "-"
+                              )}
+                            </p>
+                            <p className="mt-0.5 text-[11px] text-gray-500">
+                              {String(
+                                (selectedItem.reporter_username as string | undefined) ||
+                                  (selectedItem.user_username as string | undefined) ||
+                                  "-"
+                              )}
+                            </p>
+                          </div>
+                        </div>
 
-                  <div className="mt-5 border-t border-gray-200 bg-gray-100 px-4 pb-8 pt-0">
-                    <div className="grid grid-cols-[64px_1fr] items-start gap-2">
-                      <p className="pt-3 text-[11px] text-gray-400">답변 등록</p>
-                      <textarea
-                        ref={detailReplyRef}
-                        value={detailReply}
-                        onChange={(e) => {
-                          setDetailReply(e.target.value);
-                          e.currentTarget.style.height = "auto";
-                          const nextHeight = Math.min(
-                            Math.max(e.currentTarget.scrollHeight, DETAIL_REPLY_MIN_HEIGHT),
-                            DETAIL_REPLY_MAX_HEIGHT
-                          );
-                          e.currentTarget.style.height = `${nextHeight}px`;
-                          e.currentTarget.style.overflowY =
-                            e.currentTarget.scrollHeight > DETAIL_REPLY_MAX_HEIGHT ? "auto" : "hidden";
-                        }}
-                        placeholder="내용을 입력해 주세요."
-                        className="h-[260px] w-full resize-none overflow-y-hidden border-none bg-transparent pt-3 text-sm leading-6 text-gray-700 placeholder:text-gray-400 outline-none"
-                      />
-                    </div>
-                  </div>
+                        <div className="space-y-3 border-t border-gray-200 pt-3">
+                          <div className="grid grid-cols-[64px_1fr] items-start gap-2">
+                            <p className="pt-0.5 text-[11px] text-gray-400">
+                              {activeMenu === "reports" ? "신고 제목" : "문의 제목"}
+                            </p>
+                            <p className="text-sm leading-5 text-gray-800">
+                              {String(
+                                (selectedItem.reason as string | undefined) ||
+                                  (selectedItem.subject as string | undefined) ||
+                                  "-"
+                              )}
+                            </p>
+                          </div>
+
+                          <div className="grid grid-cols-[64px_1fr] items-start gap-2">
+                            <p className="pt-0.5 text-[11px] text-gray-400">상태</p>
+                            <span
+                              className={`inline-flex w-fit rounded border px-2 py-0.5 text-[11px] ${
+                                String(selectedItem.status) === "resolved" ||
+                                String(selectedItem.status) === "answered"
+                                  ? "border-emerald-300 bg-emerald-50 text-emerald-600"
+                                  : "border-gray-300 bg-white text-gray-500"
+                              }`}
+                            >
+                              {activeMenu === "reports"
+                                ? REPORT_STATUS_LABEL_MAP[String(selectedItem.status)] || String(selectedItem.status)
+                                : INQUIRY_STATUS_LABEL_MAP[String(selectedItem.status)] || String(selectedItem.status)}
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-[64px_1fr] items-start gap-2">
+                            <p className="pt-0.5 text-[11px] text-gray-400">
+                              {activeMenu === "reports" ? "신고일" : "문의일"}
+                            </p>
+                            <p className="text-sm text-gray-700">
+                              {String(selectedItem.created_at || "").slice(0, 10).replaceAll("-", ".")}
+                            </p>
+                          </div>
+
+                          <div className="grid grid-cols-[64px_1fr] items-start gap-2">
+                            <p className="pt-0.5 text-[11px] text-gray-400">
+                              {activeMenu === "reports" ? "신고 내용" : "문의 내용"}
+                            </p>
+                            <p className="whitespace-pre-wrap text-sm leading-6 text-gray-700">
+                              {String(
+                                (selectedItem.description as string | undefined) ||
+                                  (selectedItem.content as string | undefined) ||
+                                  "-"
+                              )}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="mt-5 border-t border-gray-200 bg-gray-100 px-4 pb-8 pt-0">
+                        <div className="grid grid-cols-[64px_1fr] items-start gap-2">
+                          <p className="pt-3 text-[11px] text-gray-400">답변 등록</p>
+                          <textarea
+                            ref={detailReplyRef}
+                            value={detailReply}
+                            maxLength={500}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (val.length > 500) return;
+                              setDetailReply(val);
+                              e.currentTarget.style.height = "auto";
+                              const nextHeight = Math.min(
+                                Math.max(e.currentTarget.scrollHeight, DETAIL_REPLY_MIN_HEIGHT),
+                                DETAIL_REPLY_MAX_HEIGHT
+                              );
+                              e.currentTarget.style.height = `${nextHeight}px`;
+                              e.currentTarget.style.overflowY =
+                                e.currentTarget.scrollHeight > DETAIL_REPLY_MAX_HEIGHT ? "auto" : "hidden";
+                            }}
+                            placeholder="내용을 입력해 주세요."
+                            className="h-[260px] w-full resize-none overflow-y-hidden border-none bg-transparent pt-3 text-sm leading-6 text-gray-700 placeholder:text-gray-400 outline-none"
+                          />
+                          <p className="text-right text-[10px] text-gray-400">{detailReply.length}/500</p>
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
 
-                <div className="border-t border-gray-200 bg-gray-50 px-4 py-5">
-                  <button
-                    type="button"
-                    onClick={handleSaveDetailReply}
-                    disabled={!isDetailReplyEnabled}
-                    className={`ml-auto block h-9 rounded-md px-6 text-xs text-white ${
-                      isDetailReplyEnabled ? "bg-blue-600 hover:bg-blue-700" : "bg-gray-400"
-                    } disabled:opacity-60`}
-                  >
-                    답변 완료
-                  </button>
-                </div>
+                {activeMenu !== "users" && (
+                  <div className="border-t border-gray-200 bg-gray-50 px-4 py-5">
+                    <button
+                      type="button"
+                      onClick={handleSaveDetailReply}
+                      disabled={!isDetailReplyEnabled}
+                      className={`ml-auto block h-9 rounded-md px-6 text-xs text-white ${
+                        isDetailReplyEnabled ? "bg-blue-600 hover:bg-blue-700" : "bg-gray-400"
+                      } disabled:opacity-60`}
+                    >
+                      답변 완료
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </div>

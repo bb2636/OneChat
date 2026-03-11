@@ -48,7 +48,6 @@ export default function SignupStep3Page() {
         return;
       }
 
-      // 3단계 데이터 저장
       const step2Data = sessionStorage.getItem("signup_step2");
       if (step2Data) {
         const step3Data = {
@@ -56,6 +55,9 @@ export default function SignupStep3Page() {
           phoneNumber: phoneNumber.replace(/[^\d]/g, ""),
         };
         sessionStorage.setItem("signup_step3", JSON.stringify(step3Data));
+      }
+      if (data.code) {
+        sessionStorage.setItem("signup_debug_code", data.code);
       }
 
       // 다음 단계로 이동
@@ -70,9 +72,9 @@ export default function SignupStep3Page() {
   const isPhoneValid = phoneNumber.replace(/[^\d]/g, "").length === 11;
 
   return (
-    <div className="min-h-screen bg-white flex flex-col px-4 py-8">
+    <div className="min-h-screen bg-white flex flex-col">
       {/* 헤더 */}
-      <header className="flex items-center gap-4 mb-8">
+      <header className="sticky top-0 z-20 bg-white flex items-center gap-4 px-4 py-3 border-b border-gray-100">
         <button onClick={() => router.back()} className="text-gray-900 text-3xl font-normal">
           &lt;
         </button>
@@ -81,7 +83,7 @@ export default function SignupStep3Page() {
       </header>
 
       {/* 메인 컨텐츠 */}
-      <div className="flex-1 max-w-sm mx-auto w-full">
+      <div className="flex-1 max-w-sm mx-auto w-full px-4 pt-6">
         <p className="text-gray-700 mb-8">
           인증에 필요한 휴대폰 번호를 입력해주세요
         </p>

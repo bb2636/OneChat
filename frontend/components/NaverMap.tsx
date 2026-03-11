@@ -4,6 +4,8 @@ import { type ChangeEvent, useCallback, useEffect, useRef, useState } from "reac
 import Script from "next/script";
 import { useRouter } from "next/navigation";
 import { supabase, type SupabaseUser } from "@/lib/supabase";
+import { Capacitor } from "@capacitor/core";
+import { Geolocation } from "@capacitor/geolocation";
 
 interface NaverMapProps {
   className?: string;
@@ -25,7 +27,7 @@ interface OtherUserMarker {
 }
 
 const LOCATION_UPDATE_THROTTLE_MS = 10_000;
-const USER_RADIUS_METERS = 10;
+const USER_RADIUS_METERS = 200;
 const OVERLAP_METERS = USER_RADIUS_METERS * 2;
 const MAX_SYNC_ACCURACY_METERS = 120;
 const MAX_UI_ACCURACY_METERS = 300;
@@ -133,7 +135,6 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
   const mapDivRef = useRef<HTMLDivElement>(null);
   const markerRef = useRef<naver.maps.Marker | null>(null);
   const circleRef = useRef<naver.maps.Circle | null>(null);
-  const pulseOverlayRef = useRef<naver.maps.OverlayView | null>(null);
   const otherUsersMarkersRef = useRef<Map<string, OtherUserMarker>>(new Map());
   const otherUserOrderRef = useRef<string[]>([]);
   const thumbnailInputRef = useRef<HTMLInputElement | null>(null);
@@ -142,6 +143,8 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
   const currentAccuracyRef = useRef<number | null>(null);
   const lastSentLocationRef = useRef<UserLocation | null>(null);
   const lastSyncAtRef = useRef<number>(0);
+  const hasReceivedRealLocationRef = useRef(false);
+  const hasCenteredOnRealLocationRef = useRef(false);
 
   const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
   const [isLocationLoading, setIsLocationLoading] = useState(true);
@@ -150,10 +153,16 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
   const [mapLoadError, setMapLoadError] = useState<string | null>(null);
   const [isCreateRoomOpen, setIsCreateRoomOpen] = useState(false);
   const [isOverlapUsersOpen, setIsOverlapUsersOpen] = useState(false);
+  const [sheetExpanded, setSheetExpanded] = useState(false);
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const dragStartYRef = useRef<number>(0);
+  const dragCurrentYRef = useRef<number>(0);
   const [roomTargetUser, setRoomTargetUser] = useState<SupabaseUser | null>(null);
   const [myAvatarUrl, setMyAvatarUrl] = useState<string | null>(null);
   const [overlapUsers, setOverlapUsers] = useState<SupabaseUser[]>([]);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [locationPermission, setLocationPermission] = useState<"granted" | "denied" | "prompt" | "unknown">("unknown");
+  const [showLocationGuide, setShowLocationGuide] = useState(false);
   const [newChatBannerVisible, setNewChatBannerVisible] = useState(false);
   const prevOverlapUserIdsRef = useRef<Set<string>>(new Set());
   const [friends, setFriends] = useState<Set<string>>(new Set());
@@ -202,7 +211,7 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
 
     const overlapped = Array.from(otherUsersMarkersRef.current.values())
       .map((entry) => entry.userData)
-      .filter((user) => user.latitude != null && user.longitude != null)
+      .filter((user) => user.id !== userId && user.latitude != null && user.longitude != null)
       .filter((user) =>
         getDistanceMeters(my, { latitude: user.latitude!, longitude: user.longitude! }) <= OVERLAP_METERS
       );
@@ -223,7 +232,7 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
 
     prevOverlapUserIdsRef.current = currentIds;
     setOverlapUsers(overlapped);
-  }, []);
+  }, [userId]);
 
   useEffect(() => {
     if (typeof window !== "undefined" && (window as any).naver?.maps) {
@@ -237,7 +246,7 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
 
     const loadMyProfile = async () => {
       try {
-        const res = await fetch(`/api/users/profile?userId=${userId}`);
+        const res = await fetch(`/api/users/profile`);
         if (!res.ok) return;
         const data = (await res.json().catch(() => ({}))) as {
           user?: { avatar_url?: string | null };
@@ -283,7 +292,9 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
   }, []);
 
   const createOrUpdateOtherUserMarker = useCallback((userData: SupabaseUser, naverObj: any, map: naver.maps.Map) => {
+    if (userData.id === userId) return;
     if (userData.latitude == null || userData.longitude == null) return;
+    if (!naverObj?.maps?.Marker) return;
     const color = getOtherUserColor(userData.id);
 
     const existing = otherUsersMarkersRef.current.get(userData.id);
@@ -322,7 +333,7 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
 
     otherUsersMarkersRef.current.set(userData.id, nextEntry);
     syncOverlapUsers();
-  }, [getOtherUserColor, syncOverlapUsers]);
+  }, [userId, getOtherUserColor, syncOverlapUsers]);
 
   useEffect(() => {
     currentLocationRef.current = userLocation;
@@ -410,66 +421,252 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
     setThumbnailPreviewUrl(null);
   }, [thumbnailPreviewUrl]);
 
-  // watchPosition for live location tracking
+  const isNativeApp = typeof navigator !== "undefined" && /OneChat-Android/i.test(navigator.userAgent);
+  const isCapNative = Capacitor.isNativePlatform();
+  const isNative = isNativeApp || isCapNative;
+
+  const [locationGranted, setLocationGranted] = useState(false);
+  const [showNotificationGuide, setShowNotificationGuide] = useState(false);
+  const [notificationPermission, setNotificationPermission] = useState<"granted" | "denied" | "prompt" | "unknown">("unknown");
+
   useEffect(() => {
+    const checkPerm = async () => {
+      if (isCapNative) {
+        try {
+          const status = await Geolocation.checkPermissions();
+          if (status.location === "granted") {
+            setLocationPermission("granted");
+            setLocationGranted(true);
+          } else {
+            setLocationPermission("prompt");
+            setShowLocationGuide(true);
+          }
+        } catch {
+          setLocationPermission("prompt");
+          setShowLocationGuide(true);
+        }
+        return;
+      }
+
+      if (isNativeApp || !navigator.permissions) {
+        setLocationPermission("prompt");
+        setShowLocationGuide(true);
+        return;
+      }
+
+      try {
+        const status = await navigator.permissions.query({ name: "geolocation" as PermissionName });
+        setLocationPermission(status.state as "granted" | "denied" | "prompt");
+        if (status.state === "granted") {
+          setLocationGranted(true);
+        } else {
+          setShowLocationGuide(true);
+        }
+        status.addEventListener("change", () => {
+          const newState = status.state as "granted" | "denied" | "prompt";
+          setLocationPermission(newState);
+          if (newState === "granted") {
+            setShowLocationGuide(false);
+            setLocationGranted(true);
+          }
+        });
+      } catch {
+        setShowLocationGuide(true);
+      }
+    };
+    checkPerm();
+  }, [isCapNative, isNativeApp]);
+
+  useEffect(() => {
+    if (!isNativeApp) return;
+
+    const handleLocationResult = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.granted) {
+        setLocationPermission("granted");
+        setShowLocationGuide(false);
+        setLocationGranted(true);
+        const bridge = (window as any).OneChatBridge;
+        if (bridge?.hasNotificationPermission && !bridge.hasNotificationPermission()) {
+          setNotificationPermission("prompt");
+          setTimeout(() => setShowNotificationGuide(true), 800);
+        }
+      } else {
+        setLocationPermission("denied");
+      }
+    };
+    window.addEventListener("onechat-location-result", handleLocationResult);
+
+    const handleNotificationResult = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.granted) {
+        setNotificationPermission("granted");
+        setShowNotificationGuide(false);
+      } else {
+        setNotificationPermission("denied");
+      }
+    };
+    window.addEventListener("onechat-notification-result", handleNotificationResult);
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState !== "visible" || !isNativeApp) return;
+      navigator.geolocation.getCurrentPosition(
+        () => {
+          if (locationPermission !== "granted") {
+            setLocationPermission("granted");
+            setShowLocationGuide(false);
+            setLocationGranted(true);
+          }
+          const bridge = (window as any).OneChatBridge;
+          if (bridge?.hasNotificationPermission && bridge.hasNotificationPermission()) {
+            setNotificationPermission("granted");
+            setShowNotificationGuide(false);
+          }
+        },
+        () => {},
+        { enableHighAccuracy: false, timeout: 3000, maximumAge: 60000 }
+      );
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener("onechat-location-result", handleLocationResult);
+      window.removeEventListener("onechat-notification-result", handleNotificationResult);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [isNativeApp, locationPermission]);
+
+  const retryLocationRef = useRef<(() => void) | null>(null);
+
+  // watchPosition — only starts after permission is granted
+  useEffect(() => {
+    if (!locationGranted) return;
+
     const fallbackLocation = { latitude: 37.5665, longitude: 126.978 };
     let settled = false;
+    let watchId: number | null = null;
+    let nativeWatchId: string | null = null;
+    let hardTimeoutId: number | null = null;
 
-    const finishWith = (location: UserLocation, accuracy?: number) => {
-      if (settled) return;
-      settled = true;
+    const finishWith = (location: UserLocation, accuracy?: number, isReal?: boolean) => {
       if (typeof accuracy === "number" && Number.isFinite(accuracy)) {
         currentAccuracyRef.current = accuracy;
       }
+      if (isReal) {
+        hasReceivedRealLocationRef.current = true;
+        setLocationPermission("granted");
+      }
       setUserLocation(location);
-      setIsLocationLoading(false);
+      if (!settled) {
+        settled = true;
+        setIsLocationLoading(false);
+      }
     };
 
-    if (!navigator.geolocation) {
-      finishWith(fallbackLocation);
-      return;
+    const startNativeTracking = async () => {
+      try {
+        const pos = await Geolocation.getCurrentPosition({ enableHighAccuracy: true, timeout: 10000 });
+        finishWith(
+          { latitude: pos.coords.latitude, longitude: pos.coords.longitude },
+          pos.coords.accuracy ?? undefined,
+          true
+        );
+
+        nativeWatchId = await Geolocation.watchPosition(
+          { enableHighAccuracy: true },
+          (position, err) => {
+            if (err || !position) return;
+            const { latitude, longitude, accuracy } = position.coords;
+            if (accuracy !== null && accuracy !== undefined && accuracy > MAX_UI_ACCURACY_METERS) return;
+            currentAccuracyRef.current = typeof accuracy === "number" ? accuracy : null;
+            hasReceivedRealLocationRef.current = true;
+            finishWith({ latitude, longitude }, accuracy ?? undefined, true);
+          }
+        );
+      } catch (e) {
+        console.warn("Native geolocation error:", e);
+        finishWith(fallbackLocation);
+      }
+    };
+
+    const startWebTracking = () => {
+      if (!navigator.geolocation) {
+        finishWith(fallbackLocation);
+        return;
+      }
+
+      hardTimeoutId = window.setTimeout(() => {
+        if (!settled) {
+          finishWith(fallbackLocation);
+        }
+      }, 8000);
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          if (hardTimeoutId) window.clearTimeout(hardTimeoutId);
+          const { latitude, longitude, accuracy } = position.coords;
+          finishWith({ latitude, longitude }, accuracy, true);
+        },
+        (error) => {
+          console.warn("getCurrentPosition error:", error.code, error.message);
+          if (error.code === 1) {
+            setLocationPermission("denied");
+            setShowLocationGuide(true);
+            setLocationGranted(false);
+          }
+          if (!settled) finishWith(fallbackLocation);
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+      );
+
+      watchId = navigator.geolocation.watchPosition(
+        (position) => {
+          if (hardTimeoutId) window.clearTimeout(hardTimeoutId);
+          const { latitude, longitude, accuracy } = position.coords;
+          if (accuracy && accuracy > MAX_UI_ACCURACY_METERS) return;
+          currentAccuracyRef.current = typeof accuracy === "number" ? accuracy : null;
+          hasReceivedRealLocationRef.current = true;
+          finishWith({ latitude, longitude }, accuracy, true);
+        },
+        (error) => {
+          console.warn("watchPosition error:", error.code, error.message);
+          if (!settled) finishWith(fallbackLocation);
+        },
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+      );
+    };
+
+    retryLocationRef.current = async () => {
+      if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+      if (nativeWatchId !== null) { await Geolocation.clearWatch({ id: nativeWatchId }); nativeWatchId = null; }
+      if (hardTimeoutId) window.clearTimeout(hardTimeoutId);
+      settled = false;
+      setIsLocationLoading(true);
+      if (isCapNative) {
+        startNativeTracking();
+      } else {
+        startWebTracking();
+      }
+    };
+
+    if (isCapNative) {
+      startNativeTracking();
+    } else {
+      startWebTracking();
     }
 
-    // 브라우저 권한/센서 이슈로 콜백이 오지 않는 경우를 대비한 안전 타임아웃
-    const hardTimeout = window.setTimeout(() => {
-      finishWith(fallbackLocation);
-    }, 8000);
-
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const { latitude, longitude, accuracy } = position.coords;
-        finishWith({ latitude, longitude }, accuracy);
-      },
-      () => {
-        finishWith(fallbackLocation);
-      },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
-    );
-
-    const watchId = navigator.geolocation.watchPosition(
-      (position) => {
-        const { latitude, longitude, accuracy } = position.coords;
-        if (accuracy && accuracy > MAX_UI_ACCURACY_METERS) return;
-        currentAccuracyRef.current = typeof accuracy === "number" ? accuracy : null;
-        if (!settled) finishWith({ latitude, longitude }, accuracy);
-        setUserLocation({ latitude, longitude });
-      },
-      (error) => {
-        console.error("watchPosition error:", error);
-        if (!settled) finishWith(fallbackLocation);
-      },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
-    );
-
     return () => {
-      window.clearTimeout(hardTimeout);
-      navigator.geolocation.clearWatch(watchId);
+      if (hardTimeoutId) window.clearTimeout(hardTimeoutId);
+      if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+      if (nativeWatchId !== null) Geolocation.clearWatch({ id: nativeWatchId });
+      retryLocationRef.current = null;
     };
-  }, []);
+  }, [isCapNative, locationGranted]);
 
   // throttled DB sync every 10s or more
   useEffect(() => {
     if (!userId || !userLocation) return;
+    if (!hasReceivedRealLocationRef.current) return;
     if (
       typeof currentAccuracyRef.current === "number" &&
       currentAccuracyRef.current > MAX_SYNC_ACCURACY_METERS
@@ -478,9 +675,10 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
     }
 
     const now = Date.now();
-    if (now - lastSyncAtRef.current < LOCATION_UPDATE_THROTTLE_MS) return;
-
     const previous = lastSentLocationRef.current;
+    const isFirstReal = !previous;
+    if (!isFirstReal && now - lastSyncAtRef.current < LOCATION_UPDATE_THROTTLE_MS) return;
+
     if (previous) {
       const moved = getDistanceMeters(previous, userLocation);
       if (moved < 1) return;
@@ -496,7 +694,6 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            userId,
             latitude: userLocation.latitude,
             longitude: userLocation.longitude,
           }),
@@ -516,16 +713,20 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
     };
   }, [userId, userLocation]);
 
-  // map bootstrap
+  // map bootstrap — created once, never torn down on location changes
   useEffect(() => {
-    if (!isScriptLoaded || !userLocation || !mapDivRef.current || mapRef.current) return;
+    if (!isScriptLoaded || !userLocation || !mapDivRef.current) return;
+    if (mapRef.current) return;
     if (typeof window === "undefined" || !(window as any).naver?.maps?.LatLng) return;
 
+    if (hasReceivedRealLocationRef.current) {
+      hasCenteredOnRealLocationRef.current = true;
+    }
     const naverObj = (window as any).naver;
 
     const map = new naverObj.maps.Map(mapDivRef.current, {
       center: new naverObj.maps.LatLng(userLocation.latitude, userLocation.longitude),
-      zoom: 17,
+      zoom: 15,
       zoomControl: true,
       zoomControlOptions: { position: naverObj.maps.Position.TOP_RIGHT },
       scaleControl: true,
@@ -549,70 +750,11 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
       center: new naverObj.maps.LatLng(userLocation.latitude, userLocation.longitude),
       radius: USER_RADIUS_METERS,
       fillColor: "#3B82F6",
-      fillOpacity: 0.2,
+      fillOpacity: 0.18,
       strokeColor: "#3B82F6",
-      strokeOpacity: 0.5,
-      strokeWeight: 2,
+      strokeOpacity: 0.35,
+      strokeWeight: 1.5,
     });
-
-    if (!document.getElementById("naver-map-pulse-style")) {
-      const style = document.createElement("style");
-      style.id = "naver-map-pulse-style";
-      style.textContent = `
-        @keyframes naver-map-pulse {
-          0%, 100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-          50% { opacity: 0.5; transform: translate(-50%, -50%) scale(1.2); }
-        }
-      `;
-      document.head.appendChild(style);
-    }
-
-    class PulseOverlay extends naverObj.maps.OverlayView {
-      private pulseElement: HTMLDivElement;
-
-      constructor() {
-        super();
-        this.pulseElement = document.createElement("div");
-        this.pulseElement.style.cssText = `
-          position: absolute;
-          width: 100px;
-          height: 100px;
-          border-radius: 50%;
-          background: rgba(59, 130, 246, 0.3);
-          border: 2px solid rgba(59, 130, 246, 0.5);
-          pointer-events: none;
-          transform: translate(-50%, -50%);
-          animation: naver-map-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-          z-index: 999;
-        `;
-      }
-
-      onAdd() {
-        this.draw();
-      }
-
-      onRemove() {
-        this.pulseElement.remove();
-      }
-
-      draw() {
-        const projection = this.getProjection();
-        const current = currentLocationRef.current;
-        if (!projection || !current) return;
-
-        const pixel = projection.fromCoordToOffset(new naverObj.maps.LatLng(current.latitude, current.longitude));
-        this.pulseElement.style.left = `${pixel.x}px`;
-        this.pulseElement.style.top = `${pixel.y}px`;
-
-        if (mapDivRef.current && !mapDivRef.current.contains(this.pulseElement)) {
-          mapDivRef.current.appendChild(this.pulseElement);
-        }
-      }
-    }
-
-    const pulseOverlay = new PulseOverlay();
-    pulseOverlay.setMap(map);
-    pulseOverlayRef.current = pulseOverlay as unknown as naver.maps.OverlayView;
 
     onMapLoad?.(map);
     setIsMapReady(true);
@@ -621,7 +763,6 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
       setIsMapReady(false);
       safeSetMapNull(markerRef.current as any);
       safeSetMapNull(circleRef.current as any);
-      safeSetMapNull(pulseOverlayRef.current as any);
 
       otherUsersMarkersRef.current.forEach((entry) => {
         entry.infoWindow?.close();
@@ -631,8 +772,10 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
       otherUsersMarkersRef.current.clear();
 
       mapRef.current = null;
+      hasCenteredOnRealLocationRef.current = false;
     };
-  }, [isScriptLoaded, userLocation, onMapLoad]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isScriptLoaded, !!userLocation, onMapLoad]);
 
   useEffect(() => {
     if (!markerRef.current || typeof window === "undefined") return;
@@ -645,7 +788,6 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
     });
   }, [myAvatarUrl]);
 
-  // keep map centered at current user location
   useEffect(() => {
     if (!mapRef.current || !userLocation || typeof window === "undefined") return;
 
@@ -653,18 +795,14 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
     if (!naverObj?.maps?.LatLng) return;
     const nextPos = new naverObj.maps.LatLng(userLocation.latitude, userLocation.longitude);
 
-    mapRef.current.setCenter(nextPos);
     markerRef.current?.setPosition(nextPos);
     circleRef.current?.setCenter(nextPos);
 
-    const pulseOverlay = pulseOverlayRef.current as any;
-    if (pulseOverlay?.draw) pulseOverlay.draw();
+    if (hasReceivedRealLocationRef.current && !hasCenteredOnRealLocationRef.current) {
+      hasCenteredOnRealLocationRef.current = true;
+      mapRef.current.panTo(nextPos);
+    }
 
-    otherUsersMarkersRef.current.forEach((entry) => {
-      if (entry.userData.latitude != null && entry.userData.longitude != null) {
-        entry.circle?.setCenter(new naverObj.maps.LatLng(entry.userData.latitude, entry.userData.longitude));
-      }
-    });
     syncOverlapUsers();
   }, [userLocation, syncOverlapUsers]);
 
@@ -674,25 +812,26 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
     if (typeof window === "undefined" || !(window as any).naver) return;
 
     const naverObj = (window as any).naver;
+    if (!naverObj?.maps?.Marker) return;
     let active = true;
     let realtimeChannel: ReturnType<typeof supabase.channel> | null = null;
 
     const bootstrapRealtime = async () => {
-      const { data: initialUsers, error } = await supabase
-        .from("users")
-        .select("id, latitude, longitude, avatar_url, nickname")
-        .not("latitude", "is", null)
-        .not("longitude", "is", null);
+      try {
+        const res = await fetch(`/api/users/locations${userId ? `?excludeUserId=${userId}` : ""}`);
+        if (!res.ok) throw new Error("Failed to fetch user locations");
+        const initialUsers = await res.json();
 
-      if (!active) return;
+        if (!active) return;
 
-      if (error) {
+        if (Array.isArray(initialUsers)) {
+          initialUsers.forEach((user: any) => {
+            if (user.id === userId || user.latitude == null || user.longitude == null) return;
+            createOrUpdateOtherUserMarker(user as SupabaseUser, naverObj, mapRef.current!);
+          });
+        }
+      } catch (error) {
         console.error("initial users fetch error:", error);
-      } else if (initialUsers) {
-        initialUsers.forEach((user) => {
-          if (user.id === userId || user.latitude == null || user.longitude == null) return;
-          createOrUpdateOtherUserMarker(user as SupabaseUser, naverObj, mapRef.current!);
-        });
       }
 
       realtimeChannel = supabase
@@ -757,7 +896,7 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
     // 친구 목록 로드
     if (userId) {
       try {
-        const res = await fetch(`/api/friends?userId=${userId}`);
+        const res = await fetch(`/api/friends`);
         if (res.ok) {
           const friendList = (await res.json()) as Array<{ id: string }>;
           setFriends(new Set(friendList.map(f => f.id)));
@@ -784,7 +923,7 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
       const res = await fetch("/api/friends", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ requesterId: userId, addresseeId: targetUserId }),
+        body: JSON.stringify({ addresseeId: targetUserId }),
       });
       const data = (await res.json().catch(() => ({}))) as { error?: string; message?: string };
       if (!res.ok) throw new Error(data.error || "친구 요청 처리에 실패했습니다.");
@@ -800,7 +939,7 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
   const handleOpenRoomForUser = async (target: SupabaseUser) => {
     if (!userId) return;
     try {
-      const res = await fetch(`/api/chats?userId=${userId}`);
+      const res = await fetch(`/api/chats`);
       if (!res.ok) throw new Error("채팅 목록을 확인하지 못했습니다.");
       const chatList = (await res.json()) as Array<{ id: string; title: string; other_user_id?: string; chat_type?: string }>;
       const sharedChats = chatList.filter((chat) => chat.other_user_id === target.id);
@@ -867,7 +1006,6 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          creatorId: userId,
           targetUserId: roomTargetUser.id,
           roomName: title,
           description,
@@ -906,7 +1044,7 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
   }
 
   return (
-    <>
+    <div className="relative h-full w-full">
       <Script
         src={`https://oapi.map.naver.com/openapi/v3/maps.js?${authQueryKey}=${mapCredential}${scriptBusterRef.current}`}
         strategy="afterInteractive"
@@ -949,15 +1087,15 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
         )}
       </div>
 
-      <div className="pointer-events-none fixed inset-x-0 bottom-24 z-30 mx-auto w-full max-w-md px-4">
-        <div className="pointer-events-auto flex items-center justify-between">
+      <div className="pointer-events-none fixed inset-x-0 bottom-36 z-30 mx-auto w-full max-w-md px-5">
+        <div className="pointer-events-auto flex items-end justify-between">
           <button
             type="button"
             onClick={handleMoveToMyLocation}
-            className="flex h-12 w-12 items-center justify-center rounded-full bg-white/95 text-gray-800 shadow-lg"
+            className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-gray-700 shadow-md"
             aria-label="내 위치로 이동"
           >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="10" />
               <circle cx="12" cy="12" r="3" />
               <line x1="12" y1="2" x2="12" y2="6" />
@@ -971,10 +1109,10 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
             <button
               type="button"
               onClick={handleOpenOverlapUsers}
-              className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-500/95 text-white shadow-lg"
+              className="flex h-11 w-11 items-center justify-center rounded-full bg-blue-500 text-white shadow-md"
               aria-label="겹친 사용자 보기"
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
                 <circle cx="8" cy="8" r="1.5" fill="currentColor" />
                 <circle cx="12" cy="8" r="1.5" fill="currentColor" />
@@ -986,62 +1124,94 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
       </div>
 
       {isOverlapUsersOpen && (
-        <div className="fixed inset-0 z-40 bg-black/45">
-          <div className="absolute inset-x-0 bottom-0 mx-auto w-full max-w-md rounded-t-3xl bg-white px-5 pb-7 pt-4">
-            <div className="mb-3 flex items-center justify-between">
+        <div
+          className="fixed inset-0 z-40 bg-black/45 transition-opacity"
+          onClick={() => { setIsOverlapUsersOpen(false); setSheetExpanded(false); }}
+        >
+          <div
+            ref={sheetRef}
+            className={`absolute inset-x-0 rounded-t-3xl bg-white transition-all duration-300 ease-out ${
+              sheetExpanded ? "top-0 rounded-none" : "bottom-0"
+            }`}
+            style={sheetExpanded ? undefined : { maxHeight: "50%" }}
+            onClick={(e) => e.stopPropagation()}
+            onTouchStart={(e) => {
+              dragStartYRef.current = e.touches[0].clientY;
+              dragCurrentYRef.current = e.touches[0].clientY;
+            }}
+            onTouchMove={(e) => {
+              dragCurrentYRef.current = e.touches[0].clientY;
+            }}
+            onTouchEnd={() => {
+              const dy = dragCurrentYRef.current - dragStartYRef.current;
+              if (dy < -60) {
+                setSheetExpanded(true);
+              } else if (dy > 60) {
+                setSheetExpanded(false);
+              }
+            }}
+          >
+            <div className="flex justify-center pt-3 pb-1">
+              <div className="h-1 w-10 rounded-full bg-gray-300" />
+            </div>
+            <div className="flex items-center justify-between px-5 pb-3">
               <p className="text-sm font-semibold text-gray-900">
-                나 포함 {overlapUsers.length + 1}명 원이 겹쳐져 있어요
+                {overlapUsers.length}명의 원이 겹쳐져 있어요
               </p>
               <button
                 type="button"
-                onClick={() => setIsOverlapUsersOpen(false)}
+                onClick={() => { setIsOverlapUsersOpen(false); setSheetExpanded(false); }}
                 className="rounded-full px-2 py-1 text-sm text-gray-500"
               >
                 닫기
               </button>
             </div>
-            <div className="max-h-[60vh] space-y-2 overflow-y-auto">
-              {overlapUsers.length === 0 ? (
-                <div className="rounded-xl bg-gray-50 px-4 py-7 text-center text-sm text-gray-500">
-                  현재 원이 겹친 사용자가 없습니다.
-                </div>
-              ) : (
-                overlapUsers.map((user) => {
-                  const isFriend = friends.has(user.id);
-                  return (
-                    <div key={user.id} className="flex items-center justify-between rounded-xl border border-gray-100 px-3 py-2">
-                      <div className="flex items-center gap-3">
-                        {user.avatar_url ? (
-                          <img src={user.avatar_url} alt={user.nickname || "user"} className="h-10 w-10 rounded-full object-cover" />
-                        ) : (
-                          <div className="h-10 w-10 rounded-full bg-gray-200" />
-                        )}
-                        <span className="text-sm font-semibold text-gray-900">{user.nickname || "사용자"}</span>
+            <div className={`overflow-y-auto px-5 ${sheetExpanded ? "flex-1" : "max-h-[calc(50vh-60px)]"}`}
+              style={sheetExpanded ? { height: "calc(100vh - 60px)", paddingBottom: "100px" } : { paddingBottom: "100px" }}
+            >
+              <div className="space-y-2">
+                {overlapUsers.length === 0 ? (
+                  <div className="rounded-xl bg-gray-50 px-4 py-7 text-center text-sm text-gray-500">
+                    현재 원이 겹친 사용자가 없습니다.
+                  </div>
+                ) : (
+                  overlapUsers.map((user) => {
+                    const isFriend = friends.has(user.id);
+                    return (
+                      <div key={user.id} className="flex items-center justify-between rounded-xl border border-gray-100 px-3 py-2.5">
+                        <div className="flex items-center gap-3">
+                          {user.avatar_url ? (
+                            <img src={user.avatar_url} alt={user.nickname || "user"} className="h-10 w-10 rounded-full object-cover" />
+                          ) : (
+                            <div className="h-10 w-10 rounded-full bg-gray-200" />
+                          )}
+                          <span className="text-sm font-semibold text-gray-900">{user.nickname || "사용자"}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleAddFriend(user.id)}
+                            disabled={isFriend}
+                            className={isFriend
+                              ? "h-8 rounded-lg border border-gray-200 px-3 text-xs font-semibold text-gray-400 cursor-not-allowed bg-gray-50"
+                              : "h-8 rounded-lg border border-gray-300 px-3 text-xs font-semibold text-gray-700"
+                            }
+                          >
+                            {isFriend ? "친구" : "친구추가"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenRoomForUser(user)}
+                            className="h-8 rounded-lg bg-blue-600 px-3 text-xs font-semibold text-white"
+                          >
+                            채팅방 만들기
+                          </button>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => handleAddFriend(user.id)}
-                          disabled={isFriend}
-                          className={isFriend 
-                            ? "h-8 rounded-lg border border-gray-200 px-3 text-xs font-semibold text-gray-400 cursor-not-allowed bg-gray-50"
-                            : "h-8 rounded-lg border border-gray-300 px-3 text-xs font-semibold text-gray-700"
-                          }
-                        >
-                          {isFriend ? "친구" : "친구추가"}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleOpenRoomForUser(user)}
-                          className="h-8 rounded-lg bg-blue-600 px-3 text-xs font-semibold text-white"
-                        >
-                          채팅방 만들기
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
+                    );
+                  })
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -1050,6 +1220,169 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
       {toastMessage && (
         <div className="pointer-events-none fixed left-1/2 top-20 z-50 w-[85%] max-w-sm -translate-x-1/2 rounded-full bg-black/65 px-4 py-2.5 text-center text-sm text-white">
           {toastMessage}
+        </div>
+      )}
+
+      {showLocationGuide && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-6">
+          <div className="w-full max-w-sm rounded-2xl bg-white shadow-2xl">
+            <div className="px-6 pt-6 pb-4">
+              <div className="mb-4 flex justify-center">
+                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-blue-100">
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-blue-600">
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                    <circle cx="12" cy="10" r="3" />
+                  </svg>
+                </div>
+              </div>
+              <h3 className="text-center text-base font-bold text-gray-900 mb-2">위치 권한이 필요합니다</h3>
+              <p className="text-center text-sm text-gray-600 leading-relaxed">
+                원챗은 주변 사용자를 찾고 지도에 내 위치를 표시하기 위해 위치 정보가 필요합니다.
+              </p>
+              {locationPermission === "denied" && !isNative && (
+                <div className="mt-3 rounded-xl bg-blue-50 px-4 py-3">
+                  <p className="text-xs font-semibold text-blue-800 mb-1">브라우저 설정에서 권한을 변경해주세요:</p>
+                  <ol className="text-xs text-blue-700 space-y-0.5 list-decimal pl-4">
+                    <li>주소창 왼쪽의 자물쇠(🔒) 아이콘을 탭</li>
+                    <li>「권한」또는「사이트 설정」을 탭</li>
+                    <li>「위치」를 「허용」으로 변경</li>
+                    <li>페이지를 새로고침</li>
+                  </ol>
+                </div>
+              )}
+              {locationPermission === "denied" && isNative && (
+                <div className="mt-3 rounded-xl bg-blue-50 px-4 py-3">
+                  <p className="text-xs font-semibold text-blue-800 mb-1">위치 권한이 거부되었습니다:</p>
+                  <ol className="text-xs text-blue-700 space-y-0.5 list-decimal pl-4">
+                    <li>「허용하기」를 눌러 다시 시도해주세요</li>
+                    <li>계속 안 되면 휴대폰 설정 → 앱 → OneChat → 권한 → 위치를 「허용」으로 변경</li>
+                  </ol>
+                </div>
+              )}
+            </div>
+            <div className="flex border-t border-gray-200">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowLocationGuide(false);
+                  if (!locationGranted) {
+                    setUserLocation({ latitude: 37.5665, longitude: 126.978 });
+                    setIsLocationLoading(false);
+                  }
+                }}
+                className="flex-1 py-3.5 text-sm text-gray-500 font-medium"
+              >
+                나중에
+              </button>
+              <div className="w-px bg-gray-200" />
+              <button
+                type="button"
+                onClick={async () => {
+                  if (isCapNative) {
+                    try {
+                      const perm = await Geolocation.requestPermissions();
+                      if (perm.location === "granted") {
+                        setLocationPermission("granted");
+                        setShowLocationGuide(false);
+                        setLocationGranted(true);
+                      } else {
+                        setLocationPermission("denied");
+                      }
+                    } catch {
+                      setLocationPermission("denied");
+                    }
+                  } else if (isNativeApp) {
+                    const bridge = (window as any).OneChatBridge;
+                    if (bridge?.requestLocationPermission) {
+                      bridge.requestLocationPermission();
+                    } else {
+                      navigator.geolocation.getCurrentPosition(
+                        () => {
+                          setLocationPermission("granted");
+                          setShowLocationGuide(false);
+                          setLocationGranted(true);
+                        },
+                        () => {
+                          setLocationPermission("denied");
+                        },
+                        { enableHighAccuracy: true, timeout: 15000 }
+                      );
+                    }
+                  } else if (locationPermission === "denied") {
+                    setShowLocationGuide(false);
+                    window.location.reload();
+                  } else {
+                    setShowLocationGuide(false);
+                    setLocationGranted(true);
+                  }
+                }}
+                className="flex-1 py-3.5 text-sm text-blue-600 font-bold"
+              >
+                {locationPermission === "denied" && !isNative
+                  ? "새로고침"
+                  : "허용하기"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showNotificationGuide && isNative && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-6">
+          <div className="w-full max-w-sm rounded-2xl bg-white shadow-2xl">
+            <div className="px-6 pt-6 pb-4">
+              <div className="mb-4 flex justify-center">
+                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-indigo-100">
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-indigo-600">
+                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                    <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                  </svg>
+                </div>
+              </div>
+              <h3 className="text-center text-base font-bold text-gray-900 mb-2">알림 권한이 필요합니다</h3>
+              <p className="text-center text-sm text-gray-600 leading-relaxed">
+                새로운 메시지와 친구 요청 알림을 받으려면 알림 권한을 허용해주세요.
+              </p>
+              {notificationPermission === "denied" && (
+                <div className="mt-3 rounded-xl bg-indigo-50 px-4 py-3">
+                  <p className="text-xs font-semibold text-indigo-800 mb-1">앱 설정에서 권한을 변경해주세요:</p>
+                  <ol className="text-xs text-indigo-700 space-y-0.5 list-decimal pl-4">
+                    <li>아래 「설정 열기」 버튼을 탭</li>
+                    <li>「알림」을 「허용」으로 변경</li>
+                    <li>앱으로 돌아오면 자동으로 적용됩니다</li>
+                  </ol>
+                </div>
+              )}
+            </div>
+            <div className="flex border-t border-gray-200">
+              <button
+                type="button"
+                onClick={() => setShowNotificationGuide(false)}
+                className="flex-1 py-3.5 text-sm text-gray-500 font-medium"
+              >
+                나중에
+              </button>
+              <div className="w-px bg-gray-200" />
+              <button
+                type="button"
+                onClick={() => {
+                  const bridge = (window as any).OneChatBridge;
+                  if (notificationPermission === "denied") {
+                    if (bridge?.openAppSettings) {
+                      bridge.openAppSettings();
+                    }
+                  } else {
+                    if (bridge?.requestNotificationPermission) {
+                      bridge.requestNotificationPermission();
+                    }
+                  }
+                }}
+                className="flex-1 py-3.5 text-sm text-indigo-600 font-bold"
+              >
+                {notificationPermission === "denied" ? "설정 열기" : "허용하기"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -1102,7 +1435,7 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
       )}
 
       {newChatBannerVisible && (
-        <div className="pointer-events-none fixed left-1/2 top-1/2 z-50 w-[85%] max-w-sm -translate-x-1/2 -translate-y-1/2">
+        <div className="pointer-events-none fixed inset-x-0 bottom-[136px] z-50 flex justify-center px-4">
           <div className="pointer-events-auto rounded-2xl bg-gray-800/90 px-5 py-4 text-center shadow-xl backdrop-blur-sm">
             <p className="text-sm font-medium text-white">새로운 대화를 시작해볼 수 있어요</p>
           </div>
@@ -1224,6 +1557,6 @@ export function NaverMap({ className = "", onMapLoad, userId }: NaverMapProps) {
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }

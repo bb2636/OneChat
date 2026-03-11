@@ -1,9 +1,15 @@
 import { NextResponse } from "next/server";
 import { writeFile, mkdir } from "fs/promises";
 import { join } from "path";
+import { getUserFromRequest } from "@/lib/auth";
 
 export async function POST(request: Request) {
   try {
+    const auth = getUserFromRequest(request);
+    if (!auth) {
+      return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
+    }
+
     const { imageUrl } = await request.json();
 
     if (!imageUrl || typeof imageUrl !== "string") {

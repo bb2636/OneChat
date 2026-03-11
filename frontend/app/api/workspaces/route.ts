@@ -1,11 +1,15 @@
 import { NextResponse } from "next/server";
 import { sql } from "@/lib/db";
+import { getUserFromRequest } from "@/lib/auth";
 
-// 빌드 시점에 데이터베이스 연결을 시도하지 않도록 동적 렌더링 설정
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const auth = getUserFromRequest(request);
+    if (!auth) {
+      return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
+    }
     const result = await sql`
       SELECT 
         w.id,

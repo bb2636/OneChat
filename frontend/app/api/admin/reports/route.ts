@@ -1,11 +1,17 @@
 import { NextResponse } from "next/server";
 import { sql } from "@/lib/db";
+import { requireAdmin } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 const PAGE_SIZE = 10;
 
 export async function GET(request: Request) {
+  const auth = await requireAdmin(request);
+  if ("error" in auth) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
+  }
+
   try {
     const { searchParams } = new URL(request.url);
     const rawPage = Number(searchParams.get("page") || "1");
@@ -23,6 +29,7 @@ export async function GET(request: Request) {
       reason: string;
       description: string | null;
       status: string;
+      admin_note: string | null;
       created_at: string;
       reporter_name: string | null;
       reporter_username: string | null;
@@ -44,6 +51,7 @@ export async function GET(request: Request) {
           r.reason,
           r.description,
           r.status,
+          r.admin_note,
           r.created_at::text,
           u.name AS reporter_name,
           u.username AS reporter_username
@@ -70,6 +78,7 @@ export async function GET(request: Request) {
           r.reason,
           r.description,
           r.status,
+          r.admin_note,
           r.created_at::text,
           u.name AS reporter_name,
           u.username AS reporter_username
@@ -98,6 +107,11 @@ export async function GET(request: Request) {
 }
 
 export async function PATCH(request: Request) {
+  const auth = await requireAdmin(request);
+  if ("error" in auth) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
+  }
+
   try {
     const { id, status, adminNote } = (await request.json()) as {
       id?: string;
@@ -107,6 +121,13 @@ export async function PATCH(request: Request) {
 
     if (!id || !status) {
       return NextResponse.json({ error: "id와 status가 필요합니다." }, { status: 400 });
+    }
+
+    if (adminNote && adminNote.trim().length > 500) {
+      return NextResponse.json(
+        { error: "답변은 500자 이내로 작성해주세요." },
+        { status: 400 }
+      );
     }
 
     const rows = (await sql`

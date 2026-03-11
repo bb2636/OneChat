@@ -32,7 +32,7 @@ export default function MyPageEditPage() {
         return;
       }
 
-      const res = await fetch(`/api/users/profile?userId=${userId}`);
+      const res = await fetch(`/api/users/profile`);
       const data = (await res.json().catch(() => ({}))) as { user?: ProfileUser };
       if (!res.ok || !data.user) return;
 
@@ -83,7 +83,6 @@ export default function MyPageEditPage() {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          userId: user.id,
           nickname,
           password: password.trim() || undefined,
           avatarUrl,
@@ -98,6 +97,7 @@ export default function MyPageEditPage() {
       setAvatarUrl(data.user.avatar_url || null);
       setIsEditing(false);
       setToast("프로필 정보가 수정되었습니다.");
+      localStorage.setItem("profileUpdated", Date.now().toString());
     } catch (error) {
       alert(error instanceof Error ? error.message : "프로필 수정 중 오류가 발생했습니다.");
     } finally {
@@ -123,10 +123,17 @@ export default function MyPageEditPage() {
         <div className="mb-5 flex flex-col items-center">
           <div className="relative h-[72px] w-[72px]">
             {avatarUrl ? (
-              <img src={avatarUrl} alt="avatar" className="h-[72px] w-[72px] rounded-full object-cover" />
-            ) : (
-              <div className="h-[72px] w-[72px] rounded-full bg-gray-300" />
-            )}
+              <img
+                src={avatarUrl}
+                alt="avatar"
+                className="h-[72px] w-[72px] rounded-full object-cover"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).style.display = 'none';
+                  (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
+                }}
+              />
+            ) : null}
+            <div className={`h-[72px] w-[72px] rounded-full bg-gray-300 ${avatarUrl ? 'hidden' : ''}`} />
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
@@ -142,6 +149,7 @@ export default function MyPageEditPage() {
               className="hidden"
               onChange={async (e) => {
                 const file = e.target.files?.[0];
+                const input = e.currentTarget;
                 if (!file) return;
                 try {
                   if (!isEditing) setIsEditing(true);
@@ -152,7 +160,7 @@ export default function MyPageEditPage() {
                   alert(error instanceof Error ? error.message : "이미지 업로드 실패");
                 } finally {
                   setIsUploadingAvatar(false);
-                  e.currentTarget.value = "";
+                  if (input) input.value = "";
                 }
               }}
             />
@@ -178,7 +186,7 @@ export default function MyPageEditPage() {
           onChange={(e) => setNickname(e.target.value)}
           disabled={!isEditing}
           className={`mb-3 h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-blue-500 ${
-            isEditing ? "bg-gray-200 text-gray-900" : "bg-gray-200 text-gray-700"
+            isEditing ? "bg-white text-gray-900" : "bg-gray-200 text-gray-700"
           }`}
         />
 
@@ -190,7 +198,7 @@ export default function MyPageEditPage() {
           disabled={!isEditing}
           placeholder={isEditing ? "새 비밀번호를 입력하세요" : "••••••••••••"}
           className={`h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-blue-500 ${
-            isEditing ? "bg-gray-200 text-gray-900" : "bg-gray-200 text-gray-700"
+            isEditing ? "bg-white text-gray-900" : "bg-gray-200 text-gray-700"
           }`}
         />
       </main>

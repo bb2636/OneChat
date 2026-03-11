@@ -11,15 +11,17 @@ export default function SignupStep4Page() {
   const [timeLeft, setTimeLeft] = useState(300); // 5분 = 300초
   const [isLoading, setIsLoading] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState("");
+  const [debugCode, setDebugCode] = useState<string | null>(null);
   const codeRef = useRef<string[]>(["", "", "", "", "", ""]);
 
   useEffect(() => {
-    // 세션에서 전화번호 가져오기
     const step3Data = sessionStorage.getItem("signup_step3");
     if (step3Data) {
       const data = JSON.parse(step3Data);
       setPhoneNumber(data.phoneNumber || "");
     }
+    const savedCode = sessionStorage.getItem("signup_debug_code");
+    if (savedCode) setDebugCode(savedCode);
 
     // 타이머 시작
     const timer = setInterval(() => {
@@ -100,14 +102,19 @@ export default function SignupStep4Page() {
         body: JSON.stringify({ phoneNumber }),
       });
 
+      const data = await res.json();
       if (res.ok) {
-        setTimeLeft(300); // 타이머 리셋
+        setTimeLeft(300);
         const empty = ["", "", "", "", "", ""];
         codeRef.current = empty;
         setCode(empty);
+        if (data.code) {
+          setDebugCode(data.code);
+          sessionStorage.setItem("signup_debug_code", data.code);
+        }
         alert("인증번호가 재전송되었습니다.");
       } else {
-        alert("인증번호 재전송에 실패했습니다.");
+        alert(data.error || "인증번호 재전송에 실패했습니다.");
       }
     } catch (error) {
       console.error("Resend error:", error);
@@ -168,9 +175,9 @@ export default function SignupStep4Page() {
   const isCodeComplete = code.every((digit) => digit !== "");
 
   return (
-    <div className="min-h-screen bg-white flex flex-col px-4 py-8">
+    <div className="min-h-screen bg-white flex flex-col">
       {/* 헤더 */}
-      <header className="flex items-center gap-4 mb-8">
+      <header className="sticky top-0 z-20 bg-white flex items-center gap-4 px-4 py-3 border-b border-gray-100">
         <button onClick={() => router.back()} className="text-gray-900 text-3xl font-normal">
           &lt;
         </button>
@@ -179,7 +186,7 @@ export default function SignupStep4Page() {
       </header>
 
       {/* 메인 컨텐츠 */}
-      <div className="flex-1 max-w-sm mx-auto w-full">
+      <div className="flex-1 max-w-sm mx-auto w-full px-4 pt-6">
         <p className="text-gray-700 mb-4">인증번호를 입력해주세요</p>
         {phoneNumber && (
           <p className="text-sm text-gray-600 mb-8">
@@ -208,10 +215,12 @@ export default function SignupStep4Page() {
             ))}
           </div>
 
-          {/* 타이머 및 재전송 */}
           <div className="flex items-center justify-between mb-4">
             <span className="text-sm text-gray-600">
               남은 시간 {formatTime(timeLeft)}
+              {debugCode && (
+                <span className="ml-2 font-mono font-bold text-blue-600">[{debugCode}]</span>
+              )}
             </span>
             <button
               type="button"

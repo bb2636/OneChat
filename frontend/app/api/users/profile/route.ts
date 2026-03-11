@@ -1,30 +1,26 @@
 import { NextResponse } from "next/server";
 import { hashSync } from "bcryptjs";
 import { sql } from "@/lib/db";
+import { getUserFromRequest } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
   try {
-    const { searchParams } = new URL(request.url);
-    const userId = searchParams.get("userId");
-
-    if (!userId) {
-      return NextResponse.json({ error: "userId가 필요합니다." }, { status: 400 });
+    const auth = getUserFromRequest(request);
+    if (!auth) {
+      return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
     }
 
-    const rows = (await sql`
+    const { searchParams } = new URL(request.url);
+    const targetUserId = searchParams.get("userId") || auth.userId;
+
+    const rows = await sql`
       SELECT id, username, nickname, phone_number, avatar_url
       FROM users
-      WHERE id = ${userId}
+      WHERE id = ${targetUserId}
       LIMIT 1
-    `) as unknown as Array<{
-      id: string;
-      username: string | null;
-      nickname: string | null;
-      phone_number: string | null;
-      avatar_url: string | null;
-    }>;
+    `;
 
     if (rows.length === 0) {
       return NextResponse.json({ error: "사용자를 찾을 수 없습니다." }, { status: 404 });
@@ -39,22 +35,19 @@ export async function GET(request: Request) {
 
 export async function PUT(request: Request) {
   try {
-    const { userId, nickname, password, avatarUrl } = (await request.json()) as {
-      userId?: string;
-      nickname?: string;
-      password?: string;
-      avatarUrl?: string | null;
-    };
-
-    if (!userId) {
-      return NextResponse.json({ error: "userId가 필요합니다." }, { status: 400 });
+    const auth = getUserFromRequest(request);
+    if (!auth) {
+      return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
     }
+
+    const userId = auth.userId;
+    const { nickname, password, avatarUrl } = await request.json();
 
     const safeNickname = nickname?.trim() || null;
     const safePassword = password?.trim() || "";
     const hashedPassword = safePassword ? hashSync(safePassword, 10) : null;
 
-    const updated = (await sql`
+    const updated = await sql`
       UPDATE users
       SET
         nickname = ${safeNickname},
@@ -63,13 +56,7 @@ export async function PUT(request: Request) {
         updated_at = ${new Date()}
       WHERE id = ${userId}
       RETURNING id, username, nickname, phone_number, avatar_url
-    `) as unknown as Array<{
-      id: string;
-      username: string | null;
-      nickname: string | null;
-      phone_number: string | null;
-      avatar_url: string | null;
-    }>;
+    `;
 
     if (updated.length === 0) {
       return NextResponse.json({ error: "수정할 사용자를 찾을 수 없습니다." }, { status: 404 });
@@ -81,4 +68,3 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: "프로필 수정에 실패했습니다." }, { status: 500 });
   }
 }
-

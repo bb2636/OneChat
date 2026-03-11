@@ -98,7 +98,7 @@ export function ChatListItem({ chat, onClick, onLeave, isLeaveModalOpen, onReset
     
     if (diff > 0) {
       // 왼쪽으로 슬라이드 (삭제 버튼 표시)
-      const newOffset = Math.min(diff, 80);
+      const newOffset = Math.min(diff, 74);
       setSwipeOffset(newOffset);
     } else if (swipeOffset > 0) {
       // 오른쪽으로 슬라이드 (원복)
@@ -114,9 +114,8 @@ export function ChatListItem({ chat, onClick, onLeave, isLeaveModalOpen, onReset
     if (finalDiff < 0 && swipeOffset > 0) {
       // 오른쪽으로 슬라이드했고 현재 열려있으면 원복
       setSwipeOffset(0);
-    } else if (swipeOffset > 40) {
-      // 40px 이상 슬라이드했으면 완전히 열기
-      setSwipeOffset(80);
+    } else if (swipeOffset > 34) {
+      setSwipeOffset(74);
     } else {
       // 그 외에는 닫기
       setSwipeOffset(0);
@@ -143,25 +142,15 @@ export function ChatListItem({ chat, onClick, onLeave, isLeaveModalOpen, onReset
 
   return (
     <div ref={containerRef} className="relative overflow-hidden border-b border-gray-100">
-      {/* Delete button - always present but positioned based on swipe */}
-      <div
-        className="absolute right-0 top-0 h-full w-20 flex items-center justify-center bg-red-500 z-10"
-        style={{ 
-          transform: `translateX(${80 - swipeOffset}px)`,
-          transition: isSwiping ? "none" : "transform 200ms ease-out"
-        }}
-      >
+      {swipeOffset > 0 && (
         <button
+          type="button"
           onClick={handleLeave}
-          className="flex items-center justify-center w-full h-full text-white"
+          className="absolute inset-y-0 right-0 flex w-[74px] items-center justify-center bg-red-500 text-xs font-semibold text-white"
         >
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M3 6h18" />
-            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
-            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-          </svg>
+          삭제
         </button>
-      </div>
+      )}
 
       {/* Chat item */}
       <div
@@ -209,6 +198,7 @@ export function ChatListItem({ chat, onClick, onLeave, isLeaveModalOpen, onReset
             fallback={chat.title}
             size="lg"
             className="w-12 h-12"
+            colorSeed={chat.other_user_id || chat.id}
           />
         )}
       </div>

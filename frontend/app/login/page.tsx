@@ -98,8 +98,14 @@ function LoginForm() {
     setErrors([]);
 
     try {
-      // 구글 로그인 API 호출 (리다이렉트 처리)
-      window.location.href = `/api/auth/google?redirect_to=${encodeURIComponent("/home")}`;
+      const res = await fetch(`/api/auth/google?redirect_to=${encodeURIComponent("/home")}&mode=json`);
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        setErrors([data.error || "구글 로그인 URL을 가져올 수 없습니다."]);
+        setIsGoogleLoading(false);
+      }
     } catch (error) {
       console.error("Google login error:", error);
       setErrors(["구글 로그인 중 오류가 발생했습니다."]);
@@ -111,7 +117,7 @@ function LoginForm() {
     <div className="min-h-screen flex flex-col items-center justify-center px-4 py-8" style={{ backgroundColor: '#6983FC' }}>
 
       {/* 로고 영역 */}
-      <div className="mb-12">
+      <div className="mb-6 sm:mb-12">
         <div className="flex items-center justify-center">
           <Image
             src={LOGO_PATHS.main}
@@ -134,10 +140,11 @@ function LoginForm() {
               아이디
             </label>
             <input
-              type="text"
+              type="email"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="아이디를 입력해주세요."
+              placeholder="이메일을 입력해주세요."
+              autoComplete="email"
               className="w-full h-12 rounded-lg bg-blue-400/30 backdrop-blur-sm border-2 border-white px-4 placeholder:text-white/60 focus:outline-none focus:ring-2 focus:ring-white transition-colors"
               style={{ color: '#FFFFFF' }}
             />

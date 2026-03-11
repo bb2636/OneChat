@@ -1,28 +1,27 @@
 import { NextResponse } from "next/server";
 import { sql } from "@/lib/db";
+import { getUserFromRequest } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
   try {
+    const auth = getUserFromRequest(request);
+    if (!auth) {
+      return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
+    }
+
+    const creatorId = auth.userId;
     const {
-      creatorId,
       targetUserId,
       roomName,
       description,
       thumbnailUrl,
       memberLimit,
-    } = (await request.json()) as {
-      creatorId?: string;
-      targetUserId?: string;
-      roomName?: string;
-      description?: string;
-      thumbnailUrl?: string;
-      memberLimit?: number;
-    };
+    } = await request.json();
 
-    if (!creatorId || !targetUserId) {
-      return NextResponse.json({ error: "creatorId와 targetUserId가 필요합니다." }, { status: 400 });
+    if (!targetUserId) {
+      return NextResponse.json({ error: "targetUserId가 필요합니다." }, { status: 400 });
     }
     if (creatorId === targetUserId) {
       return NextResponse.json({ error: "자기 자신과 채팅방을 만들 수 없습니다." }, { status: 400 });
@@ -43,7 +42,7 @@ export async function POST(request: Request) {
 
     const limit = Math.max(2, Math.min(100, Number(memberLimit || 2)));
 
-    const existingPairRoom = (await sql`
+    const existingPairRoom = await sql`
       SELECT c.id, c.title
       FROM chats c
       WHERE c.workspace_id IS NULL
@@ -53,7 +52,7 @@ export async function POST(request: Request) {
           (c.user_id1 = ${targetUserId} AND c.user_id2 = ${creatorId})
         )
       LIMIT 1
-    `) as unknown as Array<{ id: string; title: string }>;
+    `;
 
     if (existingPairRoom.length > 0) {
       return NextResponse.json(
@@ -66,46 +65,20 @@ export async function POST(request: Request) {
       );
     }
 
-    const created = (await sql`
+    const created = await sql`
       INSERT INTO chats (
-        id,
-        workspace_id,
-        user_id1,
-        user_id2,
-        title,
-        pinned,
-        chat_type,
-        thumbnail_url,
-        description,
-        member_limit,
-        created_at,
-        updated_at
+        id, workspace_id, user_id1, user_id2, title, pinned,
+        chat_type, thumbnail_url, description, member_limit,
+        created_at, updated_at
       )
       VALUES (
-        gen_random_uuid(),
-        NULL,
-        ${creatorId},
-        ${targetUserId},
-        ${title},
-        false,
-        'location_room',
-        ${thumbnailUrl?.trim() || null},
-        ${content || null},
-        ${limit},
-        ${new Date()},
-        ${new Date()}
+        gen_random_uuid(), NULL, ${creatorId}, ${targetUserId},
+        ${title}, false, 'location_room',
+        ${thumbnailUrl?.trim() || null}, ${content || null}, ${limit},
+        ${new Date()}, ${new Date()}
       )
       RETURNING id, title, thumbnail_url, description, member_limit, chat_type, created_at, updated_at
-    `) as unknown as Array<{
-      id: string;
-      title: string;
-      thumbnail_url: string | null;
-      description: string | null;
-      member_limit: number;
-      chat_type: string;
-      created_at: string;
-      updated_at: string;
-    }>;
+    `;
 
     const chat = created[0];
 
@@ -121,4 +94,3 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "위치 기반 채팅방 생성에 실패했습니다." }, { status: 500 });
   }
 }
-
