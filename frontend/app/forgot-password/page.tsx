@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Input, Button } from "@/components/ui";
 import { cn } from "@/lib/cn";
@@ -10,6 +10,11 @@ export default function ForgotPasswordPage() {
   const [username, setUsername] = useState("");
   const [usernameError, setUsernameError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  // 다크모드 강제 적용
+  useEffect(() => {
+    document.documentElement.classList.add("dark");
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,7 +60,7 @@ export default function ForgotPasswordPage() {
     <div className="min-h-screen bg-background flex flex-col px-4 py-8">
       {/* 헤더 */}
       <header className="flex items-center gap-4 mb-8">
-        <button onClick={() => router.back()} className="text-foreground text-3xl font-normal">
+        <button onClick={() => router.push("/")} className="text-foreground text-3xl font-normal">
           &lt;
         </button>
         <h1 className="text-lg font-normal text-foreground flex-1 text-center">비밀번호 찾기</h1>

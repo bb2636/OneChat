@@ -23,6 +23,11 @@ export default function SignupStep5Page() {
   const [isLoadingTerms, setIsLoadingTerms] = useState(true);
   const [selectedTerm, setSelectedTerm] = useState<Term | null>(null);
 
+  // 다크모드 강제 적용
+  useEffect(() => {
+    document.documentElement.classList.add("dark");
+  }, []);
+
   useEffect(() => {
     // 약관 불러오기
     const fetchTerms = async () => {
@@ -144,7 +149,7 @@ export default function SignupStep5Page() {
     <div className="min-h-screen bg-background flex flex-col">
       {/* 헤더 */}
       <header className="sticky top-0 z-20 bg-background flex items-center gap-4 px-4 py-3 border-b border-border">
-        <button onClick={() => router.back()} className="text-foreground text-3xl font-normal">
+        <button onClick={() => router.push("/signup/step4")} className="text-foreground text-3xl font-normal">
           &lt;
         </button>
         <h1 className="text-lg font-normal text-foreground flex-1 text-center">회원가입</h1>

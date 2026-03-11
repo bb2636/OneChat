@@ -10,6 +10,11 @@ export default function SignupStep3Page() {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
+  // 다크모드 강제 적용
+  useEffect(() => {
+    document.documentElement.classList.add("dark");
+  }, []);
+
   // 휴대폰 번호 포맷팅 (010-0000-0000)
   const formatPhoneNumber = (value: string) => {
     const numbers = value.replace(/[^\d]/g, "");
@@ -75,7 +80,7 @@ export default function SignupStep3Page() {
     <div className="min-h-screen bg-background flex flex-col">
       {/* 헤더 */}
       <header className="sticky top-0 z-20 bg-background flex items-center gap-4 px-4 py-3 border-b border-border">
-        <button onClick={() => router.back()} className="text-foreground text-3xl font-normal">
+        <button onClick={() => router.push("/signup/step2")} className="text-foreground text-3xl font-normal">
           &lt;
         </button>
         <h1 className="text-lg font-normal text-foreground flex-1 text-center">회원가입</h1>

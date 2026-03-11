@@ -32,6 +32,11 @@ function SignupStep2Content() {
   } | null>(null);
   const [isGoogleUser, setIsGoogleUser] = useState(false);
 
+  // 다크모드 강제 적용
+  useEffect(() => {
+    document.documentElement.classList.add("dark");
+  }, []);
+
   useEffect(() => {
     // URL 쿼리 파라미터에서 구글 로그인 정보 확인
     const googleAuth = searchParams.get("google_auth") === "true";
@@ -277,7 +282,7 @@ function SignupStep2Content() {
     <div className="min-h-screen bg-background flex flex-col">
       {/* 헤더 */}
       <header className="sticky top-0 z-20 bg-background flex items-center gap-4 px-4 py-3 border-b border-border">
-        <button onClick={() => router.back()} className="text-foreground text-3xl font-normal">
+        <button onClick={() => router.push("/signup")} className="text-foreground text-3xl font-normal">
           &lt;
         </button>
         <h1 className="text-lg font-normal text-foreground flex-1 text-center">회원가입</h1>

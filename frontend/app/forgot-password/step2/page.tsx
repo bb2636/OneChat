@@ -11,6 +11,11 @@ export default function ForgotPasswordStep2Page() {
   const [isLoading, setIsLoading] = useState(false);
   const [username, setUsername] = useState("");
 
+  // 다크모드 강제 적용
+  useEffect(() => {
+    document.documentElement.classList.add("dark");
+  }, []);
+
   useEffect(() => {
     // 세션에서 아이디 가져오기
     const storedUsername = sessionStorage.getItem("forgot_password_username");
@@ -88,7 +93,7 @@ export default function ForgotPasswordStep2Page() {
     <div className="min-h-screen bg-background flex flex-col px-4 py-8">
       {/* 헤더 */}
       <header className="flex items-center gap-4 mb-8">
-        <button onClick={() => router.back()} className="text-foreground text-3xl font-normal">
+        <button onClick={() => router.push("/forgot-password")} className="text-foreground text-3xl font-normal">
           &lt;
         </button>
         <h1 className="text-lg font-normal text-foreground flex-1 text-center">비밀번호 찾기</h1>

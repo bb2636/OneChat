@@ -14,6 +14,11 @@ export default function ForgotPasswordStep3Page() {
   const [debugCode, setDebugCode] = useState<string | null>(null);
   const codeRef = useRef<string[]>(["", "", "", "", "", ""]);
 
+  // 다크모드 강제 적용
+  useEffect(() => {
+    document.documentElement.classList.add("dark");
+  }, []);
+
   useEffect(() => {
     const step2Data = sessionStorage.getItem("forgot_password_step2");
     if (step2Data) {
@@ -196,7 +201,7 @@ export default function ForgotPasswordStep3Page() {
     <div className="min-h-screen bg-background flex flex-col px-4 py-8">
       {/* 헤더 */}
       <header className="flex items-center gap-4 mb-8">
-        <button onClick={() => router.back()} className="text-foreground text-3xl font-normal">
+        <button onClick={() => router.push("/forgot-password/step2")} className="text-foreground text-3xl font-normal">
           &lt;
         </button>
         <h1 className="text-lg font-normal text-foreground flex-1 text-center">비밀번호 찾기</h1>

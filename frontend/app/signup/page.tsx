@@ -9,6 +9,11 @@ import Link from "next/link";
 
 export default function SignupPage() {
   const router = useRouter();
+
+  // 다크모드 강제 적용
+  useEffect(() => {
+    document.documentElement.classList.add("dark");
+  }, []);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -187,7 +192,7 @@ export default function SignupPage() {
     <div className="min-h-screen bg-background flex flex-col">
       {/* 헤더 */}
       <header className="sticky top-0 z-20 bg-background flex items-center gap-4 px-4 py-3 border-b border-border">
-        <button onClick={() => router.back()} className="text-foreground text-3xl font-normal">
+        <button onClick={() => router.push("/")} className="text-foreground text-3xl font-normal">
           &lt;
         </button>
         <h1 className="text-lg font-normal text-foreground flex-1 text-center">회원가입</h1>
