@@ -4,23 +4,29 @@ import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { Input, Button } from "@/components/ui";
-import { Eye, EyeOff, Moon, Sun } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 import { LOGO_PATHS } from "@/lib/constants";
 import { Toast } from "@/components/Toast";
-import { useTheme } from "@/components/ThemeProvider";
 import { cn } from "@/lib/cn";
 
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { theme, toggleTheme } = useTheme();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+
+  // 로그인 페이지는 항상 다크모드로 강제 설정
+  useEffect(() => {
+    document.documentElement.classList.add("dark");
+    return () => {
+      // 페이지를 떠날 때는 원래 테마로 복원하지 않음 (다른 페이지에서 처리)
+    };
+  }, []);
 
   // URL 쿼리 파라미터에서 에러 및 성공 메시지 처리
   useEffect(() => {
@@ -118,22 +124,9 @@ function LoginForm() {
 
   return (
     <div 
-      className="min-h-screen flex flex-col items-center justify-center px-4 py-8 relative transition-colors" 
-      style={{ backgroundColor: theme === "dark" ? '#000000' : '#6983FC' }}
+      className="min-h-screen flex flex-col items-center justify-center px-4 py-8 relative transition-colors overflow-y-auto" 
+      style={{ backgroundColor: '#000000' }}
     >
-      {/* 다크모드 토글 버튼 - 왼쪽 위 구석 */}
-      <button
-        type="button"
-        onClick={toggleTheme}
-        className="absolute top-4 left-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/20 backdrop-blur-sm border border-white/30 hover:bg-white/30 transition-colors"
-        aria-label="다크모드 토글"
-      >
-        {theme === "dark" ? (
-          <Moon className="h-5 w-5 text-white" />
-        ) : (
-          <Sun className="h-5 w-5 text-white" />
-        )}
-      </button>
 
       {/* 로고 영역 */}
       <div className="mb-6 sm:mb-12">
@@ -151,7 +144,7 @@ function LoginForm() {
       </div>
 
       {/* 로그인 폼 */}
-      <div className="w-full max-w-sm">
+      <div className="w-full max-w-sm pb-8">
         <form onSubmit={handleLogin} className="space-y-4">
           {/* 아이디 입력 */}
           <div className="w-full">
@@ -201,13 +194,7 @@ function LoginForm() {
           <Button
             type="submit"
             disabled={isLoading}
-            className={cn(
-              "w-full h-12 font-semibold rounded-md transition-colors",
-              theme === "dark"
-                ? "bg-white hover:bg-gray-200 text-black"
-                : "bg-white hover:bg-gray-100"
-            )}
-            style={theme === "dark" ? undefined : { color: '#6983FC' }}
+            className="w-full h-12 font-semibold rounded-md transition-colors bg-white hover:bg-gray-200 text-black"
           >
             {isLoading ? "로그인 중..." : "로그인"}
           </Button>
@@ -237,7 +224,7 @@ function LoginForm() {
             <div className="relative flex justify-center text-sm">
               <span 
                 className="px-6 py-1 text-white font-medium" 
-                style={{ backgroundColor: theme === "dark" ? '#000000' : '#6983FC' }}
+                style={{ backgroundColor: '#000000' }}
               >
                 또는
               </span>
@@ -245,12 +232,12 @@ function LoginForm() {
           </div>
 
           {/* Google 로그인 */}
-          <div className="flex justify-center">
+          <div className="flex justify-center mb-8">
             <button
               type="button"
               onClick={handleGoogleLogin}
               disabled={isGoogleLoading || isLoading}
-              className="w-14 h-14 flex items-center justify-center rounded-full bg-white/30 border-2 border-white/10 hover:bg-white/40 hover:border-white/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-14 h-14 flex items-center justify-center rounded-full bg-white/30 border-2 border-white/10 hover:bg-white/40 hover:border-white/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
             >
               {isGoogleLoading ? (
                 <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
