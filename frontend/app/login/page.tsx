@@ -124,28 +124,28 @@ function LoginForm() {
 
   return (
     <div 
-      className="min-h-screen flex flex-col items-center justify-center px-4 py-8 relative transition-colors overflow-y-auto" 
+      className="h-screen flex flex-col items-center justify-center px-4 py-4 relative transition-colors overflow-hidden" 
       style={{ backgroundColor: '#000000' }}
     >
 
       {/* 로고 영역 */}
-      <div className="mb-6 sm:mb-12">
+      <div className="mb-4 flex-shrink-0">
         <div className="flex items-center justify-center">
-          <Image
-            src={LOGO_PATHS.main}
-            alt="OneChat Logo"
-            width={192}
-            height={182}
-            className="drop-shadow-lg"
-            style={{ width: "auto", height: "auto" }}
-            priority
-          />
+            <Image
+              src={LOGO_PATHS.main}
+              alt="OneChat Logo"
+              width={160}
+              height={152}
+              className="drop-shadow-lg"
+              style={{ width: "auto", height: "auto", maxWidth: "160px", maxHeight: "152px" }}
+              priority
+            />
         </div>
       </div>
 
       {/* 로그인 폼 */}
-      <div className="w-full max-w-sm pb-8">
-        <form onSubmit={handleLogin} className="space-y-4">
+      <div className="w-full max-w-sm flex-shrink-0">
+        <form onSubmit={handleLogin} className="space-y-3">
           {/* 아이디 입력 */}
           <div className="w-full">
             <label className="block text-sm font-semibold mb-1.5 text-white">
@@ -217,7 +217,7 @@ function LoginForm() {
           </div>
 
           {/* 구분선 */}
-          <div className="relative my-6">
+          <div className="relative my-3">
             <div className="absolute inset-0 flex items-center">
               <div className="w-full border-t border-white"></div>
             </div>
@@ -232,7 +232,7 @@ function LoginForm() {
           </div>
 
           {/* Google 로그인 */}
-          <div className="flex justify-center mb-8">
+          <div className="flex justify-center mt-2">
             <button
               type="button"
               onClick={handleGoogleLogin}
