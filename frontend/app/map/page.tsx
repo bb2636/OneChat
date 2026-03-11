@@ -4,25 +4,11 @@ import { useEffect, useState } from "react";
 import { NaverMap } from "@/components/NaverMap";
 import { useRouter } from "next/navigation";
 import { BottomNavigation, type TabType } from "@/components/BottomNavigation";
-import { useTheme } from "@/components/ThemeProvider";
 
 export default function MapPage() {
   const router = useRouter();
   const [userId, setUserId] = useState<string | undefined>(undefined);
   const [activeTab, setActiveTab] = useState<TabType>("map");
-  const { theme, setTheme } = useTheme();
-
-  useEffect(() => {
-    const prevTheme = theme;
-    if (theme === "dark") {
-      setTheme("light");
-    }
-    return () => {
-      if (prevTheme === "dark") {
-        setTheme(prevTheme);
-      }
-    };
-  }, []);
 
   useEffect(() => {
     const fetchCurrentUser = async () => {
@@ -53,7 +39,7 @@ export default function MapPage() {
 
   if (!userId) {
     return (
-      <div className="h-screen w-full flex items-center justify-center">
+      <div className="h-screen w-full flex items-center justify-center bg-white">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
           <p className="text-gray-600">로딩 중...</p>
@@ -73,7 +59,7 @@ export default function MapPage() {
   };
 
   return (
-    <div className="relative h-screen w-full max-w-md mx-auto overflow-hidden bg-white flex flex-col">
+    <div className="relative h-screen w-full max-w-md mx-auto overflow-hidden !bg-white !text-gray-900 flex flex-col" data-theme="light">
       <div className="flex-shrink-0 z-20 flex items-center justify-between px-5 py-3 bg-white border-b border-gray-100">
         <h1 className="text-lg font-bold text-gray-900">지도</h1>
       </div>

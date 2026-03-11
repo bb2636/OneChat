@@ -48,7 +48,6 @@ frontend/                  - Next.js app (port 5000)
       inquiries/           - 사용자 문의
       terms/               - 이용약관 조회
       workspaces/          - 워크스페이스 목록
-      seed/                - DB 시드 (테스트 데이터)
       admin/               - 관리자 API (requireAdmin)
         users/             - 사용자 관리
         reports/           - 신고 관리
@@ -111,7 +110,6 @@ backend/                   - Express.js (현재 미사용, Next.js API routes로
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY` - Supabase anon key
 - `SUPABASE_SERVICE_ROLE_KEY` - Supabase 서비스 역할 키
 - `VAPID_PRIVATE_KEY` - VAPID 비공개키
-- `SEED_API_KEY` - DB 시드 API 인증 키
 
 ## Deployment
 - **Target**: Autoscale
@@ -119,7 +117,7 @@ backend/                   - Express.js (현재 미사용, Next.js API routes로
 - **Run**: `cd frontend && npm start` (port 5000)
 - **Production URL**: https://weoncaes.replit.app
 - 개발 DB와 배포 DB는 별도 인스턴스
-- 배포 DB 데이터 삽입: seed API (`/api/seed`) 사용
+- Seed API 제거됨 (보안상 삭제)
 
 ## Database Tables
 - `users` - 사용자 (id UUID, username, password_hash, name, nickname, email, phone_number, avatar_url, role, latitude, longitude, location_updated_at 등)
@@ -170,9 +168,9 @@ backend/                   - Express.js (현재 미사용, Next.js API routes로
 - **배포 DB**: `test@test.com` / `test1234`, 관리자 `admin@admin.com` / `admin1234`
 
 ## Security Notes
-- 민감한 키는 Replit Secrets에 저장 (JWT_SECRET, GOOGLE_CLIENT_SECRET, VAPID_PRIVATE_KEY, SEED_API_KEY)
+- 민감한 키는 Replit Secrets에 저장 (JWT_SECRET, GOOGLE_CLIENT_SECRET, VAPID_PRIVATE_KEY)
 - JWT_SECRET 미설정 시 서버 시작 불가 (throw Error)
 - 모든 사용자 API에 JWT 인증 적용 (서버에서 userId 추출)
 - Google OAuth: Supabase accessToken 서버측 검증
 - 프로필 이미지: Base64 data URL로 DB 저장
-- Seed API: SEED_API_KEY 인증 필요
+- Seed API 제거됨 (중복 데이터 방지)
