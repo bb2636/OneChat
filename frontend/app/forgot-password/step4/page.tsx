@@ -171,10 +171,10 @@ export default function ForgotPasswordStep4Page() {
                 onChange={handlePasswordChange}
                 placeholder="비밀번호를 입력해주세요."
                 className={cn(
-                  "w-full h-12 rounded-lg border px-4 pr-12 text-foreground text-sm placeholder:text-sm placeholder:text-muted-foreground focus:outline-none dark:focus:border-white focus:bg-background dark:focus:bg-background transition-colors",
+                  "w-full h-12 rounded-lg border px-4 pr-12 text-foreground text-sm placeholder:text-sm placeholder:text-muted-foreground focus:outline-none dark:focus:border-white bg-background focus:bg-background dark:focus:bg-background transition-colors",
                   passwordError
                     ? "border-red-500 focus:border-red-500"
-                    : "border-border bg-background"
+                    : "border-border"
                 )}
               />
               <button
@@ -203,10 +203,10 @@ export default function ForgotPasswordStep4Page() {
                 onChange={handleConfirmPasswordChange}
                 placeholder="비밀번호를 한번 더 입력해주세요."
                 className={cn(
-                  "w-full h-12 rounded-lg border px-4 pr-12 text-foreground text-sm placeholder:text-sm placeholder:text-muted-foreground focus:outline-none dark:focus:border-white focus:bg-background dark:focus:bg-background transition-colors",
+                  "w-full h-12 rounded-lg border px-4 pr-12 text-foreground text-sm placeholder:text-sm placeholder:text-muted-foreground focus:outline-none dark:focus:border-white bg-background focus:bg-background dark:focus:bg-background transition-colors",
                   confirmPasswordError || passwordError
                     ? "border-red-500 focus:border-red-500"
-                    : "border-border bg-background"
+                    : "border-border"
                 )}
               />
               <button

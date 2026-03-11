@@ -88,10 +88,10 @@ export default function ForgotPasswordPage() {
               }}
               placeholder="아이디를 입력해주세요."
               className={cn(
-                "w-full h-12 rounded-lg border px-4 text-foreground text-sm placeholder:text-sm placeholder:text-muted-foreground focus:outline-none dark:focus:border-white focus:bg-background dark:focus:bg-background transition-colors",
+                "w-full h-12 rounded-lg border px-4 text-foreground text-sm placeholder:text-sm placeholder:text-muted-foreground focus:outline-none dark:focus:border-white bg-background focus:bg-background dark:focus:bg-background transition-colors",
                 usernameError
                   ? "border-red-500 focus:border-red-500"
-                  : "border-border bg-background"
+                  : "border-border"
               )}
             />
             {usernameError && (
