@@ -7,6 +7,7 @@ export const LOGO_PATHS = {
   default: "/images/logo.png",
   white: "/images/logo-white.png",
   icon: "/images/logo-icon.png",
+  dark: "/images/darklogo",
 } as const;
 
 // 기본 이미지 경로

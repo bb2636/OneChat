@@ -6,6 +6,9 @@ const sql = DATABASE_URL
   ? postgres(DATABASE_URL, {
       prepare: false,
       max: 1,
+      idle_timeout: 20,
+      connect_timeout: 10,
+      onnotice: () => {}, // Supabase notices 무시
     })
   : new Proxy({} as ReturnType<typeof postgres>, {
       get() {

@@ -132,7 +132,7 @@ function LoginForm() {
       <div className="mb-4 flex-shrink-0">
         <div className="flex items-center justify-center">
             <Image
-              src={LOGO_PATHS.main}
+              src={LOGO_PATHS.dark}
               alt="OneChat Logo"
               width={160}
               height={152}
